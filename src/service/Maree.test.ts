@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Maree from './Maree';
 
 const fakeLogger = {
@@ -13,7 +13,11 @@ describe('Maree service', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    maree = new Maree(fakeLogger as any, 'dummy-api-key', { useMock: true });
+    maree = new Maree(fakeLogger as any);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('should format Navihan time with offset and wrap over midnight', () => {
@@ -21,52 +25,44 @@ describe('Maree service', () => {
     expect(formatted).toBe('01:45');
   });
 
-  it('should detect high tide extremes from tidal points', () => {
-    const points = [
-      { datetime: '2026-06-01T00:00:00', height: 1 },
-      { datetime: '2026-06-01T01:00:00', height: 2 },
-      { datetime: '2026-06-01T02:00:00', height: 1 },
-      { datetime: '2026-06-01T03:00:00', height: 3 },
-      { datetime: '2026-06-01T04:00:00', height: 0.5 },
-      { datetime: '2026-06-01T05:00:00', height: 1 }
-    ];
+  it('should load tide extremes for the requested days from the resource file', async () => {
+    vi.useFakeTimers().setSystemTime(new Date('2026-06-10T12:00:00'));
 
-    const extremes = (maree as any).findExtremes(points);
-
-    expect(extremes).toEqual([
-      { time: '01:00', height: 2, type: 'high' },
-      { time: '02:00', height: 1, type: 'low' },
-      { time: '03:00', height: 3, type: 'high' },
-      { time: '04:00', height: 0.5, type: 'low' }
-    ]);
-  });
-
-  it('should return a valid tide output using mock data', async () => {
-    vi.useFakeTimers().setSystemTime(new Date('2026-05-26T00:00:00Z'));
     const tideData = await maree.getTides(3);
 
     expect(tideData.siteId).toBe('ile-de-groix-port-tudy');
     expect(tideData.timezone).toBe('Europe/Paris');
-    expect(Object.keys(tideData.days)).toEqual(['2026-05-26', '2026-05-27', '2026-05-28']);
-    expect(tideData.days['2026-05-26'].length).toBeGreaterThan(0);
-    expect(tideData.days['2026-05-27'].length).toBeGreaterThan(0);
-    expect(tideData.days['2026-05-28'].length).toBeGreaterThan(0);
+    expect(Object.keys(tideData.days)).toEqual(['2026-06-10', '2026-06-11', '2026-06-12']);
 
-    vi.useRealTimers();
+    const firstDay = tideData.days['2026-06-10'];
+    expect(firstDay.length).toBeGreaterThan(0);
+
+    // Les extrêmes sont triés par heure et typés haute/basse.
+    const times = firstDay.map(e => e.time);
+    expect([...times].sort()).toEqual(times);
+    expect(firstDay.every(e => e.type === 'high' || e.type === 'low')).toBe(true);
+
+    // Une pleine mer porte un coefficient et une heure Navihan "Pleine mer".
+    const high = firstDay.find(e => e.type === 'high');
+    expect(high?.coefficient).toBeTypeOf('number');
+    expect(high?.navihan['Pleine mer']).toBeDefined();
+
+    // Une basse mer porte les heures Navihan "Basse mer" et "A flot".
+    const low = firstDay.find(e => e.type === 'low');
+    expect(low?.navihan['Basse mer']).toBeDefined();
+    expect(low?.navihan['A flot']).toBeDefined();
   });
 
   it('should format text output as a grouped table for tide data', () => {
     const tideData = {
       siteId: 'test-site',
       timezone: 'Europe/Paris',
-      intervalMinutes: 5,
-      navihanOffsetHours: 2.75,
-      from: '2026-06-01T00:00',
-      to: '2026-06-02T00:00',
+      from: '2026-06-01',
+      to: '2026-06-02',
       days: {
         '2026-06-01': [
-          { time: '03:00', height: 1.23, type: 'high', navihan: { 'Pleine mer': '04:20' } },
-          { time: '09:00', height: 0.95, type: 'low', navihan: { 'Basse mer': '10:20', 'A flot': '11:50' } }
+          { time: '03:00', height: 1.23, type: 'high', coefficient: 71, navihan: { 'Pleine mer': '04:20' } },
+          { time: '09:00', height: 0.95, type: 'low', coefficient: null, navihan: { 'Basse mer': '10:20', 'A flot': '11:50' } }
         ]
       }
     };
@@ -75,12 +71,14 @@ describe('Maree service', () => {
     const plain = formatted.replace(/\x1B\[[0-?]*[ -\/]*[@-~]/g, '');
 
     expect(plain).toContain('✅ Marées test-site');
-    expect(plain).toContain('Port-Tudy');
+    expect(plain).toContain('Port Tudy');
     expect(plain).toContain('Navihan');
-    expect(plain).toContain('03:00 1.23m 🌊 Pleine Mer');
-    expect(plain).toContain('Pleine mer: 04:20');
-    expect(plain).toContain('09:00 0.95m ⬇️ Basse Mer');
-    expect(plain).toContain('Basse mer: 10:20');
-    expect(plain).toContain('A flot: 11:50');
+    expect(plain).toContain('Pleine Mer');
+    expect(plain).toContain('03:00');
+    expect(plain).toContain('1.23m');
+    expect(plain).toContain('04:20');
+    expect(plain).toContain('Basse Mer');
+    expect(plain).toContain('10:20');
+    expect(plain).toContain('11:50');
   });
 });

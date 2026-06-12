@@ -1,17 +1,18 @@
 # marees-port-tudy
 
-Un petit projet Node.js/TypeScript pour récupérer et afficher des prévisions de marées pour le port de Port-Tudy.
+Un petit projet Node.js/TypeScript pour afficher les prévisions de marées (pleines et basses mers) du port de Port-Tudy (île de Groix).
 
 ## Objectif
 
-Le projet calcule les extrêmes de marée (pleine et basse mer) à partir de données horaires, puis génère une sortie en tableau avec deux colonnes : `Port-Tudy` et `Navihan`.
+Le projet lit les horaires de marées depuis un fichier de ressources local, puis génère une sortie en tableau par jour : coefficient, type (pleine/basse mer), hauteur, heure à Port-Tudy et heures dérivées « Navihan » (basse mer +1h15, à flot +2h40).
 
 ## Arborescence importante
 
 - `src/`
-  - `index.ts` : point d’entrée CLI en TypeScript
-  - `service/Maree.ts` : logique métier principale de récupération et formatage des marées
-  - `mockData.ts` : données de test locales utilisées en mode mock
+  - `index.ts` : point d'entrée CLI en TypeScript
+  - `service/Maree.ts` : logique métier (mise en forme, sortie texte/JSON)
+  - `lib/readTides.ts` : lecture et normalisation du fichier de ressources
+  - `resources/horaires_marees_port-tudy.json` : données de marées (source unique)
 - `dist/` : sortie compilée TypeScript (générée par `npm run build`)
 - `package.json` : scripts et dépendances
 - `tsconfig.json` : configuration TypeScript
@@ -24,45 +25,52 @@ npm install
 
 ## Commandes utiles
 
-- `npm run build` : compile le code TypeScript dans `dist/`
-- `npm run dev` : exécute le CLI directement depuis `src/index.ts` avec `ts-node`
+- `npm run dev -- -d 3` : exécute le CLI depuis `src/index.ts` avec `ts-node` (3 jours)
+- `npm run build` : compile dans `dist/` et y copie les ressources
+- `npm start -- -d 3` : exécute le code compilé
 - `npm test` : exécute les tests unitaires avec Vitest
 
-## Utilisation
+## Installation globale (commande disponible partout)
 
-### Avec un vrai service
-
-1. Ajouter une clé API dans un fichier `.env` :
-
-```env
-API_MAREE_KEY=ta_cle_api
-```
-
-2. Lancer le CLI :
+Le projet expose une commande `marees-port-tudy` (champ `bin` du `package.json`). Pour
+l'appeler depuis n'importe quel dossier :
 
 ```bash
-npm run dev -- -d 3
+# Option 1 : installer globalement depuis le dossier du projet
+npm install -g .
+
+# Option 2 : lien de développement (suit les rebuilds)
+npm link
 ```
 
-### En mode mock
+Le script `prepare` lance `npm run build` automatiquement à l'installation (compilation +
+copie des ressources dans `dist/`). Ensuite :
 
 ```bash
-MOCK=true npm run dev -- -d 3
+marees-port-tudy -d 3
+marees-port-tudy -d 7 -f json
 ```
 
-## Développement
+Pour désinstaller : `npm uninstall -g marees-port-tudy` (ou `npm unlink -g marees-port-tudy`).
 
-- Les changements de logique métier se font dans `src/service/Maree.ts`.
-- Le format de sortie texte se trouve dans `Maree.formatTextOutput()`.
-- Ne modifie pas `dist/` manuellement : c’est un dossier généré.
+## Options CLI
 
-## Tests
+- `-d, --days` : nombre de jours à afficher (défaut : 3)
+- `-f, --output-format` : `text` (défaut) ou `json`
 
-- Les tests sont dans `src/service/Maree.test.ts`.
-- Utilise `npm test` pour vérifier rapidement les changements.
+## Source des données
+
+Les horaires sont lus depuis `src/resources/horaires_marees_port-tudy.json`, qui contient
+directement les extrêmes (pleines/basses mers). Deux formes sont acceptées et aplaties à la lecture :
+
+- clés date directes : `"2026-06-01": [ { "maree": "haute", "heure": "05:59", "hauteur": "4.59", "coefficient": "71" }, ... ]`
+- sections groupées par mois : `"septembre": { "2026-09-01": [ ... ] }`
+
+Pour mettre à jour les marées, il suffit de remplacer le contenu de ce fichier.
 
 ## Notes
 
-- Le projet utilise CommonJS (`type: commonjs`) pour la compatibilité runtime.
-- Le rendu terminal utilise `cli-table3` pour les tableaux et `chalk` pour la couleur.
-- `pino` est utilisé pour le logging, `yargs` pour le parsing CLI.
+- CommonJS (`type: commonjs`).
+- Rendu terminal : `cli-table3` (tableaux) + `chalk` (couleurs).
+- `pino` pour le logging, `yargs` pour le parsing CLI.
+- Les tests sont dans `src/service/Maree.test.ts` (`npm test`).

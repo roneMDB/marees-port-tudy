@@ -1,31 +1,22 @@
 import { Logger } from 'pino';
 import Table from 'cli-table3';
 import chalk from 'chalk';
-import mockData from '../mockData';
-import { scrapeTides } from '../lib/scrapeTides';
+import { readTides, RawTideEntry } from '../lib/readTides';
 
 const NAVIHAN_BASSE_MER_OFFSET_HOURS = 1 + 15 / 60;
 const NAVIHAN_A_FLOT_OFFSET_HOURS = 2 + 40 / 60;
-
-interface TidalDataPoint {
-  datetime: string;
-  height: number;
-  coefficient?: number | null;
-}
 
 interface Extreme {
   time: string;
   height: number;
   type: 'high' | 'low';
-  navihan?: Record<string, string>;
-  coefficient?: number | null;
+  navihan: Record<string, string>;
+  coefficient: number | null;
 }
 
 interface TideOutput {
   siteId: string;
   timezone: string;
-  intervalMinutes: number;
-  navihanOffsetHours: number;
   from: string;
   to: string;
   days: Record<string, Extreme[]>;
@@ -34,172 +25,98 @@ interface TideOutput {
 interface MareeOptions {
   siteId?: string;
   timezone?: string;
-  intervalMinutes?: number;
-  navihanOffsetHours?: number;
-  useMock?: boolean;
-  useScrape?: boolean;
 }
 
 export default class Maree {
   private logger: Logger;
-  private apiKey: string;
   private siteId: string;
   private timezone: string;
-  private intervalMinutes: number;
-  private navihanOffsetHours: number;
-  private useMock: boolean;
-  private useScrape: boolean;
 
-  constructor(logger: Logger, apiKey: string, options: MareeOptions = {}) {
+  constructor(logger: Logger, options: MareeOptions = {}) {
     this.logger = logger;
-    this.apiKey = apiKey;
-    this.siteId = options.siteId || "ile-de-groix-port-tudy";
-    this.timezone = options.timezone || "Europe/Paris";
-    this.intervalMinutes = options.intervalMinutes || 5;
-    this.navihanOffsetHours = options.navihanOffsetHours || 2.75;
-    this.useMock = options.useMock || false;
-    this.useScrape = options.useScrape || false;
-    
+    this.siteId = options.siteId || 'ile-de-groix-port-tudy';
+    this.timezone = options.timezone || 'Europe/Paris';
+
     this.logger.info(`Maree service initialized with siteId: ${this.siteId}`);
   }
 
+  /**
+   * Récupère les marées des `nbDays` prochains jours (à partir d'aujourd'hui)
+   * depuis le fichier de ressources local.
+   */
   async getTides(nbDays: number = 3): Promise<TideOutput> {
-    try {
-      this.logger.debug(`Fetching tides for ${nbDays} days`);
-      
-      // Calcul des dates
-      const fromDate = new Date();
-      fromDate.setHours(0, 0, 0, 0);
-      const toDate = new Date(fromDate);
-      toDate.setDate(toDate.getDate() + nbDays);
+    this.logger.debug(`Fetching tides for ${nbDays} days`);
 
-      const from = fromDate.toISOString().slice(0, 16);
-      const to = toDate.toISOString().slice(0, 16);
+    const fromDate = new Date();
+    fromDate.setHours(0, 0, 0, 0);
+    const toDate = new Date(fromDate);
+    toDate.setDate(toDate.getDate() + nbDays);
 
-      let dataPoints: TidalDataPoint[];
+    const from = this.toDateKey(fromDate);
+    const to = this.toDateKey(toDate);
 
-      if (this.useMock) {
-        this.logger.warn('Using mock data');
-        dataPoints = mockData.data.map(entry => ({
-          datetime: entry.time,
-          height: entry.height,
-          coefficient: null
-        }));
-      } else {
-        // By default use the local scraper instead of the remote API
-        this.logger.info('Using local scraper for tide data (no remote API calls)');
-        const scrapedData = await scrapeTides(nbDays);
-        dataPoints = scrapedData.map(entry => ({
-          datetime: `${entry.date}T${entry.time}:00+02:00`,
-          height: entry.height,
-          coefficient: entry.coefficient ?? null
-        }));
-      }
+    const rawData = readTides();
 
-      this.logger.info(`Retrieved ${dataPoints.length} tidal data points`);
+    const output: TideOutput = {
+      siteId: this.siteId,
+      timezone: this.timezone,
+      from,
+      to,
+      days: {}
+    };
 
-      // Groupement par jour
-      const days: Record<string, TidalDataPoint[]> = {};
-      dataPoints.forEach(entry => {
-        const date = entry.datetime.slice(0, 10);
-        if (!days[date]) days[date] = [];
-        days[date].push({
-          datetime: entry.datetime,
-          height: entry.height,
-          coefficient: entry.coefficient ?? null
-        });
-      });
+    Object.keys(rawData)
+      .filter(day => day >= from && day < to)
+      .sort()
+      .forEach(day => {
+        const extremes = rawData[day]
+          .filter(entry => entry.heure)
+          .map(entry => this.toExtreme(entry))
+          .sort((a, b) => a.time.localeCompare(b.time));
 
-      // Détection des pleines et basses mers
-      const output: TideOutput = {
-        siteId: this.siteId,
-        timezone: this.timezone,
-        intervalMinutes: this.intervalMinutes,
-        navihanOffsetHours: this.navihanOffsetHours,
-        from,
-        to,
-        days: {}
-      };
-
-      Object.keys(days).sort().forEach(day => {
-        const points = days[day];
-        const heights = points.map(p => p.height);
-        const minHeight = Math.min(...heights);
-        const maxHeight = Math.max(...heights);
-        const amplitude = maxHeight - minHeight;
-        const coefficient = Math.round((amplitude / 7) * 100);
-        
-        const extremes = this.findExtremes(points).map(ext => {
-          if (ext.type === 'low') {
-            return {
-              time: ext.time,
-              height: ext.height,
-              type: ext.type,
-              coefficient: ext.coefficient ?? coefficient,
-              navihan: {
-                'Basse mer': this.formatNavihanTime(ext.time, NAVIHAN_BASSE_MER_OFFSET_HOURS),
-                'A flot': this.formatNavihanTime(ext.time, NAVIHAN_A_FLOT_OFFSET_HOURS)
-              }
-            } as Extreme;
-          }
-          // high
-          return {
-            time: ext.time,
-            height: ext.height,
-            type: ext.type,
-            coefficient: ext.coefficient ?? coefficient,
-            navihan: {
-              'Pleine mer': this.formatNavihanTime(ext.time, NAVIHAN_BASSE_MER_OFFSET_HOURS)
-            }
-          } as Extreme;
-        });
         if (extremes.length > 0) {
           output.days[day] = extremes;
         }
       });
 
-      this.logger.info(`Tidal data processed for ${Object.keys(output.days).length} days`);
-      return output;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`Error fetching tides: ${message}`);
-      throw error;
-    }
+    this.logger.info(`Tidal data loaded for ${Object.keys(output.days).length} days`);
+    return output;
   }
 
   /**
-   * Détecte les extrêmes (pleines et basses mers)
+   * Convertit une entrée brute du fichier en extrême (pleine/basse mer) enrichi
+   * des heures Navihan.
    */
-  private findExtremes(points: TidalDataPoint[]): Omit<Extreme, 'navihan'>[] {
-    const extremes: Omit<Extreme, 'navihan'>[] = [];
-    for (let i = 1; i < points.length - 1; i++) {
-      const prev = points[i - 1].height;
-      const curr = points[i].height;
-      const next = points[i + 1].height;
+  private toExtreme(entry: RawTideEntry): Extreme {
+    const type: 'high' | 'low' = entry.maree === 'haute' ? 'high' : 'low';
+    const time = entry.heure!.trim();
+    const height = parseFloat(entry.hauteur);
+    const coefficient = entry.coefficient != null ? parseInt(entry.coefficient, 10) : null;
 
-      if (curr >= prev && curr >= next && (curr > prev || curr > next)) {
-        extremes.push({
-          time: points[i].datetime.slice(11, 16),
-          height: curr,
-          type: 'high',
-          coefficient: points[i].coefficient ?? null
-        });
-        while (i + 1 < points.length && points[i + 1].height === curr) i++;
-      } else if (curr <= prev && curr <= next && (curr < prev || curr < next)) {
-        extremes.push({
-          time: points[i].datetime.slice(11, 16),
-          height: curr,
-          type: 'low',
-          coefficient: points[i].coefficient ?? null
-        });
-        while (i + 1 < points.length && points[i + 1].height === curr) i++;
-      }
-    }
-    return extremes;
+    const navihan: Record<string, string> = type === 'low'
+      ? {
+          'Basse mer': this.formatNavihanTime(time, NAVIHAN_BASSE_MER_OFFSET_HOURS),
+          'A flot': this.formatNavihanTime(time, NAVIHAN_A_FLOT_OFFSET_HOURS)
+        }
+      : {
+          'Pleine mer': this.formatNavihanTime(time, NAVIHAN_BASSE_MER_OFFSET_HOURS)
+        };
+
+    return { time, height, type, coefficient, navihan };
   }
 
   /**
-   * Formate l'heure Navihan
+   * Renvoie la clé date `YYYY-MM-DD` en heure locale (cohérent avec le fichier).
+   */
+  private toDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  /**
+   * Formate l'heure Navihan en appliquant un décalage (wrap autour de minuit).
    */
   private formatNavihanTime(timeStr: string, offsetHours: number = 3): string {
     const [hours, minutes] = timeStr.split(':').map(Number);
@@ -210,7 +127,16 @@ export default class Maree {
   }
 
   /**
-   * Formate l'étiquette de jour avec jour de la semaine et nom du mois
+   * Formate un décalage horaire décimal en libellé `XhYY` (ex: 1.25 -> "1h15").
+   */
+  private formatOffsetLabel(offsetHours: number): string {
+    const h = Math.floor(offsetHours);
+    const m = Math.round((offsetHours - h) * 60);
+    return m > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${h}h`;
+  }
+
+  /**
+   * Formate l'étiquette de jour avec jour de la semaine et nom du mois.
    */
   private formatDayLabel(day: string): string {
     const date = new Date(day);
@@ -223,11 +149,13 @@ export default class Maree {
   }
 
   /**
-   * Formate les données pour l'affichage texte
+   * Formate les données pour l'affichage texte (tableau par jour).
    */
   formatTextOutput(tideData: TideOutput): string {
     const title = chalk.greenBright.bold(`✅ Marées ${tideData.siteId} du ${tideData.from} au ${tideData.to}`);
-    const subtitle = chalk.dim(`Fuseau horaire : ${tideData.timezone} | Intervalle : ${tideData.intervalMinutes} minutes | Navihan : +${tideData.navihanOffsetHours}h`);
+    const basseMerLabel = this.formatOffsetLabel(NAVIHAN_BASSE_MER_OFFSET_HOURS);
+    const aFlotLabel = this.formatOffsetLabel(NAVIHAN_A_FLOT_OFFSET_HOURS);
+    const subtitle = chalk.dim(`Fuseau horaire : ${tideData.timezone} | Navihan : +${basseMerLabel} | À flot : +${aFlotLabel}`);
     let output = `${title}\n${subtitle}\n\n`;
 
     Object.keys(tideData.days).sort().forEach(day => {
