@@ -9,7 +9,6 @@ This repository is a small Node.js/TypeScript project for tide data at Port-Tudy
   - `src/service/Maree.ts` — main tide processing service.
   - `src/index.ts` — CLI entry point.
   - `src/mockData.ts` — local API mock payload.
-- There are also companion JavaScript runtime files in `src/service/Maree.js` and `src/index.js`.
 - The compiled output goes to `dist/`; avoid editing generated files directly.
 
 ## Build and test commands

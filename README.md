@@ -10,9 +10,7 @@ Le projet calcule les extrêmes de marée (pleine et basse mer) à partir de don
 
 - `src/`
   - `index.ts` : point d’entrée CLI en TypeScript
-  - `index.js` : version runtime JavaScript
   - `service/Maree.ts` : logique métier principale de récupération et formatage des marées
-  - `service/Maree.js` : version runtime JavaScript
   - `mockData.ts` : données de test locales utilisées en mode mock
 - `dist/` : sortie compilée TypeScript (générée par `npm run build`)
 - `package.json` : scripts et dépendances
@@ -56,7 +54,6 @@ MOCK=true npm run dev -- -d 3
 
 - Les changements de logique métier se font dans `src/service/Maree.ts`.
 - Le format de sortie texte se trouve dans `Maree.formatTextOutput()`.
-- Si tu modifies la logique TypeScript, veille à mettre à jour `src/service/Maree.js` si le runtime utilise encore cette version.
 - Ne modifie pas `dist/` manuellement : c’est un dossier généré.
 
 ## Tests

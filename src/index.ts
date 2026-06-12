@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import 'dotenv/config';
 import pino from 'pino';
 import yargs from 'yargs/yargs';
@@ -17,11 +18,10 @@ const logger = pino({
     }
 });
 
-function validateApiKey(): string {
+function getApiKey(): string | undefined {
     const apiKey = process.env.API_MAREE_KEY;
     if (!apiKey) {
-        logger.error("❌ Erreur : Ajoute ta clé API dans un fichier .env");
-        process.exit(1);
+        logger.warn('⚠️ Aucune clé API fournie (API désactivée). Le scraper local sera utilisé.');
     }
     return apiKey;
 }
@@ -52,6 +52,12 @@ const argv = yargs(hideBin(process.argv))
         type: 'boolean',
         default: process.env.MOCK === "true"
     })
+    .option('use-scrape', {
+        alias: 's',
+        describe: 'Récupérer les données par scraping depuis maree.shom.fr',
+        type: 'boolean',
+        default: process.env.SCRAPE === "true"
+    })
     .option('output-format', {
         alias: 'f',
         describe: 'Format de sortie (text ou json)',
@@ -65,15 +71,16 @@ const argv = yargs(hideBin(process.argv))
 
 async function main(): Promise<void> {
     try {
-        const API_KEY = validateApiKey();
-        
+        const API_KEY = getApiKey();
+
         // Instanciation du service avec le logger
-        const maree = new Maree(logger, API_KEY, {
+        const maree = new Maree(logger, API_KEY || '', {
             siteId: "ile-de-groix-port-tudy",
             timezone: "Europe/Paris",
             intervalMinutes: argv.intervalMinutes,
             navihanOffsetHours: argv.navihanOffsetHours,
-            useMock: argv.useMock
+            useMock: argv.useMock,
+            useScrape: argv.useScrape
         });
 
         if (argv.useMock) {

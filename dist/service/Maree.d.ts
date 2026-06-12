@@ -3,7 +3,8 @@ interface Extreme {
     time: string;
     height: number;
     type: 'high' | 'low';
-    navihanHour?: string;
+    navihan?: Record<string, string>;
+    coefficient?: number | null;
 }
 interface TideOutput {
     siteId: string;
@@ -20,6 +21,7 @@ interface MareeOptions {
     intervalMinutes?: number;
     navihanOffsetHours?: number;
     useMock?: boolean;
+    useScrape?: boolean;
 }
 export default class Maree {
     private logger;
@@ -29,6 +31,7 @@ export default class Maree {
     private intervalMinutes;
     private navihanOffsetHours;
     private useMock;
+    private useScrape;
     constructor(logger: Logger, apiKey: string, options?: MareeOptions);
     getTides(nbDays?: number): Promise<TideOutput>;
     /**
@@ -39,6 +42,10 @@ export default class Maree {
      * Formate l'heure Navihan
      */
     private formatNavihanTime;
+    /**
+     * Formate l'étiquette de jour avec jour de la semaine et nom du mois
+     */
+    private formatDayLabel;
     /**
      * Formate les données pour l'affichage texte
      */

@@ -42,7 +42,7 @@ const mockData: ApiMareeResponse = {
     metadata_url: "https://sextant.ifremer.fr/geonetwork/srv/api/records/1bc4a49d-d4cd-469e-827c-bd3bd0eeabba/formatters/xsl-view",
     license_notice: "Données sous Licence Creative Commons - Attribution (BY)",
     access_notice: "Données Ifremer. Accès gratuit, formulaire de demande d'accès sur http://marc.ifremer.fr/produits/atlas_de_composantes_harmoniques",
-    recommended_source_credit: "Hauteurs d'eau diffusées par api-maree.fr, calculées à partir de composantes harmoniques IFREMER / PREVIMER."
+    recommended_source_credit: "Données synthétiques basées sur composantes harmoniques IFREMER / PREVIMER (mock)."
   },
   data: [
     { time: "2026-05-26T15:57:00+02:00", height: 3.857 },

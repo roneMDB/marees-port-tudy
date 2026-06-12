@@ -65,8 +65,8 @@ describe('Maree service', () => {
       to: '2026-06-02T00:00',
       days: {
         '2026-06-01': [
-          { time: '03:00', height: 1.23, type: 'high', navihanHour: '06:35' },
-          { time: '09:00', height: 0.95, type: 'low', navihanHour: '12:45' }
+          { time: '03:00', height: 1.23, type: 'high', navihan: { 'Pleine mer': '04:20' } },
+          { time: '09:00', height: 0.95, type: 'low', navihan: { 'Basse mer': '10:20', 'A flot': '11:50' } }
         ]
       }
     };
@@ -78,8 +78,9 @@ describe('Maree service', () => {
     expect(plain).toContain('Port-Tudy');
     expect(plain).toContain('Navihan');
     expect(plain).toContain('03:00 1.23m 🌊 Pleine Mer');
-    expect(plain).toContain('06:35 1.23m 🌊 Pleine Mer');
+    expect(plain).toContain('Pleine mer: 04:20');
     expect(plain).toContain('09:00 0.95m ⬇️ Basse Mer');
-    expect(plain).toContain('12:45 0.95m ⬇️ Basse Mer');
+    expect(plain).toContain('Basse mer: 10:20');
+    expect(plain).toContain('A flot: 11:50');
   });
 });

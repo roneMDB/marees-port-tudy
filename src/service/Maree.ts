@@ -1,19 +1,24 @@
-import axios from 'axios';
 import { Logger } from 'pino';
 import Table from 'cli-table3';
 import chalk from 'chalk';
 import mockData from '../mockData';
+import { scrapeTides } from '../lib/scrapeTides';
+
+const NAVIHAN_BASSE_MER_OFFSET_HOURS = 1 + 15 / 60;
+const NAVIHAN_A_FLOT_OFFSET_HOURS = 2 + 40 / 60;
 
 interface TidalDataPoint {
   datetime: string;
   height: number;
+  coefficient?: number | null;
 }
 
 interface Extreme {
   time: string;
   height: number;
   type: 'high' | 'low';
-  navihanHour?: string;
+  navihan?: Record<string, string>;
+  coefficient?: number | null;
 }
 
 interface TideOutput {
@@ -32,6 +37,7 @@ interface MareeOptions {
   intervalMinutes?: number;
   navihanOffsetHours?: number;
   useMock?: boolean;
+  useScrape?: boolean;
 }
 
 export default class Maree {
@@ -42,6 +48,7 @@ export default class Maree {
   private intervalMinutes: number;
   private navihanOffsetHours: number;
   private useMock: boolean;
+  private useScrape: boolean;
 
   constructor(logger: Logger, apiKey: string, options: MareeOptions = {}) {
     this.logger = logger;
@@ -51,6 +58,7 @@ export default class Maree {
     this.intervalMinutes = options.intervalMinutes || 5;
     this.navihanOffsetHours = options.navihanOffsetHours || 2.75;
     this.useMock = options.useMock || false;
+    this.useScrape = options.useScrape || false;
     
     this.logger.info(`Maree service initialized with siteId: ${this.siteId}`);
   }
@@ -68,34 +76,37 @@ export default class Maree {
       const from = fromDate.toISOString().slice(0, 16);
       const to = toDate.toISOString().slice(0, 16);
 
-      let response;
+      let dataPoints: TidalDataPoint[];
+
       if (this.useMock) {
         this.logger.warn('Using mock data');
-        response = { data: mockData };
+        dataPoints = mockData.data.map(entry => ({
+          datetime: entry.time,
+          height: entry.height,
+          coefficient: null
+        }));
       } else {
-        response = await axios.get('https://api-maree.fr/water-levels', {
-          params: {
-            key: this.apiKey,
-            site: this.siteId,
-            from: from,
-            to: to,
-            step: this.intervalMinutes.toString(),
-            tz: this.timezone
-          }
-        });
+        // By default use the local scraper instead of the remote API
+        this.logger.info('Using local scraper for tide data (no remote API calls)');
+        const scrapedData = await scrapeTides(nbDays);
+        dataPoints = scrapedData.map(entry => ({
+          datetime: `${entry.date}T${entry.time}:00+02:00`,
+          height: entry.height,
+          coefficient: entry.coefficient ?? null
+        }));
       }
 
-      const dataApiMaree = response.data.data;
-      this.logger.info(`Retrieved ${dataApiMaree.length} tidal data points`);
+      this.logger.info(`Retrieved ${dataPoints.length} tidal data points`);
 
       // Groupement par jour
       const days: Record<string, TidalDataPoint[]> = {};
-      dataApiMaree.forEach((entry: any) => {
-        const date = entry.time.slice(0, 10);
+      dataPoints.forEach(entry => {
+        const date = entry.datetime.slice(0, 10);
         if (!days[date]) days[date] = [];
         days[date].push({
-          datetime: entry.time,
-          height: entry.height
+          datetime: entry.datetime,
+          height: entry.height,
+          coefficient: entry.coefficient ?? null
         });
       });
 
@@ -112,12 +123,36 @@ export default class Maree {
 
       Object.keys(days).sort().forEach(day => {
         const points = days[day];
-        const extremes = this.findExtremes(points).map(ext => ({
-          time: ext.time,
-          height: ext.height,
-          type: ext.type,
-          navihanHour: this.formatNavihanTime(ext.time, this.navihanOffsetHours)
-        }));
+        const heights = points.map(p => p.height);
+        const minHeight = Math.min(...heights);
+        const maxHeight = Math.max(...heights);
+        const amplitude = maxHeight - minHeight;
+        const coefficient = Math.round((amplitude / 7) * 100);
+        
+        const extremes = this.findExtremes(points).map(ext => {
+          if (ext.type === 'low') {
+            return {
+              time: ext.time,
+              height: ext.height,
+              type: ext.type,
+              coefficient: ext.coefficient ?? coefficient,
+              navihan: {
+                'Basse mer': this.formatNavihanTime(ext.time, NAVIHAN_BASSE_MER_OFFSET_HOURS),
+                'A flot': this.formatNavihanTime(ext.time, NAVIHAN_A_FLOT_OFFSET_HOURS)
+              }
+            } as Extreme;
+          }
+          // high
+          return {
+            time: ext.time,
+            height: ext.height,
+            type: ext.type,
+            coefficient: ext.coefficient ?? coefficient,
+            navihan: {
+              'Pleine mer': this.formatNavihanTime(ext.time, NAVIHAN_BASSE_MER_OFFSET_HOURS)
+            }
+          } as Extreme;
+        });
         if (extremes.length > 0) {
           output.days[day] = extremes;
         }
@@ -135,8 +170,8 @@ export default class Maree {
   /**
    * Détecte les extrêmes (pleines et basses mers)
    */
-  private findExtremes(points: TidalDataPoint[]): Omit<Extreme, 'navihanHour'>[] {
-    const extremes: Omit<Extreme, 'navihanHour'>[] = [];
+  private findExtremes(points: TidalDataPoint[]): Omit<Extreme, 'navihan'>[] {
+    const extremes: Omit<Extreme, 'navihan'>[] = [];
     for (let i = 1; i < points.length - 1; i++) {
       const prev = points[i - 1].height;
       const curr = points[i].height;
@@ -146,14 +181,16 @@ export default class Maree {
         extremes.push({
           time: points[i].datetime.slice(11, 16),
           height: curr,
-          type: 'high'
+          type: 'high',
+          coefficient: points[i].coefficient ?? null
         });
         while (i + 1 < points.length && points[i + 1].height === curr) i++;
       } else if (curr <= prev && curr <= next && (curr < prev || curr < next)) {
         extremes.push({
           time: points[i].datetime.slice(11, 16),
           height: curr,
-          type: 'low'
+          type: 'low',
+          coefficient: points[i].coefficient ?? null
         });
         while (i + 1 < points.length && points[i + 1].height === curr) i++;
       }
@@ -173,6 +210,19 @@ export default class Maree {
   }
 
   /**
+   * Formate l'étiquette de jour avec jour de la semaine et nom du mois
+   */
+  private formatDayLabel(day: string): string {
+    const date = new Date(day);
+    return date.toLocaleDateString('fr-FR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+  }
+
+  /**
    * Formate les données pour l'affichage texte
    */
   formatTextOutput(tideData: TideOutput): string {
@@ -182,22 +232,40 @@ export default class Maree {
 
     Object.keys(tideData.days).sort().forEach(day => {
       const table = new Table({
-        head: [chalk.cyan.bold('Port-Tudy'), chalk.cyan.bold('Navihan')],
-        colWidths: [52, 52],
+        head: [
+          chalk.cyan.bold('Coef'),
+          chalk.cyan.bold('Type'),
+          chalk.cyan.bold('Hauteur'),
+          chalk.cyan.bold('Port Tudy'),
+          chalk.cyan.bold('Navihan'),
+          chalk.cyan.bold('A flot')
+        ],
+        colWidths: [8, 16, 12, 12, 22, 18],
         wordWrap: true,
         style: { head: ['cyan'] }
       });
 
       tideData.days[day].forEach(ext => {
         const typeLabel = ext.type === 'high'
-          ? chalk.blue.bold('🌊 Pleine Mer')
-          : chalk.yellow.bold('⬇️ Basse Mer');
-        const portText = `${chalk.white.bold(ext.time)} ${chalk.white(`${ext.height.toFixed(2)}m`)} ${typeLabel}`;
-        const navihanText = `${chalk.green.bold(ext.navihanHour || '—')} ${chalk.white(`${ext.height.toFixed(2)}m`)} ${typeLabel}`;
-        table.push([portText, navihanText]);
+          ? chalk.blue('Pleine Mer')
+          : chalk.yellow('Basse Mer');
+        const heightText = chalk.white(`${ext.height.toFixed(2)}m`);
+        const portTudyTime = chalk.white.bold(ext.time);
+        const navihanPleineOuBasse = ext.navihan?.['Pleine mer'] ?? ext.navihan?.['Basse mer'] ?? '—';
+        const navihanAflot = ext.navihan?.['A flot'] ?? '—';
+        const coefficientText = chalk.cyan(ext.coefficient?.toString() ?? '—');
+
+        table.push([
+          coefficientText,
+          typeLabel,
+          heightText,
+          portTudyTime,
+          chalk.green.bold(navihanPleineOuBasse),
+          chalk.white(navihanAflot)
+        ]);
       });
 
-      output += `${chalk.magenta.bold(`📅 ${day}`)}\n`;
+      output += `${chalk.magenta.bold(`📅 ${this.formatDayLabel(day)}`)}\n`;
       output += `${table.toString()}\n\n`;
     });
 
