@@ -22,9 +22,27 @@ const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
  * Le fichier contient directement les pleines/basses mers, pas des relevés horaires.
  */
 export function readTides(filePath: string = DATA_FILE): RawTideData {
-  const content = fs.readFileSync(filePath, 'utf-8');
-  const parsed = JSON.parse(content) as Record<string, unknown>;
-  return normalize(parsed);
+  let content: string;
+  try {
+    content = fs.readFileSync(filePath, 'utf-8');
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new Error(`Impossible de lire le fichier de marées (${filePath}) : ${reason}`);
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new Error(`Fichier de marées invalide (JSON non valide dans ${filePath}) : ${reason}`);
+  }
+
+  if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`Fichier de marées invalide (${filePath}) : objet JSON attendu.`);
+  }
+
+  return normalize(parsed as Record<string, unknown>);
 }
 
 /**
