@@ -23,8 +23,11 @@ CLI Node.js/TypeScript qui affiche les extrêmes de marée (pleine/basse mer) po
 
 ## Architecture
 
-Flux : `src/index.ts` (yargs + logger pino) → `Maree.getTides(days)` → `formatTextOutput()`
-ou `JSON.stringify` selon `-f text|json`.
+Flux : `src/index.ts` (yargs + logger pino) → `Maree.getTides(days)` → rendu selon `-f` :
+`formatTextOutput()` (défaut), `JSON.stringify`, `formatMarkdownOutput()`,
+`formatPrintOutput()`, ou `formatHtmlOutput()` (`-f text|json|markdown|print|html`).
+L'option `-c/--columns` choisit les colonnes des formats tableau (voir « Rendu et
+colonnes » ci-dessous).
 
 Source de données unique : `src/resources/horaires_marees_port-tudy.json`, lu par
 [src/lib/readTides.ts](src/lib/readTides.ts). **Pas de scraping, pas d'API distante.**
@@ -46,12 +49,27 @@ Pipeline de [Maree.getTides()](src/service/Maree.ts) :
 
 Les entrées sans `heure` sont ignorées (le fichier en contient quelques-unes incomplètes).
 
-Le rendu terminal utilise `cli-table3` + `chalk`.
+Rendu et colonnes : un **registre unique** `COLUMNS` dans `Maree.ts` (clés `coef, type,
+hauteur, port-tudy, navihan, basse-mer, pleine-mer, a-flot`) est la source de vérité pour
+les 3 formats tableau. Chaque `ColumnDef` porte `header`, `width`, `color` (chalk, ignoré en
+`print`) et `value(ext)`. `resolveColumns(keys, format)` renvoie les colonnes demandées
+(via `-c/--columns`) ou celles par défaut du format (`DEFAULT_COLUMNS`), et lève une erreur
+claire sur clé inconnue. `text` et `print` partagent le helper `renderCliTable(..., colorize)`
+(`cli-table3` ; `print` = même tableau **sans aucune séquence ANSI**, y compris bordures) ;
+`markdown` génère des tableaux pipe ; `html` (`formatHtmlOutput`) génère une **page HTML
+autonome imprimable** (CSS inline, aucune ressource externe, `@media print`, un `<section>`
+par jour avec `break-inside: avoid`) — valeurs échappées via `escapeHtml`, classes
+`col-<clé>` sur `th`/`td` et `tide-high|low` sur les `tr` pour le style. Pour ajouter/renommer
+une colonne, éditer `COLUMNS` (et éventuellement `DEFAULT_COLUMNS`) — les 4 rendus tableau
+suivent automatiquement.
 
 ## Fichiers clés
 
-- [src/index.ts](src/index.ts) — entrée CLI, options `-d/--days` et `-f/--output-format`, logger pino.
-- [src/service/Maree.ts](src/service/Maree.ts) — service (lecture via readTides, mapping, Navihan, rendu).
+- [src/index.ts](src/index.ts) — entrée CLI, options `-d/--days`, `-f/--output-format`
+  (`text|json|markdown|print`) et `-c/--columns` (liste séparée par virgules), logger pino.
+- [src/service/Maree.ts](src/service/Maree.ts) — service (lecture via readTides, mapping, Navihan,
+  registre `COLUMNS` + `resolveColumns`, rendus `formatTextOutput` / `formatMarkdownOutput` /
+  `formatPrintOutput` / `formatHtmlOutput`, helper partagé `renderCliTable`, `escapeHtml`).
 - [src/lib/readTides.ts](src/lib/readTides.ts) — lecture + normalisation du fichier de ressources.
 - [src/resources/horaires_marees_port-tudy.json](src/resources/horaires_marees_port-tudy.json) — données de marées.
 - [src/service/Maree.test.ts](src/service/Maree.test.ts) — tests Vitest (méthodes privées via `(maree as any)`).

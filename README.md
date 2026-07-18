@@ -10,7 +10,7 @@ Le projet lit les horaires de marées depuis un fichier de ressources local, pui
 
 - `src/`
   - `index.ts` : point d'entrée CLI en TypeScript
-  - `service/Maree.ts` : logique métier (mise en forme, sortie texte/JSON)
+  - `service/Maree.ts` : logique métier (mise en forme, sorties texte/JSON/markdown/print, registre de colonnes)
   - `lib/readTides.ts` : lecture et normalisation du fichier de ressources
   - `resources/horaires_marees_port-tudy.json` : données de marées (source unique)
 - `dist/` : sortie compilée TypeScript (générée par `npm run build`)
@@ -56,7 +56,27 @@ Pour désinstaller : `npm uninstall -g marees-port-tudy` (ou `npm unlink -g mare
 ## Options CLI
 
 - `-d, --days` : nombre de jours à afficher (défaut : 3)
-- `-f, --output-format` : `text` (défaut) ou `json`
+- `-f, --output-format` : `text` (défaut), `json`, `markdown`, `print` ou `html`
+  - `text` : tableau coloré (terminal)
+  - `json` : données brutes
+  - `markdown` : tableaux Markdown (pour copier dans un document)
+  - `print` : tableau **sans couleurs** (impression / copier-coller propre)
+  - `html` : page HTML autonome **bien formatée et imprimable** (ouvrir dans le navigateur,
+    `Ctrl+P` pour imprimer ou exporter en PDF ; CSS inline, aucune ressource externe)
+- `-c, --columns` : colonnes à afficher, séparées par des virgules (formats tableau
+  `text`/`markdown`/`print`). Colonnes disponibles :
+  `coef, type, hauteur, port-tudy, navihan, basse-mer, pleine-mer, a-flot`.
+  Sans l'option, chaque format garde ses colonnes par défaut ; `print` affiche par défaut
+  `basse-mer, pleine-mer, a-flot, coef`.
+
+Exemples :
+
+```bash
+marees-port-tudy -d 7 -f print
+marees-port-tudy -d 7 -f print -c port-tudy,navihan,a-flot,coef
+marees-port-tudy -d 3 -f markdown -c coef,type,hauteur
+marees-port-tudy -d 7 -f html > marees.html   # puis ouvrir dans le navigateur / Ctrl+P
+```
 
 ## Source des données
 

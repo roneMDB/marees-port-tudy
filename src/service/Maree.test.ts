@@ -81,4 +81,110 @@ describe('Maree service', () => {
     expect(plain).toContain('10:20');
     expect(plain).toContain('11:50');
   });
+
+  it('should format markdown output with headers and table rows', () => {
+    const tideData = {
+      siteId: 'test-site',
+      timezone: 'Europe/Paris',
+      from: '2026-06-01',
+      to: '2026-06-02',
+      days: {
+        '2026-06-01': [
+          { time: '03:00', height: 1.23, type: 'high', coefficient: 71, navihan: { 'Pleine mer': '04:20' } },
+          { time: '09:00', height: 0.95, type: 'low', coefficient: null, navihan: { 'Basse mer': '10:20', 'A flot': '11:50' } }
+        ]
+      }
+    };
+
+    const formatted = maree.formatMarkdownOutput(tideData as any);
+
+    expect(formatted).toContain('# Marées test-site');
+    expect(formatted).toContain('**Période** : 2026-06-01 - 2026-06-02');
+    expect(formatted).toContain('## lundi');
+    expect(formatted).toContain('| Coef | Type | Hauteur | Port Tudy | Navihan | A flot |');
+    expect(formatted).toContain('| 71 | Pleine Mer | 1.23m | 03:00 | 04:20 | — |');
+    expect(formatted).toContain('| — | Basse Mer | 0.95m | 09:00 | 10:20 | 11:50 |');
+  });
+
+  const sampleTideData = {
+    siteId: 'test-site',
+    timezone: 'Europe/Paris',
+    from: '2026-06-01',
+    to: '2026-06-02',
+    days: {
+      '2026-06-01': [
+        { time: '03:00', height: 1.23, type: 'high', coefficient: 71, navihan: { 'Pleine mer': '04:20' } },
+        { time: '09:00', height: 0.95, type: 'low', coefficient: null, navihan: { 'Basse mer': '10:20', 'A flot': '11:50' } }
+      ]
+    }
+  };
+
+  it('should format print output as a plain table with default columns and no ANSI codes', () => {
+    const formatted = maree.formatPrintOutput(sampleTideData as any);
+
+    // Aucune séquence d'échappement ANSI (impression / copier-coller propre).
+    expect(formatted).not.toMatch(/\x1B\[/);
+
+    // Colonnes par défaut du format print.
+    expect(formatted).toContain('Basse mer');
+    expect(formatted).toContain('Pleine mer');
+    expect(formatted).toContain('A flot');
+    expect(formatted).toContain('Coef');
+    // Colonnes hors défaut absentes.
+    expect(formatted).not.toContain('Hauteur');
+    expect(formatted).not.toContain('Port Tudy');
+
+    // Valeurs Navihan : pleine mer (haute), basse mer + à flot (basse), coef sur la haute.
+    expect(formatted).toContain('04:20');
+    expect(formatted).toContain('10:20');
+    expect(formatted).toContain('11:50');
+    expect(formatted).toContain('71');
+  });
+
+  it('should honour a custom column selection in markdown output', () => {
+    const formatted = maree.formatMarkdownOutput(sampleTideData as any, ['coef', 'a-flot']);
+
+    expect(formatted).toContain('| Coef | A flot |');
+    expect(formatted).toContain('| --- | --- |');
+    expect(formatted).toContain('| 71 | — |');
+    expect(formatted).toContain('| — | 11:50 |');
+    // Les colonnes non demandées disparaissent.
+    expect(formatted).not.toContain('Pleine Mer');
+  });
+
+  it('should throw a clear error on an unknown column key', () => {
+    expect(() => maree.formatPrintOutput(sampleTideData as any, ['bidon']))
+      .toThrow(/Colonne inconnue "bidon"/);
+  });
+
+  it('should format a self-contained, printable HTML document', () => {
+    const html = maree.formatHtmlOutput(sampleTideData as any);
+
+    // Document autonome (pas de ressource externe).
+    expect(html).toMatch(/^<!DOCTYPE html>/);
+    expect(html).toContain('<style>');
+    expect(html).not.toMatch(/https?:\/\//); // aucune URL distante
+    expect(html).toContain('@media print');
+
+    // Contenu : titre, période, en-têtes de colonnes par défaut, un jour, données.
+    expect(html).toContain('Marées test-site');
+    expect(html).toContain('Du 2026-06-01 au 2026-06-02');
+    expect(html).toContain('<th class="col-coef">Coef</th>');
+    expect(html).toContain('<th class="col-a-flot">A flot</th>');
+    expect(html).toContain('<h2>lundi'); // formatDayLabel
+    expect(html).toContain('<tr class="tide-high">');
+    expect(html).toContain('<tr class="tide-low">');
+    expect(html).toContain('<td class="col-navihan">04:20</td>');
+    expect(html).toContain('<td class="col-a-flot">11:50</td>');
+  });
+
+  it('should honour a custom column selection in HTML output', () => {
+    const html = maree.formatHtmlOutput(sampleTideData as any, ['basse-mer', 'a-flot']);
+
+    expect(html).toContain('<th class="col-basse-mer">Basse mer</th>');
+    expect(html).toContain('<th class="col-a-flot">A flot</th>');
+    // Colonnes non demandées : pas d'en-tête (les sélecteurs CSS `.col-*` restent, eux).
+    expect(html).not.toContain('<th class="col-coef">');
+    expect(html).not.toContain('<th class="col-hauteur">');
+  });
 });

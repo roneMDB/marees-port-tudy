@@ -145,3 +145,6 @@ vite.config.ts.timestamp-*
 # project
 .env
 rest-client.env.json
+
+# Generated HTML output (`-f html > marees.html`)
+marees.html
