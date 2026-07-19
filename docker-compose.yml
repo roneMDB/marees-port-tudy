@@ -1,0 +1,15 @@
+services:
+  marees:
+    build: .
+    image: marees-port-tudy
+    container_name: marees-port-tudy
+    ports:
+      - "3000:3000"
+    # Volume des données : la config (settings.json) et les horaires survivent aux
+    # reconstructions / redéploiements. Auto-initialisé depuis la graine si vide.
+    volumes:
+      - ./data:/data
+    environment:
+      - DATA_DIR=/data
+      - PORT=3000
+    restart: unless-stopped

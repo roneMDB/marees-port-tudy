@@ -62,6 +62,9 @@ web_modules/
 # Output of 'npm pack'
 *.tgz
 
+# Image Docker exportée (deploy/save-image.sh)
+*.tar.gz
+
 # Yarn Integrity file
 .yarn-integrity
 
@@ -145,6 +148,11 @@ vite.config.ts.timestamp-*
 # project
 .env
 rest-client.env.json
+
+# runtime data (config + horaires) — monté comme volume ; la graine reste dans server/src/resources
+data/
+server/data/
+client/data/
 
 # Generated HTML output (`-f html > marees.html`)
 marees.html

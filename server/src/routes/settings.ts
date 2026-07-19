@@ -1,0 +1,39 @@
+import { Router } from 'express';
+import { Logger } from 'pino';
+import { readSettings, writeSettings } from '../service/SettingsStore';
+
+/**
+ * Routeur de configuration, monté sous `/api` :
+ * - `GET /settings` : configuration courante (défauts si non initialisée).
+ * - `PUT /settings` : fusionne le corps sur la config courante, valide/borne et persiste.
+ */
+export function createSettingsRouter(logger: Logger): Router {
+  const router = Router();
+
+  router.get('/settings', (_req, res, next) => {
+    try {
+      res.json(readSettings());
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.put('/settings', (req, res, next) => {
+    try {
+      const current = readSettings();
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const merged = {
+        ...current,
+        ...body,
+        navihan: { ...current.navihan, ...(body.navihan ?? {}) }
+      };
+      const saved = writeSettings(merged);
+      logger.info('Configuration mise à jour');
+      res.json(saved);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  return router;
+}

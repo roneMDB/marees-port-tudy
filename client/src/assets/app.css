@@ -1,0 +1,119 @@
+/* Personnalisations par-dessus Bootstrap (importé après bootstrap.min.css). */
+
+/* Bleu de marque : plus profond que le primary Bootstrap, décliné par thème. */
+:root {
+  --app-brand: #0a4b8c;
+  --app-brand-text: #ffffff;
+}
+
+[data-bs-theme='dark'] {
+  --app-brand: #0d2b4e;
+  --app-brand-text: #e9ecef;
+}
+
+.app-navbar {
+  background-color: var(--app-brand) !important;
+}
+
+.app-navbar .navbar-brand,
+.app-navbar .btn-outline-light {
+  color: var(--app-brand-text);
+}
+
+.app-brand-card {
+  background-color: var(--app-brand) !important;
+  color: var(--app-brand-text) !important;
+}
+
+/* Lignes de marées : liseré coloré à gauche + fond translucide léger.
+   En rgba, le rendu s'adapte tout seul aux thèmes clair et sombre. */
+.tide-table tbody tr.tide-high td {
+  background-color: rgba(13, 110, 253, 0.09);
+}
+
+.tide-table tbody tr.tide-low td {
+  background-color: rgba(255, 159, 10, 0.11);
+}
+
+.tide-table tbody tr.tide-high td:first-child {
+  border-left: 3px solid rgba(13, 110, 253, 0.85);
+}
+
+.tide-table tbody tr.tide-low td:first-child {
+  border-left: 3px solid rgba(255, 159, 10, 0.9);
+}
+
+/* Sur écran large (tableau classique) : données centrées dans chaque colonne. */
+@media (min-width: 768px) {
+  .tide-table thead th,
+  .tide-table tbody td {
+    text-align: center;
+    vertical-align: middle;
+  }
+}
+
+/* Sur petit écran : le tableau devient une pile de cartes (label / valeur). */
+@media (max-width: 767.98px) {
+  .tide-table,
+  .tide-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .tide-table thead {
+    display: none;
+  }
+
+  .tide-table tbody tr {
+    display: block;
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+
+  .tide-table tbody tr.tide-high {
+    border-left: 4px solid rgba(13, 110, 253, 0.85);
+  }
+
+  .tide-table tbody tr.tide-low {
+    border-left: 4px solid rgba(255, 159, 10, 0.9);
+  }
+
+  .tide-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    text-align: right;
+    padding: 0.4rem 0.75rem;
+    border: 0;
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+  }
+
+  .tide-table tbody td:last-child {
+    border-bottom: 0;
+  }
+
+  .tide-table tbody td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    text-align: left;
+    color: var(--bs-secondary-color);
+  }
+
+  /* Le liseré de type est porté par la carte, pas par la 1re cellule. */
+  .tide-table tbody tr.tide-high td:first-child,
+  .tide-table tbody tr.tide-low td:first-child {
+    border-left: 0;
+  }
+
+  /* Ligne « aucune marée » : pleine largeur, centrée. */
+  .tide-table tbody td[colspan] {
+    justify-content: center;
+  }
+
+  .tide-table tbody td[colspan]::before {
+    content: none;
+  }
+}

@@ -1,96 +1,156 @@
 # marees-port-tudy
 
-Un petit projet Node.js/TypeScript pour afficher les prévisions de marées (pleines et basses mers) du port de Port-Tudy (île de Groix).
+Application **client/serveur** des marées (pleines et basses mers) du port de Port-Tudy
+(île de Groix), avec les heures dérivées « Navihan » (basse mer +1h15, à flot +2h40).
 
-## Objectif
+- **Serveur** Node.js/Express (TypeScript) exposant les marées en **REST**.
+- **Client** Vue 3 (Vite + TypeScript) — un **dashboard** Bootstrap 5.3 avec tableau détaillé,
+  filtres et graphiques.
 
-Le projet lit les horaires de marées depuis un fichier de ressources local, puis génère une sortie en tableau par jour : coefficient, type (pleine/basse mer), hauteur, heure à Port-Tudy et heures dérivées « Navihan » (basse mer +1h15, à flot +2h40).
+> Monorepo npm workspaces. La version CLI historique a été retirée (voir l'historique git).
 
-## Arborescence importante
+## Arborescence
 
-- `src/`
-  - `index.ts` : point d'entrée CLI en TypeScript
-  - `service/Maree.ts` : logique métier (mise en forme, sorties texte/JSON/markdown/print, registre de colonnes)
-  - `lib/readTides.ts` : lecture et normalisation du fichier de ressources
-  - `resources/horaires_marees_port-tudy.json` : données de marées (source unique)
-- `dist/` : sortie compilée TypeScript (générée par `npm run build`)
-- `package.json` : scripts et dépendances
-- `tsconfig.json` : configuration TypeScript
+```
+marees-port-tudy/
+├── server/                     # API REST Express (TypeScript)
+│   └── src/
+│       ├── index.ts            # démarrage (pino + app.listen)
+│       ├── app.ts              # app Express (routes + statique client en prod)
+│       ├── routes/tides.ts     # GET /api/tides, /api/tides/meta, /api/health
+│       ├── service/Maree.ts    # logique métier (données, Navihan)
+│       ├── lib/readTides.ts    # lecture + normalisation du JSON
+│       └── resources/horaires_marees_port-tudy.json   # source unique de données
+└── client/                     # dashboard Vue 3 (Vite + Bootstrap 5.3 + Chart.js)
+    └── src/
+        ├── main.ts, App.vue, types.ts
+        ├── api/tides.ts        # appels REST
+        ├── composables/useTides.ts   # chargement + filtrage réactif
+        ├── views/Dashboard.vue
+        └── components/         # TideFilters, StatCards, TideTable, HeightChart, CoefChart
+```
 
 ## Installation
 
 ```bash
-npm install
+npm install        # installe les deux workspaces (server + client)
 ```
 
-## Commandes utiles
-
-- `npm run dev -- -d 3` : exécute le CLI depuis `src/index.ts` avec `ts-node` (3 jours)
-- `npm run build` : compile dans `dist/` et y copie les ressources
-- `npm start -- -d 3` : exécute le code compilé
-- `npm test` : exécute les tests unitaires avec Vitest
-
-## Installation globale (commande disponible partout)
-
-Le projet expose une commande `marees-port-tudy` (champ `bin` du `package.json`). Pour
-l'appeler depuis n'importe quel dossier :
+## Développement
 
 ```bash
-# Option 1 : installer globalement depuis le dossier du projet
-npm install -g .
-
-# Option 2 : lien de développement (suit les rebuilds)
-npm link
+npm run dev        # lance serveur (:3000) + client Vite (:5173) en parallèle
 ```
 
-Le script `prepare` lance `npm run build` automatiquement à l'installation (compilation +
-copie des ressources dans `dist/`). Ensuite :
+Ouvrir http://localhost:5173. Le client proxifie `/api` vers le serveur (`:3000`).
+
+Commandes par workspace :
 
 ```bash
-marees-port-tudy -d 3
-marees-port-tudy -d 7 -f json
+npm -w server run dev     # API seule (ts-node, :3000)
+npm -w client run dev     # dashboard seul (Vite, :5173)
 ```
 
-Pour désinstaller : `npm uninstall -g marees-port-tudy` (ou `npm unlink -g marees-port-tudy`).
-
-## Options CLI
-
-- `-d, --days` : nombre de jours à afficher (défaut : 3)
-- `-f, --output-format` : `text` (défaut), `json`, `markdown`, `print` ou `html`
-  - `text` : tableau coloré (terminal)
-  - `json` : données brutes
-  - `markdown` : tableaux Markdown (pour copier dans un document)
-  - `print` : tableau **sans couleurs** (impression / copier-coller propre)
-  - `html` : page HTML autonome **bien formatée et imprimable** (ouvrir dans le navigateur,
-    `Ctrl+P` pour imprimer ou exporter en PDF ; CSS inline, aucune ressource externe)
-- `-c, --columns` : colonnes à afficher, séparées par des virgules (formats tableau
-  `text`/`markdown`/`print`). Colonnes disponibles :
-  `coef, type, hauteur, port-tudy, navihan, basse-mer, pleine-mer, a-flot`.
-  Sans l'option, chaque format garde ses colonnes par défaut ; `print` affiche par défaut
-  `basse-mer, pleine-mer, a-flot, coef`.
-
-Exemples :
+## Production
 
 ```bash
-marees-port-tudy -d 7 -f print
-marees-port-tudy -d 7 -f print -c port-tudy,navihan,a-flot,coef
-marees-port-tudy -d 3 -f markdown -c coef,type,hauteur
-marees-port-tudy -d 7 -f html > marees.html   # puis ouvrir dans le navigateur / Ctrl+P
+npm run build      # build serveur (tsc + copie ressources) puis client (vite build)
+npm start          # node dist/index.js — sert l'API ET le client buildé sur :3000
 ```
 
-## Source des données
+En production, le serveur sert `client/dist` en statique (repli SPA), donc l'API et le
+dashboard sont sur la **même origine** (http://localhost:3000).
 
-Les horaires sont lus depuis `src/resources/horaires_marees_port-tudy.json`, qui contient
-directement les extrêmes (pleines/basses mers). Deux formes sont acceptées et aplaties à la lecture :
+## API REST
+
+Base : `/api`.
+
+| Méthode & route | Description |
+| --- | --- |
+| `GET /api/health` | Sonde de vie → `{ "status": "ok" }`. |
+| `GET /api/tides/meta` | Bornes de dates disponibles (`minDate`/`maxDate`) + libellés d'offsets Navihan. |
+| `GET /api/tides?from=YYYY-MM-DD&to=YYYY-MM-DD` | Marées sur une **plage inclusive**. Sans paramètres → toute la plage disponible. `400` si date malformée ou `from > to`. |
+| `GET /api/settings` | Configuration persistée (fenêtre de dates, Navihan, nb de jours « à flot »). |
+| `PUT /api/settings` | Enregistre la configuration (fusion + validation/bornage), renvoie l'objet normalisé. `400` si corps JSON invalide. |
+| `GET /api/weather?lat&lon&days` | Météo via **Open-Meteo** (gratuit, sans clé) : conditions actuelles + prévisions quotidiennes + marine (vagues). Sans `lat`/`lon` → zone de Port-Tudy (Groix). `400` si coordonnées invalides. |
+
+Chaque marée (`Extreme`) : `time`, `height`, `type` (`high`/`low`), `coefficient`
+(`null` sur les basses mers), et `navihan` (`Basse mer` + `A flot` pour les basses mers,
+`Pleine mer` pour les pleines mers).
+
+La **configuration** (`settings.json`) : `startMode` (`today`|`date`) + `startDate` + `rangeDays`
+(fin = début + N jours), `navihan` (décalages en minutes) et `aFlotDays`. Le dashboard
+l'enregistre automatiquement (débounce) à chaque changement.
+
+Exemple :
+
+```bash
+curl "http://localhost:3000/api/tides?from=2026-07-18&to=2026-07-20"
+```
+
+## Tests
+
+```bash
+npm test                  # server (Vitest + supertest) puis client (Vitest + @vue/test-utils)
+npm -w server run test
+npm -w client run test
+npm -w client run type-check   # vue-tsc
+```
+
+## Docker
+
+Image multi-stage (build serveur + client, image finale légère) + volume pour les données.
+
+```bash
+docker compose up --build      # build l'image et lance le conteneur sur :3000
+```
+
+Ouvrir http://localhost:3000. Le **volume** `./data:/data` contient `settings.json` et
+`horaires_marees_port-tudy.json` : la config et les horaires **survivent** aux reconstructions.
+Au 1er démarrage sur un volume vide, le répertoire est **auto-initialisé** depuis la graine
+embarquée dans l'image.
+
+Sans compose :
+
+```bash
+docker build -t marees-port-tudy .
+docker run -p 3000:3000 -v "$(pwd)/data:/data" marees-port-tudy
+```
+
+### Déploiement NAS Synology (DS218+)
+
+Build sur le PC, transfert de l'image en fichier, exécution sur le NAS (Container Manager) :
+
+```bash
+./deploy/save-image.sh      # → marees-image.tar.gz (à transférer sur le NAS)
+```
+
+Guide d'installation complet pas-à-pas (prérequis, dossiers, chargement de l'image, Container
+Manager, reverse proxy, mises à jour, sauvegarde, dépannage) :
+**[deploy/INSTALLATION-NAS.md](deploy/INSTALLATION-NAS.md)** (voir aussi l'index
+**[deploy/README.md](deploy/README.md)**).
+
+## Hors-ligne (PWA)
+
+Le client est une **PWA** : un service worker (via `vite-plugin-pwa`) précache la coquille de
+l'app et met en cache les réponses `/api` (stratégie *network-first*). Après une première visite
+**en ligne**, la page et les **dernières données consultées** restent accessibles **hors-ligne**,
+et l'app est *installable* (« Ajouter à l'écran d'accueil »). Actif uniquement sur le build de
+production (servi par le serveur / Docker), pas en `npm run dev`.
+
+## Répertoire de données (`DATA_DIR`)
+
+Le serveur lit/écrit ses données runtime dans **`DATA_DIR`** (défaut `<cwd>/data`, soit
+`server/data` en dev, `/data` dans l'image) :
+
+- `settings.json` — la configuration (créée aux valeurs par défaut si absente) ;
+- `horaires_marees_port-tudy.json` — les horaires (copiés depuis la graine si absents).
+
+La **graine** versionnée reste `server/src/resources/horaires_marees_port-tudy.json` (embarquée
+dans l'image). Deux formes de fichier d'horaires sont acceptées et aplaties à la lecture :
 
 - clés date directes : `"2026-06-01": [ { "maree": "haute", "heure": "05:59", "hauteur": "4.59", "coefficient": "71" }, ... ]`
 - sections groupées par mois : `"septembre": { "2026-09-01": [ ... ] }`
 
-Pour mettre à jour les marées, il suffit de remplacer le contenu de ce fichier.
-
-## Notes
-
-- CommonJS (`type: commonjs`).
-- Rendu terminal : `cli-table3` (tableaux) + `chalk` (couleurs).
-- `pino` pour le logging, `yargs` pour le parsing CLI.
-- Les tests sont dans `src/service/Maree.test.ts` (`npm test`).
+Pour mettre à jour les marées, remplacer le fichier dans `DATA_DIR` (ou la graine, puis
+recréer le volume). Couverture actuelle : 2026-06-01 → 2026-10-31.

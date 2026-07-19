@@ -1,0 +1,111 @@
+/**
+ * Types miroir du contrat REST exposé par le serveur (`@marees/server`).
+ * Le découplage passe par le JSON de l'API — pas de package partagé.
+ */
+
+export interface Extreme {
+  time: string;
+  height: number;
+  type: 'high' | 'low';
+  navihan: Record<string, string>;
+  coefficient: number | null;
+}
+
+export interface TideOutput {
+  siteId: string;
+  timezone: string;
+  from: string;
+  to: string;
+  days: Record<string, Extreme[]>;
+}
+
+export interface TidesMeta {
+  siteId: string;
+  timezone: string;
+  minDate: string | null;
+  maxDate: string | null;
+  navihanOffsets: {
+    basseMer: string;
+    aFlot: string;
+  };
+}
+
+/** Un extrême aplati avec sa date, pour le tableau et les graphiques. */
+export interface FlatTide extends Extreme {
+  date: string;
+}
+
+/** Décalages Navihan (en minutes) appliqués aux heures de Port-Tudy. */
+export interface NavihanOffsets {
+  basseMer: number;
+  pleineMer: number;
+  aFlot: number;
+}
+
+export type TideTypeFilter = 'all' | 'high' | 'low';
+
+export interface TideFilters {
+  from: string;
+  to: string;
+  type: TideTypeFilter;
+  minCoef: number | null;
+}
+
+/** Filtres éphémères (non persistés) : type de marée et coefficient minimum. */
+export interface TideDisplayFilters {
+  type: TideTypeFilter;
+  minCoef: number | null;
+}
+
+/** Configuration persistée côté serveur (miroir du contrat `/api/settings`). */
+export interface Settings {
+  startMode: 'today' | 'date';
+  startDate: string | null; // YYYY-MM-DD quand startMode = 'date'
+  rangeDays: number; // « Au » = début + rangeDays
+  navihan: NavihanOffsets; // décalages en minutes
+  aFlotDays: number; // carte « À flot · N prochains jours »
+}
+
+/** Météo (miroir du contrat `/api/weather`). */
+export interface WeatherCurrent {
+  time: string;
+  temperature: number;
+  apparentTemperature: number;
+  weatherCode: number;
+  weatherText: string;
+  windSpeed: number;
+  windGusts: number;
+  windDirection: number;
+  precipitation: number;
+}
+
+export interface WeatherDaily {
+  date: string;
+  weatherCode: number;
+  weatherText: string;
+  tempMin: number;
+  tempMax: number;
+  precipitation: number;
+  windMax: number;
+  gustMax: number;
+}
+
+export interface WeatherMarine {
+  current: { time: string; waveHeight: number; wavePeriod: number; waveDirection: number } | null;
+  daily: { date: string; waveHeightMax: number; wavePeriodMax: number }[];
+}
+
+export interface Weather {
+  location: { latitude: number; longitude: number; timezone: string };
+  units: { temperature: string; wind: string; precipitation: string; wave: string; wavePeriod: string };
+  current: WeatherCurrent;
+  daily: WeatherDaily[];
+  marine: WeatherMarine | null;
+}
+
+/** Libellés Navihan (clés de `Extreme.navihan`, alignées sur le serveur). */
+export const NAVIHAN = {
+  basseMer: 'Basse mer',
+  pleineMer: 'Pleine mer',
+  aFlot: 'A flot'
+} as const;

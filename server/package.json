@@ -1,0 +1,30 @@
+{
+  "name": "@marees/server",
+  "version": "2.0.0",
+  "description": "API REST des marées de Port-Tudy (Express + TypeScript).",
+  "private": true,
+  "main": "dist/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc && node -e \"const fs=require('fs'); fs.cpSync('src/resources','dist/resources',{recursive:true})\"",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "pino": "^8.17.2",
+    "pino-pretty": "^10.2.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.6",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^7.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3",
+    "vitest": "^1.5.4"
+  }
+}
