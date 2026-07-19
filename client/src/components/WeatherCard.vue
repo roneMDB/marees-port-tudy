@@ -27,7 +27,7 @@ onMounted(load);
 <template>
   <div class="card shadow-sm mb-3">
     <div class="card-header bg-body-tertiary fw-semibold d-flex justify-content-between align-items-center">
-      <span><i class="bi bi-cloud-sun me-1"></i> Météo · Port-Tudy (Groix)</span>
+      <span><i class="bi bi-cloud-sun me-1"></i> Météo · Belz</span>
       <button
         v-if="!loading"
         type="button"

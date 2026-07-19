@@ -2,14 +2,15 @@ import { Router } from 'express';
 import { Logger } from 'pino';
 import { fetchWeather } from '../service/weather';
 
-// Zone par défaut : Port-Tudy / île de Groix (station de référence des marées).
-const DEFAULT_LAT = 47.638;
-const DEFAULT_LON = -3.445;
+// Zone par défaut : Belz (Morbihan) — lieu de consultation. Les marées restent référencées
+// sur Port-Tudy (Groix), mais la météo affichée est celle de Belz.
+const DEFAULT_LAT = 47.677;
+const DEFAULT_LON = -3.166;
 
 /**
  * Routeur météo, monté sous `/api` :
  * - `GET /weather?lat&lon&days` → météo Open-Meteo (actuel + quotidien + marine).
- *   Sans `lat`/`lon`, utilise la zone de Port-Tudy (Groix). 400 si coordonnées invalides.
+ *   Sans `lat`/`lon`, utilise la zone de Belz (Morbihan). 400 si coordonnées invalides.
  */
 export function createWeatherRouter(logger: Logger): Router {
   const router = Router();
