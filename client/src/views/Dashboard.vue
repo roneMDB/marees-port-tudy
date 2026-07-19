@@ -3,6 +3,7 @@ import { useTides } from '../composables/useTides';
 import SettingsPanel from '../components/SettingsPanel.vue';
 import StatCards from '../components/StatCards.vue';
 import WeatherCard from '../components/WeatherCard.vue';
+import ResourcesCard from '../components/ResourcesCard.vue';
 import TideTable from '../components/TideTable.vue';
 import HeightChart from '../components/HeightChart.vue';
 import CoefChart from '../components/CoefChart.vue';
@@ -35,6 +36,8 @@ function resetFilters(): void {
         <span class="mx-1">—</span> réf. marées de Port-Tudy (île de Groix)
         <span class="mx-1">·</span> {{ meta.timezone }}
       </div>
+
+      <ResourcesCard />
 
       <SettingsPanel :filters="filters" :meta="meta" @reset="resetFilters" />
 
