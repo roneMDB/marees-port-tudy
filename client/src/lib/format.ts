@@ -24,12 +24,12 @@ export interface CoefBand {
  * 95-100 grandes vives-eaux, ≥ 100 grandes marées.
  */
 export function coefBand(coef: number | null | undefined): CoefBand {
-  if (coef == null) return { label: 'Inconnu', badgeClass: 'text-bg-light text-muted', icon: null };
+  if (coef == null) return { label: 'Inconnu', badgeClass: 'bg-body-secondary text-secondary-emphasis', icon: null };
   if (coef >= 100) return { label: 'Grande marée', badgeClass: 'text-bg-danger', icon: 'bi-stars' };
   if (coef >= 95) return { label: 'Grande vive-eau', badgeClass: 'text-bg-warning text-dark', icon: 'bi-arrow-up-circle-fill' };
   if (coef >= 70) return { label: 'Vive-eau', badgeClass: 'text-bg-primary', icon: null };
   if (coef >= 45) return { label: 'Marée moyenne', badgeClass: 'text-bg-secondary', icon: null };
-  return { label: 'Morte-eau', badgeClass: 'text-bg-light text-muted', icon: null };
+  return { label: 'Morte-eau', badgeClass: 'bg-secondary-subtle text-secondary-emphasis', icon: null };
 }
 
 /** Renvoie la date du jour en heure locale au format `YYYY-MM-DD`. */
