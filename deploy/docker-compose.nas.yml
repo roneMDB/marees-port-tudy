@@ -1,0 +1,16 @@
+# Compose pour le NAS Synology (DS218+) — utilise l'image chargée (pas de build sur le NAS).
+# Placer ce fichier sur le NAS et le lancer via Container Manager (Projet) ou en SSH :
+#   sudo docker compose -f docker-compose.nas.yml up -d
+services:
+  marees:
+    image: marees-port-tudy:latest
+    container_name: marees-port-tudy
+    ports:
+      - "3000:3000" # hôte:conteneur — changer l'hôte (ex. 8080:3000) si 3000 est pris
+    volumes:
+      # Dossier de données sur le NAS (config + horaires) — à créer au préalable.
+      - /volume1/docker/marees/data:/data
+    environment:
+      - DATA_DIR=/data
+      - PORT=3000
+    restart: unless-stopped
