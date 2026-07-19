@@ -38,7 +38,7 @@ function resetFilters(): void {
 
       <SettingsPanel :filters="filters" :meta="meta" @reset="resetFilters" />
 
-      <StatCards :tides="filteredTides" :all-tides="allTides" />
+      <StatCards :all-tides="allTides" />
 
       <WeatherCard />
 

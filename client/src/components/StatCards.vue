@@ -2,10 +2,11 @@
 import { computed } from 'vue';
 import type { FlatTide } from '../types';
 import { formatDate, formatHeight, todayKey, coefBand } from '../lib/format';
+import { nextAflot } from '../lib/navihan';
 import { useNavihan } from '../composables/useNavihan';
 import { useSettings } from '../composables/useSettings';
 
-const props = defineProps<{ tides: FlatTide[]; allTides: FlatTide[] }>();
+const props = defineProps<{ allTides: FlatTide[] }>();
 
 const { offsets } = useNavihan();
 const { settings } = useSettings();
@@ -61,13 +62,9 @@ const upcomingAflot = computed(() => {
     .map(([date, times]) => ({ date, times }));
 });
 
-const nextTide = computed<FlatTide | null>(() => {
-  const now = new Date();
-  const upcoming = props.tides
-    .filter(t => new Date(`${t.date}T${t.time}:00`) >= now)
-    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-  return upcoming[0] ?? null;
-});
+// Prochain « à flot » à venir (dérivé de la prochaine basse mer dont l'heure à-flot ≥ maintenant),
+// même si la toute prochaine marée chronologique est une pleine mer. Basé sur `allTides` (hors filtre).
+const nextAflotEvent = computed(() => nextAflot(props.allTides, offsets.aFlot, new Date()));
 </script>
 
 <template>
@@ -77,14 +74,11 @@ const nextTide = computed<FlatTide | null>(() => {
         <div class="card-body py-2 px-3 d-flex flex-column justify-content-center">
           <div class="d-flex justify-content-between align-items-center">
             <div>
-              <div class="text-uppercase small opacity-75">Prochaine marée</div>
-              <template v-if="nextTide">
-                <div class="fs-5 fw-bold">
-                  <template v-if="nextTide.navihan['A flot']">À flot {{ nextTide.navihan['A flot'] }}</template>
-                  <template v-else>{{ nextTide.time }}</template>
-                </div>
+              <div class="text-uppercase small opacity-75">Prochain à flot</div>
+              <template v-if="nextAflotEvent">
+                <div class="fs-5 fw-bold">À flot {{ nextAflotEvent.time }}</div>
                 <div class="small opacity-75 text-capitalize">
-                  {{ nextTide.type === 'high' ? 'Pleine mer' : 'Basse mer' }} · {{ nextTide.time }} · {{ formatDate(nextTide.date) }}
+                  Basse mer · {{ nextAflotEvent.basse.time }} · {{ formatDate(nextAflotEvent.basse.date) }}
                 </div>
               </template>
               <div v-else class="fs-6">—</div>
