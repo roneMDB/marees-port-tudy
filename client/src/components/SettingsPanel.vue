@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ref } from 'vue';
 import { useSettings } from '../composables/useSettings';
 import { useNavihan } from '../composables/useNavihan';
 import { formatOffset } from '../lib/navihan';
@@ -14,7 +13,6 @@ const emit = defineEmits<{ (e: 'reset'): void }>();
 
 const { settings } = useSettings();
 const { offsets, reset: resetNavihan } = useNavihan();
-const open = ref(false);
 
 type OffsetKey = keyof NavihanOffsets;
 
@@ -57,34 +55,36 @@ function onMinCoef(event: Event): void {
 </script>
 
 <template>
-  <div class="card shadow-sm mb-3">
-    <div class="card-header bg-body-tertiary d-flex justify-content-between align-items-center">
-      <button
-        type="button"
-        class="btn btn-link text-decoration-none p-0 fw-semibold"
-        :aria-expanded="open"
-        @click="open = !open"
-      >
-        <i class="bi bi-sliders me-1"></i> Réglages &amp; filtres
-        <i :class="open ? 'bi bi-chevron-up' : 'bi bi-chevron-down'" class="small ms-1"></i>
-      </button>
-      <span class="text-muted small d-none d-sm-inline">
-        Navihan à flot +{{ formatOffset(offsets.aFlot) }} · {{ settings.aFlotDays }} j
-      </span>
+  <div
+    id="settingsOffcanvas"
+    class="offcanvas offcanvas-end"
+    tabindex="-1"
+    aria-labelledby="settingsOffcanvasLabel"
+  >
+    <div class="offcanvas-header border-bottom">
+      <div>
+        <h5 id="settingsOffcanvasLabel" class="offcanvas-title mb-0">
+          <i class="bi bi-sliders me-1"></i> Réglages &amp; filtres
+        </h5>
+        <span class="text-muted small">
+          Navihan à flot +{{ formatOffset(offsets.aFlot) }} · {{ settings.aFlotDays }} j
+        </span>
+      </div>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fermer"></button>
     </div>
 
-    <div v-show="open" class="card-body">
+    <div class="offcanvas-body">
       <!-- Période (configuration enregistrée) -->
       <h6 class="text-uppercase text-muted small fw-bold mb-2">Période</h6>
       <div class="row g-3 mb-4">
-        <div class="col-6 col-md-3">
+        <div class="col-6">
           <label class="form-label small text-muted mb-1">Début</label>
           <select class="form-select" v-model="settings.startMode">
             <option value="today">Aujourd'hui</option>
             <option value="date">Date fixe</option>
           </select>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6">
           <label class="form-label small text-muted mb-1">Date de début</label>
           <input
             type="date"
@@ -95,7 +95,7 @@ function onMinCoef(event: Event): void {
             v-model="settings.startDate"
           />
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6">
           <label class="form-label small text-muted mb-1">Durée (jours)</label>
           <input
             type="number"
@@ -114,7 +114,7 @@ function onMinCoef(event: Event): void {
         Appliqués aux heures de Port-Tudy pour obtenir les heures Navihan. Enregistrés côté serveur.
       </p>
       <div class="row g-3">
-        <div v-for="row in rows" :key="row.key" class="col-12 col-md-4">
+        <div v-for="row in rows" :key="row.key" class="col-12">
           <label class="form-label small text-muted mb-1">{{ row.label }}</label>
           <div class="input-group">
             <input
@@ -140,7 +140,7 @@ function onMinCoef(event: Event): void {
         </div>
       </div>
       <div class="row g-3 mt-0">
-        <div class="col-12 col-md-4">
+        <div class="col-12">
           <label class="form-label small text-muted mb-1">Jours affichés (carte à flot)</label>
           <input
             type="number"
@@ -165,7 +165,7 @@ function onMinCoef(event: Event): void {
         N'affectent que ce qui est affiché (tableau, graphiques) — non enregistrés.
       </p>
       <div class="row g-3 align-items-end">
-        <div class="col-6 col-md-3">
+        <div class="col-6">
           <label class="form-label small text-muted mb-1">Type de marée</label>
           <select class="form-select" v-model="filters.type">
             <option value="all">Toutes</option>
@@ -173,7 +173,7 @@ function onMinCoef(event: Event): void {
             <option value="low">Basse mer</option>
           </select>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6">
           <label class="form-label small text-muted mb-1">Coef. min</label>
           <input
             type="number"
@@ -185,7 +185,7 @@ function onMinCoef(event: Event): void {
             @input="onMinCoef"
           />
         </div>
-        <div class="col-12 col-md-3 d-grid">
+        <div class="col-12 d-grid">
           <button type="button" class="btn btn-outline-secondary" @click="emit('reset')">
             <i class="bi bi-arrow-counterclockwise me-1"></i> Réinitialiser les filtres
           </button>
@@ -194,3 +194,12 @@ function onMinCoef(event: Event): void {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Panneau un peu plus large sur grand écran pour aérer les champs (400px par défaut). */
+@media (min-width: 768px) {
+  #settingsOffcanvas {
+    --bs-offcanvas-width: 460px;
+  }
+}
+</style>

@@ -21,6 +21,17 @@ const { clock } = useClock();
         <button
           type="button"
           class="btn btn-outline-light btn-sm"
+          data-bs-toggle="offcanvas"
+          data-bs-target="#settingsOffcanvas"
+          aria-controls="settingsOffcanvas"
+          title="Réglages & filtres"
+          aria-label="Réglages & filtres"
+        >
+          <i class="bi bi-sliders"></i>
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-light btn-sm"
           :title="isDark ? 'Passer en thème clair' : 'Passer en thème sombre'"
           :aria-label="isDark ? 'Passer en thème clair' : 'Passer en thème sombre'"
           @click="toggle"
