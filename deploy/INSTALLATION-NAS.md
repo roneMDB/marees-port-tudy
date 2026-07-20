@@ -7,6 +7,46 @@ Principe : on **construit l'image sur le PC**, on l'exporte en archive, on la **
 NAS**, puis on la lance avec Docker Compose. La configuration et les horaires vivent dans un
 **dossier du NAS** (volume) et survivent aux mises à jour.
 
+> 🚀 **Raccourci scripté (recommandé)** : une fois les prérequis (§1) et les dossiers du NAS
+> (§2) en place, tout le cycle build → transfert → lancement tient en deux scripts. Voir
+> **[§0 Méthode rapide](#0-méthode-rapide-scriptée-recommandée)** ci-dessous. Les sections
+> §3 à §6 décrivent la méthode **manuelle** équivalente (utile pour comprendre ou dépanner).
+
+---
+
+## 0. Méthode rapide (scriptée, recommandée)
+
+Deux scripts automatisent tout le déploiement une fois les **prérequis (§1)** installés et le
+**dossier `/volume1/docker/marees/` créé sur le NAS (§2)** :
+
+| Script | S'exécute… | Fait quoi |
+| --- | --- | --- |
+| [`push-to-nas.sh`](push-to-nas.sh) | sur le **PC** | build + export de l'image (`save-image.sh`), puis `scp` de l'image, du `docker-compose.yml` et de `update-on-nas.sh` vers le NAS. **Ne redémarre pas** le conteneur. |
+| [`update-on-nas.sh`](update-on-nas.sh) | sur le **NAS** | `docker load` de l'image + `docker-compose up -d` (recrée le conteneur) + `docker image prune`. Données `data/` **conservées**. |
+
+```bash
+# 1. Côté PC (dans le dossier du projet)
+./deploy/push-to-nas.sh
+
+# 2. Côté NAS (connexion SSH puis lancement)
+ssh erwan@ds218plus -p 2010
+cd /volume1/docker/marees && sudo bash update-on-nas.sh
+```
+
+Le même couple de commandes sert à l'**installation initiale** et aux **mises à jour** : seule
+la première fois nécessite la préparation des dossiers (§2). Le script `update-on-nas.sh` est
+transféré à chaque `push`, donc toujours à jour sur le NAS.
+
+**Réglages surchargables** (défauts = configuration DS218+ actuelle) :
+
+```bash
+NAS_HOST=erwan@ds218plus NAS_PORT=2010 NAS_DIR=/volume1/docker/marees ./deploy/push-to-nas.sh
+```
+
+> ℹ️ Les scripts encapsulent les mêmes pièges décrits plus bas : flag `scp -O` pour Synology,
+> `docker-compose` **avec un tiret** (Compose v1 en DSM 7.1). Si un script échoue, la section
+> manuelle correspondante (§3–6) et le **dépannage (§12)** donnent le détail.
+
 ---
 
 ## 1. Prérequis
@@ -175,6 +215,18 @@ Pour un accès propre en HTTPS (ex. `https://marees.mondomaine.synology.me`) :
 ---
 
 ## 9. Mettre à jour l'application
+
+### Méthode rapide (scripts, recommandée)
+
+Identique à l'installation — voir **[§0](#0-méthode-rapide-scriptée-recommandée)** :
+
+```bash
+./deploy/push-to-nas.sh                                   # PC : build + transfert
+ssh erwan@ds218plus -p 2010
+cd /volume1/docker/marees && sudo bash update-on-nas.sh   # NAS : recharge + recrée
+```
+
+### Méthode manuelle
 
 1. Sur le PC : `./deploy/save-image.sh` (nouvelle `marees-image.tar.gz`).
 2. Transférer et **recharger l'image** (étapes 4–5).
