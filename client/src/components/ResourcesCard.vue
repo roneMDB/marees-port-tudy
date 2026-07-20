@@ -21,6 +21,7 @@ const GROUPS: ResourceGroup[] = [
       { label: 'Guide pratique « Cap sur la Ria d\'Étel » (Navix)', url: 'https://www.navix.fr/wp-content/uploads/2023/03/guide_pratique_Etel.pdf' },
       { label: 'Mairie d\'Étel – pêche à pied locale', url: 'https://www.mairie-etel.fr/pratiquer-la-peche-pied' },
       { label: 'CDPMEM 56 – réglementation Morbihan', url: 'https://www.cdpmem56.fr/la-peche-a-pied/' },
+      { label: 'Pêche à pied de loisir – réglementation Morbihan', url: 'https://www.pecheapied-loisir.fr/reglementation/morbihan/' },
       { label: 'Carte sanitaire interactive (état des zones)', url: 'http://www.pecheapied-responsable.fr' }
     ]
   },
