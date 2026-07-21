@@ -13,4 +13,11 @@ services:
     environment:
       - DATA_DIR=/data
       - PORT=3000
+      # --- Exposition externe (reverse proxy DSM) : décommenter pour activer ---
+      # Authentification Basic : protège TOUTE l'app (mot de passe partagé au cercle restreint).
+      # Sans APP_PASSWORD, l'auth est désactivée (accès libre en LAN).
+      # - APP_USER=marees
+      # - APP_PASSWORD=change-moi
+      # Lecture seule : PUT /api/settings → 403 (réserve l'édition des réglages au local).
+      # - READ_ONLY=true
     restart: unless-stopped

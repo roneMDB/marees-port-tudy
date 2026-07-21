@@ -20,6 +20,11 @@ export function createSettingsRouter(logger: Logger): Router {
 
   router.put('/settings', (req, res, next) => {
     try {
+      // Mode lecture seule (exposition externe) : édition des réglages désactivée.
+      if (process.env.READ_ONLY === 'true') {
+        return res.status(403).json({ error: 'Modification désactivée (mode lecture seule).' });
+      }
+
       const current = readSettings();
       const body = req.body && typeof req.body === 'object' ? req.body : {};
       const merged = {

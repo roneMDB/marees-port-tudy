@@ -29,8 +29,20 @@ COPY --from=build /app/server/package.json ./server/package.json
 COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/client/dist ./client/dist
 
+# Répertoire des données runtime accessible à l'utilisateur non-root.
+# NB : sur un bind-mount (NAS), ce sont les permissions du dossier hôte qui priment
+# → le dossier `data/` doit être accessible en écriture par l'uid 1000 (cf. doc NAS).
+RUN mkdir -p /data && chown -R node:node /data
+
 EXPOSE 3000
 # Volume des données runtime : settings.json + horaires (auto-seed au 1er démarrage).
 VOLUME ["/data"]
+
+# Sonde de vie (fetch natif Node 22, pas de binaire supplémentaire).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://localhost:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+# Exécution en utilisateur non privilégié.
+USER node
 
 CMD ["node", "server/dist/index.js"]

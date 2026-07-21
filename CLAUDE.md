@@ -37,8 +37,15 @@ proche dans le temps** (appariement par proximité, gère le décalage horaire /
 ### Serveur (`server/`)
 
 Flux : `src/index.ts` (pino + `ensureDataDir`/`ensureSettingsFile` + `createApp`) → `src/app.ts`
-(Express : `cors`, `express.json`, routers `/api`, statique `client/dist` en prod, error handler
-qui renvoie **400** sur erreur client — ex. JSON invalide — sinon 500) → routers.
+(Express : `trust proxy`, **helmet** (CSP off), **rate-limit** global + météo, **auth Basic
+optionnelle** (`middleware/auth.ts`), `express.json`, routers `/api`, statique `client/dist` en
+prod, error handler qui renvoie **400** sur erreur client — ex. JSON invalide — sinon 500). Servi
+en même origine → **pas de CORS**.
+
+**Durcissement / exposition externe** (variables d'env, cf. `deploy/INSTALLATION-NAS.md` §8) :
+`APP_PASSWORD` (+ `APP_USER`, défaut `marees`) active l'auth Basic sur tout sauf `/api/health`
+(vide → désactivée, dev/tests intacts) ; `READ_ONLY=true` → `PUT /api/settings` renvoie **403**.
+Conteneur non-root (`USER node`) + `HEALTHCHECK` sur `/api/health`. Tests : `src/security.test.ts`.
 
 Routes tides (`src/routes/tides.ts`) :
 - `GET /api/health` → `{ status: 'ok' }`.

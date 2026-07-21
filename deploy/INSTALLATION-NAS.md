@@ -203,14 +203,59 @@ et `horaires_marees_port-tudy.json` (horaires embarqués dans l'image).
 
 ---
 
-## 8. (Optionnel) Nom de domaine + HTTPS via le Reverse Proxy DSM
+## 8. Exposer l'application sur Internet (sécurisé)
 
-Pour un accès propre en HTTPS (ex. `https://marees.mondomaine.synology.me`) :
+> **Important — l'app n'a pas d'authentification par défaut.** N'exposez **jamais** le port `3000`
+> directement sur Internet (aucune redirection de port `3000` sur la box). L'accès externe passe
+> **uniquement** par le Reverse Proxy DSM en **HTTPS**, avec un **mot de passe** activé (ci-dessous).
+> Tout est intégré à DSM : **aucun paquet à installer, 0 €** (DDNS Synology + Let's Encrypt gratuits).
 
-1. **Panneau de configuration → Portail de connexion → Avancé → Proxy inversé → Créer**.
-2. **Source** : `https`, nom d'hôte souhaité, port `443`.
-3. **Destination** : `http`, `localhost`, port `3000`.
-4. Associer un certificat (Let's Encrypt via DSM, ou QuickConnect/DDNS Synology).
+### 8.1 HTTPS via le Reverse Proxy DSM
+
+1. **DDNS gratuit** : Panneau de configuration → **Accès externe → DDNS → Ajouter** →
+   fournisseur *Synology*, nom d'hôte `tonnas.synology.me`.
+2. **Certificat Let's Encrypt** : Panneau → **Sécurité → Certificat → Ajouter** → *Let's Encrypt*,
+   domaine = `tonnas.synology.me` (renouvellement automatique).
+3. **Proxy inversé** : Panneau → **Portail de connexion → Avancé → Proxy inversé → Créer**.
+   - **Source** : `https`, hôte `tonnas.synology.me`, port `443`.
+   - **Destination** : `http`, `localhost`, port `3000`.
+   - Onglet *Personnaliser les en-têtes* : activer **HSTS** ; WebSocket inutile.
+4. **Box/routeur** : rediriger **uniquement** le port **443** (et **80** temporairement pour
+   l'émission/renouvellement du certificat Let's Encrypt) vers le NAS. **Pas** le `3000`.
+
+### 8.2 Mot de passe d'accès (authentification Basic)
+
+L'app protège **toute** l'interface par un mot de passe dès que `APP_PASSWORD` est défini. Dans le
+`docker-compose.yml` du NAS, décommenter et renseigner (voir `deploy/docker-compose.nas.yml`) :
+
+```yaml
+    environment:
+      - APP_USER=marees          # identifiant (défaut : marees)
+      - APP_PASSWORD=un-mot-de-passe-solide   # à partager au cercle restreint
+      - READ_ONLY=true           # optionnel : édition des réglages désactivée à distance (PUT → 403)
+```
+
+Puis recréer le conteneur (`docker-compose up -d`). Le navigateur demandera identifiant + mot de
+passe une seule fois. `GET /api/health` reste public (sonde). **Sans `APP_PASSWORD`, l'accès est
+libre** — ne pas exposer dans ce cas.
+
+- `READ_ONLY=true` : à activer si vous voulez que les réglages (Navihan, liens météo, période) ne
+  soient **pas** modifiables à distance. Laisser désactivé si le cercle de confiance peut les ajuster
+  (enjeu faible : ce sont des préférences d'affichage).
+
+Durcissement déjà **intégré à l'image** : en-têtes de sécurité (helmet), limitation de débit
+(anti-abus, dont la météo), conteneur **non-root** (`node`, uid 1000). Le dossier `data/` doit donc
+être **accessible en écriture par l'uid 1000** : en SSH, `sudo chown -R 1000:1000
+/volume1/docker/marees/data` (une fois).
+
+### 8.3 (Bonus) Restreindre davantage
+
+- **Pare-feu DSM** (Panneau → Sécurité → Pare-feu) : une règle *Autoriser* limitée à la localisation
+  **France** (base GeoIP intégrée) réduit fortement le bruit d'Internet.
+- **Auto-Block** (Panneau → Sécurité → Compte) : bannit les IP après trop d'échecs de connexion
+  **DSM** (protège le NAS ; l'app est protégée par sa propre limitation de débit).
+- **Secret hérité** : une ancienne clé `API_MAREE_KEY` (inutilisée par le code) figure dans
+  l'historique Git du dépôt — si le dépôt est public, **révoquez/rotez cette clé**.
 
 ---
 

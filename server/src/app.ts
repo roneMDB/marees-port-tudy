@@ -1,21 +1,42 @@
 import express, { Application, NextFunction, Request, Response } from 'express';
-import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import fs from 'fs';
 import path from 'path';
 import { Logger } from 'pino';
 import { createTidesRouter } from './routes/tides';
 import { createSettingsRouter } from './routes/settings';
 import { createWeatherRouter } from './routes/weather';
+import { basicAuth } from './middleware/auth';
+
+const FIVE_MINUTES = 5 * 60 * 1000;
 
 /**
  * Construit l'application Express (testable via supertest, sans `listen`).
  * Monte l'API sous `/api` et, si un build client existe, le sert en statique
  * avec repli SPA sur `index.html`.
+ *
+ * Durcissement (exposition externe) : en-têtes de sécurité (helmet), limitation de débit,
+ * et authentification Basic optionnelle (`APP_PASSWORD`). Servi en **même origine** que le
+ * client → pas de CORS. Derrière le reverse proxy DSM → `trust proxy` pour la vraie IP.
  */
 export function createApp(logger: Logger): Application {
   const app = express();
 
-  app.use(cors());
+  app.set('trust proxy', 1); // 1er saut de confiance = reverse proxy NAS (X-Forwarded-For)
+
+  // En-têtes de sécurité. CSP désactivée pour l'instant (éviterait de casser SPA/Bootstrap/PWA) ;
+  // à tailler ultérieurement. `hidePoweredBy` (défaut) retire `X-Powered-By`.
+  app.use(helmet({ contentSecurityPolicy: false }));
+
+  // Limitation de débit : globale (protège aussi le brute-force d'auth), plus stricte sur la météo
+  // (appels sortants vers Open-Meteo). Placées avant l'auth pour throttler les tentatives.
+  app.use(rateLimit({ windowMs: FIVE_MINUTES, max: 600, standardHeaders: true, legacyHeaders: false }));
+  app.use('/api/weather', rateLimit({ windowMs: FIVE_MINUTES, max: 60, standardHeaders: true, legacyHeaders: false }));
+
+  // Authentification Basic optionnelle (activée par `APP_PASSWORD`).
+  app.use(basicAuth());
+
   app.use(express.json());
 
   app.use('/api', createTidesRouter(logger));
