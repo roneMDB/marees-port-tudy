@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clampDate, filterTides, flatten, resolveWindow } from './tides';
+import { clampDate, filterTides, flatten, resolveWindow, withSiteTimes } from './tides';
 import { addDays } from './format';
 import type { FlatTide, Settings, TideOutput } from '../types';
 
@@ -129,5 +129,46 @@ describe('filterTides', () => {
   it('returns everything with empty/neutral filters', () => {
     const res = filterTides(flat, { from: '', to: '', type: 'all', minCoef: null });
     expect(res).toHaveLength(3);
+  });
+});
+
+describe('withSiteTimes', () => {
+  const reference: FlatTide[] = [
+    { date: '2026-06-01', time: '03:00', height: 4.6, type: 'high', coefficient: 71, navihan: {} },
+    { date: '2026-06-01', time: '09:00', height: 1.1, type: 'low', coefficient: null, navihan: {} },
+    { date: '2026-06-01', time: '15:30', height: 4.7, type: 'high', coefficient: 71, navihan: {} },
+    { date: '2026-06-01', time: '21:45', height: 1.2, type: 'low', coefficient: null, navihan: {} }
+  ];
+
+  it('substitutes time/height from the paired site tide, keeping coef & navihan from reference', () => {
+    const site: FlatTide[] = [
+      { date: '2026-06-01', time: '03:20', height: 5.1, type: 'high', coefficient: 71, navihan: {} },
+      { date: '2026-06-01', time: '09:25', height: 0.6, type: 'low', coefficient: null, navihan: {} },
+      { date: '2026-06-01', time: '15:55', height: 5.2, type: 'high', coefficient: 71, navihan: {} },
+      { date: '2026-06-01', time: '22:10', height: 0.7, type: 'low', coefficient: null, navihan: {} }
+    ];
+    const merged = withSiteTimes(reference, site);
+    expect(merged.map(t => t.displayTime)).toEqual(['03:20', '09:25', '15:55', '22:10']);
+    expect(merged.map(t => t.displayHeight)).toEqual([5.1, 0.6, 5.2, 0.7]);
+    // Référence intacte (heure Port-Tudy conservée pour Navihan).
+    expect(merged.map(t => t.time)).toEqual(['03:00', '09:00', '15:30', '21:45']);
+    expect(merged[0].coefficient).toBe(71);
+  });
+
+  it('pairs by rank within day+type (1re/2e marée), independent of interleaved order', () => {
+    const site: FlatTide[] = [
+      { date: '2026-06-01', time: '15:55', height: 5.2, type: 'high', coefficient: 71, navihan: {} },
+      { date: '2026-06-01', time: '03:20', height: 5.1, type: 'high', coefficient: 71, navihan: {} }
+    ];
+    const merged = withSiteTimes(reference, site);
+    // 1re haute réf (03:00) ↔ 1re haute site (03:20) ; 2e haute réf (15:30) ↔ 2e haute site (15:55).
+    expect(merged[0].displayTime).toBe('03:20');
+    expect(merged[2].displayTime).toBe('15:55');
+  });
+
+  it('marks missing site tides with empty time / NaN height', () => {
+    const merged = withSiteTimes(reference, []);
+    expect(merged.every(t => t.displayTime === '')).toBe(true);
+    expect(merged.every(t => Number.isNaN(t.displayHeight))).toBe(true);
   });
 });

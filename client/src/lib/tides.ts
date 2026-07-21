@@ -26,6 +26,43 @@ export function resolveWindow(settings: Settings, min: string, max: string): { f
   return { from, to };
 }
 
+/**
+ * Rang de chaque extrême dans sa journée pour son type (0 = 1re marée du jour de ce type),
+ * calculé sur la liste triée par date+type+heure. Sert à apparier deux ports entre eux.
+ */
+function rankKeys(list: FlatTide[]): Map<FlatTide, string> {
+  const counters = new Map<string, number>();
+  const keys = new Map<FlatTide, string>();
+  const sorted = [...list].sort((a, b) =>
+    `${a.date}|${a.type}|${a.time}`.localeCompare(`${b.date}|${b.type}|${b.time}`)
+  );
+  for (const t of sorted) {
+    const group = `${t.date}|${t.type}`;
+    const index = counters.get(group) ?? 0;
+    counters.set(group, index + 1);
+    keys.set(t, `${group}|${index}`);
+  }
+  return keys;
+}
+
+/**
+ * Renvoie les extrêmes de **référence** (Port-Tudy) enrichis de l'heure/hauteur du **port
+ * sélectionné**, appariés par jour + type + rang de la marée du jour. Les colonnes Navihan et
+ * coefficient (portées par la référence) restent inchangées. Si le port sélectionné n'a pas
+ * de marée correspondante, `displayTime`/`displayHeight` valent `''`/`NaN` (affichés « — »).
+ */
+export function withSiteTimes(reference: FlatTide[], site: FlatTide[]): FlatTide[] {
+  const siteByKey = new Map<string, FlatTide>();
+  for (const [tide, key] of rankKeys(site)) {
+    siteByKey.set(key, tide);
+  }
+  const refKeys = rankKeys(reference);
+  return reference.map(t => {
+    const paired = siteByKey.get(refKeys.get(t)!);
+    return { ...t, displayTime: paired ? paired.time : '', displayHeight: paired ? paired.height : NaN };
+  });
+}
+
 /** Applique les filtres (plage de dates inclusive, type, coefficient minimum). */
 export function filterTides(tides: FlatTide[], f: TideFilters): FlatTide[] {
   return tides.filter(t => {

@@ -4,9 +4,19 @@ import type { FlatTide } from '../types';
 import { NAVIHAN } from '../types';
 import { formatDate, formatHeight, todayKey, coefBand } from '../lib/format';
 
-const props = defineProps<{ tides: FlatTide[] }>();
+const props = withDefaults(defineProps<{ tides: FlatTide[]; siteLabel?: string }>(), {
+  siteLabel: 'Port-Tudy'
+});
 
 const today = todayKey();
+
+/** Heure/hauteur du port affiché (repli sur la référence Port-Tudy si non substituées). */
+function heureOf(t: FlatTide): string {
+  return t.displayTime !== undefined ? t.displayTime : t.time;
+}
+function hauteurOf(t: FlatTide): number {
+  return t.displayHeight !== undefined ? t.displayHeight : t.height;
+}
 
 type SortKey = 'date' | 'type' | 'time' | 'height' | 'coef';
 const sortKey = ref<SortKey>('date');
@@ -23,10 +33,10 @@ function toggleSort(key: SortKey): void {
 
 function sortValue(t: FlatTide, key: SortKey): string | number {
   switch (key) {
-    case 'date': return t.date + t.time;
+    case 'date': return t.date + t.time; // chronologie stable sur la référence Port-Tudy
     case 'type': return t.type;
-    case 'time': return t.time;
-    case 'height': return Number.isFinite(t.height) ? t.height : -Infinity;
+    case 'time': return heureOf(t) || '99:99'; // lignes sans heure appariée en fin
+    case 'height': return Number.isFinite(hauteurOf(t)) ? hauteurOf(t) : -Infinity;
     case 'coef': return t.coefficient ?? -Infinity;
   }
 }
@@ -73,7 +83,7 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
             Date <i class="bi bi-arrow-down-up small"></i>
           </th>
           <th role="button" :aria-sort="ariaSort('type')" @click="toggleSort('type')">Type</th>
-          <th role="button" :aria-sort="ariaSort('time')" @click="toggleSort('time')">Heure Port-Tudy</th>
+          <th role="button" :aria-sort="ariaSort('time')" @click="toggleSort('time')">Heure {{ siteLabel }}</th>
           <th role="button" :aria-sort="ariaSort('height')" @click="toggleSort('height')">Hauteur</th>
           <th role="button" :aria-sort="ariaSort('coef')" @click="toggleSort('coef')">Coef</th>
           <th>Navihan basse mer</th>
@@ -106,8 +116,8 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
               {{ t.type === 'high' ? 'Pleine mer' : 'Basse mer' }}
             </span>
           </td>
-          <td data-label="Heure Port-Tudy" class="fw-semibold">{{ t.time }}</td>
-          <td data-label="Hauteur">{{ formatHeight(t.height) }}</td>
+          <td :data-label="`Heure ${siteLabel}`" class="fw-semibold">{{ heureOf(t) || '—' }}</td>
+          <td data-label="Hauteur">{{ formatHeight(hauteurOf(t)) }}</td>
           <td data-label="Coef">
             <span
               v-if="t.coefficient != null"

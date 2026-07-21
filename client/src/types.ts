@@ -33,6 +33,20 @@ export interface TidesMeta {
 /** Un extrême aplati avec sa date, pour le tableau et les graphiques. */
 export interface FlatTide extends Extreme {
   date: string;
+  /**
+   * Heure/hauteur du **port affiché** (peut différer de la référence Port-Tudy qui,
+   * elle, porte `time`/`height` et sert au calcul Navihan). Absentes → on affiche `time`/
+   * `height` de la référence. `displayTime === ''` / `displayHeight` non fini → « — »
+   * (le port sélectionné n'a pas de marée appariée).
+   */
+  displayTime?: string;
+  displayHeight?: number;
+}
+
+/** Un port dont on expose les horaires (miroir du contrat `/api/sites`). */
+export interface Site {
+  id: string;
+  label: string;
 }
 
 /** Décalages Navihan (en minutes) appliqués aux heures de Port-Tudy. */

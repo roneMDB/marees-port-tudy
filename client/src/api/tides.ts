@@ -1,4 +1,4 @@
-import type { TideOutput, TidesMeta } from '../types';
+import type { Site, TideOutput, TidesMeta } from '../types';
 
 /** Récupère du JSON, en remontant le message d'erreur de l'API si présent. */
 export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -16,16 +16,22 @@ export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> 
   return res.json() as Promise<T>;
 }
 
-/** GET /api/tides — marées sur une plage optionnelle (défaut = toute la plage disponible). */
-export function getTides(from?: string, to?: string): Promise<TideOutput> {
+/** GET /api/tides — marées d'un port sur une plage optionnelle (défaut = toute la plage). */
+export function getTides(from?: string, to?: string, site?: string): Promise<TideOutput> {
   const params = new URLSearchParams();
   if (from) params.set('from', from);
   if (to) params.set('to', to);
+  if (site) params.set('site', site);
   const qs = params.toString();
   return fetchJson<TideOutput>(`/api/tides${qs ? `?${qs}` : ''}`);
 }
 
-/** GET /api/tides/meta — bornes de dates disponibles + offsets Navihan. */
+/** GET /api/tides/meta — bornes de dates disponibles + offsets Navihan (référence Port-Tudy). */
 export function getMeta(): Promise<TidesMeta> {
   return fetchJson<TidesMeta>('/api/tides/meta');
+}
+
+/** GET /api/sites — liste des ports disponibles. */
+export function getSites(): Promise<Site[]> {
+  return fetchJson<Site[]>('/api/sites');
 }

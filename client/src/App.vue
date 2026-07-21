@@ -1,10 +1,15 @@
 <script setup lang="ts">
+import { onMounted } from 'vue';
 import Dashboard from './views/Dashboard.vue';
 import { useTheme } from './composables/useTheme';
 import { useClock } from './composables/useClock';
+import { useSite } from './composables/useSite';
 
 const { isDark, toggle } = useTheme();
 const { clock } = useClock();
+const { sites, siteId, load: loadSites } = useSite();
+
+onMounted(loadSites);
 </script>
 
 <template>
@@ -18,6 +23,19 @@ const { clock } = useClock();
         <span class="navbar-text app-clock text-capitalize d-none d-sm-inline">
           <i class="bi bi-clock me-1"></i>{{ clock }}
         </span>
+        <div class="d-flex align-items-center">
+          <label for="siteSelect" class="visually-hidden">Port</label>
+          <i class="bi bi-geo-alt-fill text-white-50 me-1" aria-hidden="true"></i>
+          <select
+            id="siteSelect"
+            class="form-select form-select-sm app-site-select"
+            v-model="siteId"
+            title="Port affiché"
+            aria-label="Port affiché"
+          >
+            <option v-for="s in sites" :key="s.id" :value="s.id">{{ s.label }}</option>
+          </select>
+        </div>
         <button
           type="button"
           class="btn btn-outline-light btn-sm"
@@ -51,5 +69,11 @@ const { clock } = useClock();
 /* Chiffres à chasse fixe : l'horloge ne « saute » pas à chaque seconde. */
 .app-clock {
   font-variant-numeric: tabular-nums;
+}
+
+/* Sélecteur de port compact dans la navbar. */
+.app-site-select {
+  width: auto;
+  min-width: 7.5rem;
 }
 </style>

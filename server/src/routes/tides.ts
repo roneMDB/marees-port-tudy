@@ -1,28 +1,60 @@
 import { Router } from 'express';
 import { Logger } from 'pino';
 import Maree from '../service/Maree';
-import { TIDES_FILE } from '../config/dataDir';
+import { tidesFileForSite } from '../config/dataDir';
+import { SITES, DEFAULT_SITE_ID, getSite } from '../config/sites';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * Routeur des marées, monté sous `/api` :
  * - `GET /health` : sonde de vie.
- * - `GET /tides/meta` : bornes de dates disponibles + offsets Navihan.
- * - `GET /tides?from=YYYY-MM-DD&to=YYYY-MM-DD` : marées sur une plage inclusive
- *   (sans paramètres → toute la plage disponible). 400 si dates malformées ou `from > to`.
+ * - `GET /sites` : liste des ports disponibles (`{ id, label }`).
+ * - `GET /tides/meta?site=` : bornes de dates disponibles + offsets Navihan (site par défaut si absent).
+ * - `GET /tides?site=&from=&to=` : marées d'un site sur une plage inclusive
+ *   (sans plage → toute la plage disponible). 400 si dates malformées, `from > to`, ou site inconnu.
  */
 export function createTidesRouter(logger: Logger): Router {
   const router = Router();
-  const maree = new Maree(logger, { dataFile: TIDES_FILE });
+
+  // Une instance `Maree` par site (mémoïsée : `readTides` relit le fichier à chaque appel).
+  const mareeBySite = new Map<string, Maree>();
+  function mareeForSite(siteId: string): Maree {
+    let maree = mareeBySite.get(siteId);
+    if (!maree) {
+      const site = getSite(siteId)!; // l'appelant a déjà validé le site
+      maree = new Maree(logger, {
+        siteId: site.id,
+        timezone: site.timezone,
+        dataFile: tidesFileForSite(site.id)
+      });
+      mareeBySite.set(siteId, maree);
+    }
+    return maree;
+  }
+
+  /** Résout le paramètre `site` (défaut = site historique) ; `null` si explicitement inconnu. */
+  function resolveSiteId(raw: unknown): string | null {
+    if (raw === undefined) return DEFAULT_SITE_ID;
+    const id = String(raw);
+    return getSite(id) ? id : null;
+  }
 
   router.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
 
-  router.get('/tides/meta', (_req, res, next) => {
+  router.get('/sites', (_req, res) => {
+    res.json(SITES.map(({ id, label }) => ({ id, label })));
+  });
+
+  router.get('/tides/meta', (req, res, next) => {
     try {
-      res.json(maree.getMeta());
+      const siteId = resolveSiteId(req.query.site);
+      if (!siteId) {
+        return res.status(400).json({ error: 'Paramètre "site" invalide : port inconnu.' });
+      }
+      res.json(mareeForSite(siteId).getMeta());
     } catch (err) {
       next(err);
     }
@@ -30,6 +62,11 @@ export function createTidesRouter(logger: Logger): Router {
 
   router.get('/tides', async (req, res, next) => {
     try {
+      const siteId = resolveSiteId(req.query.site);
+      if (!siteId) {
+        return res.status(400).json({ error: 'Paramètre "site" invalide : port inconnu.' });
+      }
+
       const from = req.query.from ? String(req.query.from) : undefined;
       const to = req.query.to ? String(req.query.to) : undefined;
 
@@ -43,7 +80,7 @@ export function createTidesRouter(logger: Logger): Router {
         return res.status(400).json({ error: 'Plage invalide : "from" doit être antérieur ou égal à "to".' });
       }
 
-      const data = await maree.getTidesRange(from, to);
+      const data = await mareeForSite(siteId).getTidesRange(from, to);
       res.json(data);
     } catch (err) {
       next(err);

@@ -11,6 +11,12 @@ dérivées « Navihan ». Un **client Vue 3** (Vite + Bootstrap 5.3 + Chart.js) 
 
 Monorepo **npm workspaces** : `server/` + `client/`. (La version CLI historique a été retirée.)
 
+**Multi-sites** : plusieurs ports sont exposés (`server/src/config/sites.ts` : Port-Tudy, Étel).
+Un **sélecteur de port** (navbar) bascule l'affichage. **Les heures Navihan restent toujours
+dérivées de Port-Tudy** (port de référence), quel que soit le port sélectionné : choisir un autre
+port ne fait que **substituer les colonnes Heure/Hauteur** (par appariement jour + type + rang),
+Navihan et coefficient restant ceux de Port-Tudy.
+
 ## Commandes
 
 - `npm install` — installe les deux workspaces.
@@ -34,9 +40,12 @@ qui renvoie **400** sur erreur client — ex. JSON invalide — sinon 500) → r
 
 Routes tides (`src/routes/tides.ts`) :
 - `GET /api/health` → `{ status: 'ok' }`.
-- `GET /api/tides/meta` → `Maree.getMeta()` (bornes min/max + offsets Navihan).
-- `GET /api/tides?from&to` → `Maree.getTidesRange(from, to)` (**plage inclusive**, défaut =
+- `GET /api/sites` → liste des ports `{ id, label }` (depuis `config/sites.ts`).
+- `GET /api/tides/meta?site` → `Maree.getMeta()` (bornes min/max + offsets Navihan).
+- `GET /api/tides?site&from&to` → `Maree.getTidesRange(from, to)` (**plage inclusive**, défaut =
   toute la plage disponible). Valide le format `YYYY-MM-DD` et `from <= to`, sinon **400**.
+- Le paramètre `?site=` (défaut `DEFAULT_SITE_ID` = `port-tudy`) sélectionne le fichier
+  d'horaires ; **site inconnu → 400**. Une instance `Maree` est mémoïsée par site.
 
 Routes settings (`src/routes/settings.ts`) :
 - `GET /api/settings` → `readSettings()` (défauts si non initialisé).
@@ -59,10 +68,13 @@ Service `src/service/Maree.ts` (données uniquement, aucun rendu) :
 - Types exportés (contrat REST) : `Extreme`, `TideOutput`, `TidesMeta`.
 
 **Répertoire de données** (`src/config/dataDir.ts`) : `DATA_DIR` (env, défaut `<cwd>/data`)
-contient `settings.json` et `horaires_marees_port-tudy.json` (isolés pour un volume Docker).
-`ensureDataDir()` crée le dossier et **copie les horaires depuis la graine** (`dist/resources/`,
-via `__dirname`) s'ils sont absents (volume vide au 1er run). `ensureSettingsFile()` écrit les
-défauts si `settings.json` manque.
+contient `settings.json` et **un fichier d'horaires par site** (`horaires_marees_port-tudy.json`,
+`horaires_marees_etel.json`, isolés pour un volume Docker). `ensureDataDir()` crée le dossier et,
+**pour chaque site de `SITES`**, copie le fichier depuis la graine (`dist/resources/`, via
+`__dirname`) s'il est absent (volume vide au 1er run). `tidesFileForSite(id)` résout le chemin
+runtime d'un site. `ensureSettingsFile()` écrit les défauts si `settings.json` manque. Les données
+d'Étel ne sont pas encore fournies : la graine `horaires_marees_etel.json` est un objet vide `{}`
+(le port s'affiche « Aucune marée » jusqu'à ce qu'on la remplisse, comme pour Port-Tudy).
 
 **Config** (`src/service/SettingsStore.ts`) : type `Settings` (`startMode`/`startDate`/`rangeDays`,
 `navihan` en minutes, `aFlotDays`), `DEFAULT_SETTINGS`, `sanitizeSettings` (validation/bornage),
@@ -81,17 +93,25 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
 
 - `src/types.ts` — miroir du contrat REST (`Extreme`, `TideOutput`, `TidesMeta`, `FlatTide`,
   `TideFilters`) ; découplage via le JSON, **pas de package partagé**.
-- `src/api/tides.ts` — `getTides`, `getMeta` (`fetch`, chemins `/api/...`).
-- `src/lib/tides.ts` — `flatten()` (aplatit `days` en `FlatTide[]` triés) et `filterTides()`
-  (plage de dates inclusive, type, coef min) — **fonctions pures, testées**.
+- `src/api/tides.ts` — `getTides(from,to,site)`, `getMeta`, `getSites` (`fetch`, chemins `/api/...`).
+- `src/lib/tides.ts` — `flatten()` (aplatit `days` en `FlatTide[]` triés), `filterTides()`
+  (plage de dates inclusive, type, coef min) et `withSiteTimes(reference, site)` (substitue
+  `displayTime`/`displayHeight` du port sélectionné sur la référence Port-Tudy, appariement jour +
+  type + rang) — **fonctions pures, testées**.
 - `src/lib/format.ts` — `formatDate`, `formatHeight`.
 - `src/composables/useSettings.ts` — **config serveur** (singleton) : `settings` réactif (défauts
   puis hydraté via `GET /api/settings`), `load()`, et **sauvegarde auto débouncée** (~500 ms → `PUT`).
   Un flag `hydrating` empêche l'hydratation initiale de déclencher un save. `src/api/settings.ts`
   (`getSettings`/`saveSettings`) réutilise `fetchJson` (exporté de `api/tides.ts`).
-- `src/composables/useTides.ts` — charge config + meta + marées au montage, expose `loading/error/
-  meta/settings/filters/dateWindow/filteredTides`. `filters` = **filtres éphémères** (`type`,
-  `minCoef`) uniquement. La fenêtre de dates dérive de `resolveWindow(settings, minDate, maxDate)`
+- `src/composables/useSite.ts` — **port sélectionné** (singleton, persisté en `localStorage`
+  `marees-site`, comme le thème) : `sites` (hydraté via `getSites()`), `siteId`, `current`,
+  `isReference` (= `port-tudy`, référence Navihan), `setSite`, `load`. Sélecteur dans `App.vue`.
+- `src/composables/useTides.ts` — charge config + sites + meta + marées au montage, expose `loading/
+  error/meta/settings/filters/dateWindow/filteredTides/allTides`. `allTides` = **référence
+  Port-Tudy** ; les marées du port sélectionné (`≠` référence) sont chargées en plus et fusionnées
+  via `withSiteTimes` dans `filteredTides` (heure/hauteur substituées, Navihan/coef inchangés).
+  `watch(siteId)` recharge à la bascule. `filters` = **filtres éphémères** (`type`, `minCoef`)
+  uniquement. La fenêtre de dates dérive de `resolveWindow(settings, minDate, maxDate)`
   (`src/lib/tides.ts`, pure/testée) : début = aujourd'hui (`today`) ou `startDate` (`date`), fin =
   début + `rangeDays`, bornée. Filtrage **côté client**.
 - `src/composables/useNavihan.ts` + `src/lib/navihan.ts` — décalages Navihan **éditables** (basse
@@ -120,8 +140,10 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   linéaire en minutes ; coef du jour au titre. `CoefChart.vue` — barres des coefficients sur la
   sélection filtrée, nombre de jours dans le titre. Tous deux reçoivent leurs données du Dashboard
   (`HeightChart` = `allTides`, indépendant du filtre ; `CoefChart` = `filteredTides`).
-- Colonnes du tableau (`TideTable.vue`) = Date, Type, Heure Port-Tudy, Hauteur, Coef, Navihan
-  basse mer, Navihan pleine mer, Navihan à flot. Tri par colonne. Lignes colorées par type.
+- Colonnes du tableau (`TideTable.vue`) = Date, Type, **Heure ‹port sélectionné›**, Hauteur, Coef,
+  Navihan basse mer, Navihan pleine mer, Navihan à flot. La colonne Heure/Hauteur suit le port
+  sélectionné (prop `siteLabel` + `displayTime`/`displayHeight`, « — » si pas de marée appariée) ;
+  Coef et Navihan restent Port-Tudy. Tri par colonne. Lignes colorées par type.
 
 Le proxy Vite (`vite.config.ts`) redirige `/api` vers `:3000` en dev.
 
@@ -157,4 +179,6 @@ racine reste pour le local.
   dans `DATA_DIR`.
 - Les tests du service figent l'horloge (`vi.useFakeTimers`) pour `getTides` (part de
   `new Date()`) ; `getTidesRange` à bornes explicites en est indépendant.
-- Couverture actuelle des données : 2026-06-01 → 2026-10-31.
+- Couverture actuelle des données Port-Tudy : 2026-06-01 → 2026-10-31. **Étel : pas encore de
+  données** (graine `{}`) ; pour les fournir, remplir `server/src/resources/horaires_marees_etel.json`
+  (même format) puis recréer le `DATA_DIR`/volume, ou éditer directement le fichier dans `DATA_DIR`.

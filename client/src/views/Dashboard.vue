@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useTides } from '../composables/useTides';
+import { useSite } from '../composables/useSite';
 import SettingsPanel from '../components/SettingsPanel.vue';
 import StatCards from '../components/StatCards.vue';
 import WeatherCard from '../components/WeatherCard.vue';
@@ -9,6 +10,7 @@ import HeightChart from '../components/HeightChart.vue';
 import CoefChart from '../components/CoefChart.vue';
 
 const { loading, error, meta, filters, filteredTides, allTides, reload } = useTides();
+const { current, isReference } = useSite();
 
 function resetFilters(): void {
   filters.type = 'all';
@@ -34,6 +36,9 @@ function resetFilters(): void {
       <div v-if="meta" class="text-muted small mb-2">
         <i class="bi bi-geo-alt-fill me-1"></i>Navihan · Belz
         <span class="mx-1">—</span> réf. marées de Port-Tudy (île de Groix)
+        <template v-if="!isReference">
+          <span class="mx-1">·</span> heures affichées : {{ current.label }}
+        </template>
         <span class="mx-1">·</span> {{ meta.timezone }}
       </div>
 
@@ -58,7 +63,7 @@ function resetFilters(): void {
         <div class="card-header bg-body-tertiary fw-semibold">
           <i class="bi bi-table me-1"></i> Horaires détaillés
         </div>
-        <TideTable :tides="filteredTides" />
+        <TideTable :tides="filteredTides" :site-label="current.label" />
       </div>
     </template>
   </div>

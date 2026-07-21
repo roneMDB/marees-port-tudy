@@ -1,0 +1,2866 @@
+{
+  "2026-07-01": [
+    {
+      "maree": "haute",
+      "heure": "06:38",
+      "hauteur": "4.41",
+      "coefficient": "70"
+    },
+    {
+      "maree": "haute",
+      "heure": "18:44",
+      "hauteur": "4.62",
+      "coefficient": "71"
+    },
+    {
+      "maree": "basse",
+      "heure": "01:01",
+      "hauteur": "1.79"
+    },
+    {
+      "maree": "basse",
+      "heure": "13:10",
+      "hauteur": "1.83"
+    }
+  ],
+  "2026-07-02": [
+    {
+      "maree": "haute",
+      "heure": "07:10",
+      "hauteur": "4.44",
+      "coefficient": "71"
+    },
+    {
+      "maree": "haute",
+      "heure": "19:18",
+      "hauteur": "4.64",
+      "coefficient": "72"
+    },
+    {
+      "maree": "basse",
+      "heure": "01:39",
+      "hauteur": "1.75"
+    },
+    {
+      "maree": "basse",
+      "heure": "13:47",
+      "hauteur": "1.83"
+    }
+  ],
+  "2026-07-03": [
+    {
+      "maree": "haute",
+      "heure": "07:42",
+      "hauteur": "4.44",
+      "coefficient": "72"
+    },
+    {
+      "maree": "haute",
+      "heure": "19:55",
+      "hauteur": "4.63",
+      "coefficient": "71"
+    },
+    {
+      "maree": "basse",
+      "heure": "02:15",
+      "hauteur": "1.73"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:23",
+      "hauteur": "1.84"
+    }
+  ],
+  "2026-07-04": [
+    {
+      "maree": "haute",
+      "heure": "08:18",
+      "hauteur": "4.40",
+      "coefficient": "70"
+    },
+    {
+      "maree": "haute",
+      "heure": "20:35",
+      "hauteur": "4.59",
+      "coefficient": "69"
+    },
+    {
+      "maree": "basse",
+      "heure": "02:50",
+      "hauteur": "1.74"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:59",
+      "hauteur": "1.86"
+    }
+  ],
+  "2026-07-05": [
+    {
+      "maree": "haute",
+      "heure": "08:57",
+      "hauteur": "4.34",
+      "coefficient": "68"
+    },
+    {
+      "maree": "haute",
+      "heure": "21:18",
+      "hauteur": "4.51",
+      "coefficient": "66"
+    },
+    {
+      "maree": "basse",
+      "heure": "03:24",
+      "hauteur": "1.77"
+    },
+    {
+      "maree": "basse",
+      "heure": "15:36",
+      "hauteur": "1.89"
+    }
+  ],
+  "2026-07-06": [
+    {
+      "maree": "haute",
+      "heure": "09:39",
+      "hauteur": "4.24",
+      "coefficient": "64"
+    },
+    {
+      "maree": "haute",
+      "heure": "22:05",
+      "hauteur": "4.41",
+      "coefficient": "61"
+    },
+    {
+      "maree": "basse",
+      "heure": "04:01",
+      "hauteur": "1.83"
+    },
+    {
+      "maree": "basse",
+      "heure": "16:17",
+      "hauteur": "1.94"
+    }
+  ],
+  "2026-07-07": [
+    {
+      "maree": "haute",
+      "heure": "10:28",
+      "hauteur": "4.14",
+      "coefficient": "59"
+    },
+    {
+      "maree": "haute",
+      "heure": "23:00",
+      "hauteur": "4.30",
+      "coefficient": "56"
+    },
+    {
+      "maree": "basse",
+      "heure": "04:43",
+      "hauteur": "1.91"
+    },
+    {
+      "maree": "basse",
+      "heure": "17:06",
+      "hauteur": "2.01"
+    }
+  ],
+  "2026-07-08": [
+    {
+      "maree": "haute",
+      "heure": "11:32",
+      "hauteur": "4.08",
+      "coefficient": "54"
+    },
+    {
+      "maree": "basse",
+      "heure": "05:34",
+      "hauteur": "2.00"
+    },
+    {
+      "maree": "basse",
+      "heure": "18:07",
+      "hauteur": "2.07"
+    }
+  ],
+  "2026-07-09": [
+    {
+      "maree": "haute",
+      "heure": "00:07",
+      "hauteur": "4.23",
+      "coefficient": "52"
+    },
+    {
+      "maree": "haute",
+      "heure": "12:49",
+      "hauteur": "4.09",
+      "coefficient": "52"
+    },
+    {
+      "maree": "basse",
+      "heure": "06:39",
+      "hauteur": "2.07"
+    },
+    {
+      "maree": "basse",
+      "heure": "19:20",
+      "hauteur": "2.08"
+    }
+  ],
+  "2026-07-10": [
+    {
+      "maree": "haute",
+      "heure": "01:18",
+      "hauteur": "4.22",
+      "coefficient": "52"
+    },
+    {
+      "maree": "haute",
+      "heure": "13:58",
+      "hauteur": "4.21",
+      "coefficient": "53"
+    },
+    {
+      "maree": "basse",
+      "heure": "07:53",
+      "hauteur": "2.06"
+    },
+    {
+      "maree": "basse",
+      "heure": "20:30",
+      "hauteur": "2.00"
+    }
+  ],
+  "2026-07-11": [
+    {
+      "maree": "haute",
+      "heure": "02:28",
+      "hauteur": "4.28",
+      "coefficient": "56"
+    },
+    {
+      "maree": "haute",
+      "heure": "15:04",
+      "hauteur": "4.38",
+      "coefficient": "60"
+    },
+    {
+      "maree": "basse",
+      "heure": "09:01",
+      "hauteur": "1.96"
+    },
+    {
+      "maree": "basse",
+      "heure": "21:38",
+      "hauteur": "1.88"
+    }
+  ],
+  "2026-07-12": [
+    {
+      "maree": "haute",
+      "heure": "03:37",
+      "hauteur": "4.41",
+      "coefficient": "65"
+    },
+    {
+      "maree": "haute",
+      "heure": "16:06",
+      "hauteur": "4.58",
+      "coefficient": "70"
+    },
+    {
+      "maree": "basse",
+      "heure": "10:07",
+      "hauteur": "1.86"
+    },
+    {
+      "maree": "basse",
+      "heure": "22:49",
+      "hauteur": "1.76"
+    }
+  ],
+  "2026-07-13": [
+    {
+      "maree": "haute",
+      "heure": "04:41",
+      "hauteur": "4.57",
+      "coefficient": "76"
+    },
+    {
+      "maree": "haute",
+      "heure": "17:03",
+      "hauteur": "4.77",
+      "coefficient": "81"
+    },
+    {
+      "maree": "basse",
+      "heure": "11:15",
+      "hauteur": "1.76"
+    }
+  ],
+  "2026-07-14": [
+    {
+      "maree": "haute",
+      "heure": "05:37",
+      "hauteur": "4.72",
+      "coefficient": "86"
+    },
+    {
+      "maree": "haute",
+      "heure": "17:54",
+      "hauteur": "4.92",
+      "coefficient": "90"
+    },
+    {
+      "maree": "basse",
+      "heure": "00:00",
+      "hauteur": "1.61"
+    },
+    {
+      "maree": "basse",
+      "heure": "12:20",
+      "hauteur": "1.66"
+    }
+  ],
+  "2026-07-15": [
+    {
+      "maree": "haute",
+      "heure": "06:27",
+      "hauteur": "4.82",
+      "coefficient": "94"
+    },
+    {
+      "maree": "haute",
+      "heure": "18:41",
+      "hauteur": "5.00",
+      "coefficient": "96"
+    },
+    {
+      "maree": "basse",
+      "heure": "01:00",
+      "hauteur": "1.47"
+    },
+    {
+      "maree": "basse",
+      "heure": "13:16",
+      "hauteur": "1.59"
+    }
+  ],
+  "2026-07-16": [
+    {
+      "maree": "haute",
+      "heure": "07:11",
+      "hauteur": "4.85",
+      "coefficient": "98"
+    },
+    {
+      "maree": "haute",
+      "heure": "19:25",
+      "hauteur": "5.02",
+      "coefficient": "98"
+    },
+    {
+      "maree": "basse",
+      "heure": "01:51",
+      "hauteur": "1.38"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:03",
+      "hauteur": "1.56"
+    }
+  ],
+  "2026-07-17": [
+    {
+      "maree": "haute",
+      "heure": "07:53",
+      "hauteur": "4.81",
+      "coefficient": "97"
+    },
+    {
+      "maree": "haute",
+      "heure": "20:06",
+      "hauteur": "4.96",
+      "coefficient": "94"
+    },
+    {
+      "maree": "basse",
+      "heure": "02:35",
+      "hauteur": "1.37"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:45",
+      "hauteur": "1.57"
+    }
+  ],
+  "2026-07-18": [
+    {
+      "maree": "haute",
+      "heure": "08:32",
+      "hauteur": "4.70",
+      "coefficient": "91"
+    },
+    {
+      "maree": "haute",
+      "heure": "20:46",
+      "hauteur": "4.83",
+      "coefficient": "86"
+    },
+    {
+      "maree": "basse",
+      "heure": "03:14",
+      "hauteur": "1.43"
+    },
+    {
+      "maree": "basse",
+      "heure": "15:21",
+      "hauteur": "1.62"
+    }
+  ],
+  "2026-07-19": [
+    {
+      "maree": "haute",
+      "heure": "09:11",
+      "hauteur": "4.53",
+      "coefficient": "81"
+    },
+    {
+      "maree": "haute",
+      "heure": "21:26",
+      "hauteur": "4.63",
+      "coefficient": "75"
+    },
+    {
+      "maree": "basse",
+      "heure": "03:50",
+      "hauteur": "1.56"
+    },
+    {
+      "maree": "basse",
+      "heure": "15:56",
+      "hauteur": "1.72"
+    }
+  ],
+  "2026-07-20": [
+    {
+      "maree": "haute",
+      "heure": "09:51",
+      "hauteur": "4.33",
+      "coefficient": "69"
+    },
+    {
+      "maree": "haute",
+      "heure": "22:09",
+      "hauteur": "4.40",
+      "coefficient": "63"
+    },
+    {
+      "maree": "basse",
+      "heure": "04:25",
+      "hauteur": "1.74"
+    },
+    {
+      "maree": "basse",
+      "heure": "16:35",
+      "hauteur": "1.87"
+    }
+  ],
+  "2026-07-21": [
+    {
+      "maree": "haute",
+      "heure": "10:39",
+      "hauteur": "4.13",
+      "coefficient": "57"
+    },
+    {
+      "maree": "haute",
+      "heure": "23:01",
+      "hauteur": "4.15",
+      "coefficient": "50"
+    },
+    {
+      "maree": "basse",
+      "heure": "05:04",
+      "hauteur": "1.95"
+    },
+    {
+      "maree": "basse",
+      "heure": "17:20",
+      "hauteur": "2.07"
+    }
+  ],
+  "2026-07-22": [
+    {
+      "maree": "haute",
+      "heure": "11:44",
+      "hauteur": "3.96",
+      "coefficient": "45"
+    },
+    {
+      "maree": "basse",
+      "heure": "05:53",
+      "hauteur": "2.19"
+    },
+    {
+      "maree": "basse",
+      "heure": "18:19",
+      "hauteur": "2.27"
+    }
+  ],
+  "2026-07-23": [
+    {
+      "maree": "haute",
+      "heure": "00:14",
+      "hauteur": "3.93",
+      "coefficient": "40"
+    },
+    {
+      "maree": "haute",
+      "heure": "13:05",
+      "hauteur": "3.89",
+      "coefficient": "37"
+    },
+    {
+      "maree": "basse",
+      "heure": "06:59",
+      "hauteur": "2.36"
+    },
+    {
+      "maree": "basse",
+      "heure": "19:35",
+      "hauteur": "2.38"
+    }
+  ],
+  "2026-07-24": [
+    {
+      "maree": "haute",
+      "heure": "01:34",
+      "hauteur": "3.83",
+      "coefficient": "35"
+    },
+    {
+      "maree": "haute",
+      "heure": "14:19",
+      "hauteur": "3.93",
+      "coefficient": "35"
+    },
+    {
+      "maree": "basse",
+      "heure": "08:14",
+      "hauteur": "2.40"
+    },
+    {
+      "maree": "basse",
+      "heure": "20:49",
+      "hauteur": "2.35"
+    }
+  ],
+  "2026-07-25": [
+    {
+      "maree": "haute",
+      "heure": "02:51",
+      "hauteur": "3.84",
+      "coefficient": "37"
+    },
+    {
+      "maree": "haute",
+      "heure": "15:22",
+      "hauteur": "4.06",
+      "coefficient": "40"
+    },
+    {
+      "maree": "basse",
+      "heure": "09:18",
+      "hauteur": "2.31"
+    },
+    {
+      "maree": "basse",
+      "heure": "21:49",
+      "hauteur": "2.23"
+    }
+  ],
+  "2026-07-26": [
+    {
+      "maree": "haute",
+      "heure": "03:55",
+      "hauteur": "3.96",
+      "coefficient": "44"
+    },
+    {
+      "maree": "haute",
+      "heure": "16:13",
+      "hauteur": "4.23",
+      "coefficient": "48"
+    },
+    {
+      "maree": "basse",
+      "heure": "10:10",
+      "hauteur": "2.17"
+    },
+    {
+      "maree": "basse",
+      "heure": "22:39",
+      "hauteur": "2.08"
+    }
+  ],
+  "2026-07-27": [
+    {
+      "maree": "haute",
+      "heure": "04:43",
+      "hauteur": "4.11",
+      "coefficient": "53"
+    },
+    {
+      "maree": "haute",
+      "heure": "16:53",
+      "hauteur": "4.38",
+      "coefficient": "57"
+    },
+    {
+      "maree": "basse",
+      "heure": "10:54",
+      "hauteur": "2.03"
+    },
+    {
+      "maree": "basse",
+      "heure": "23:23",
+      "hauteur": "1.93"
+    }
+  ],
+  "2026-07-28": [
+    {
+      "maree": "haute",
+      "heure": "05:20",
+      "hauteur": "4.26",
+      "coefficient": "61"
+    },
+    {
+      "maree": "haute",
+      "heure": "17:26",
+      "hauteur": "4.51",
+      "coefficient": "65"
+    },
+    {
+      "maree": "basse",
+      "heure": "11:35",
+      "hauteur": "1.91"
+    }
+  ],
+  "2026-07-29": [
+    {
+      "maree": "haute",
+      "heure": "05:52",
+      "hauteur": "4.39",
+      "coefficient": "69"
+    },
+    {
+      "maree": "haute",
+      "heure": "17:56",
+      "hauteur": "4.63",
+      "coefficient": "72"
+    },
+    {
+      "maree": "basse",
+      "heure": "00:05",
+      "hauteur": "1.81"
+    },
+    {
+      "maree": "basse",
+      "heure": "12:16",
+      "hauteur": "1.81"
+    }
+  ],
+  "2026-07-30": [
+    {
+      "maree": "haute",
+      "heure": "06:20",
+      "hauteur": "4.50",
+      "coefficient": "75"
+    },
+    {
+      "maree": "haute",
+      "heure": "18:26",
+      "hauteur": "4.72",
+      "coefficient": "78"
+    },
+    {
+      "maree": "basse",
+      "heure": "00:45",
+      "hauteur": "1.71"
+    },
+    {
+      "maree": "basse",
+      "heure": "12:56",
+      "hauteur": "1.73"
+    }
+  ],
+  "2026-07-31": [
+    {
+      "maree": "haute",
+      "heure": "06:50",
+      "hauteur": "4.58",
+      "coefficient": "80"
+    },
+    {
+      "maree": "haute",
+      "heure": "18:58",
+      "hauteur": "4.79",
+      "coefficient": "82"
+    },
+    {
+      "maree": "basse",
+      "heure": "01:24",
+      "hauteur": "1.64"
+    },
+    {
+      "maree": "basse",
+      "heure": "13:35",
+      "hauteur": "1.69"
+    }
+  ],
+  "2026-08-01": [
+    {
+      "maree": "haute",
+      "heure": "07:21",
+      "hauteur": "4.62",
+      "coefficient": "83"
+    },
+    {
+      "maree": "haute",
+      "heure": "19:33",
+      "hauteur": "4.81",
+      "coefficient": "83"
+    },
+    {
+      "maree": "basse",
+      "heure": "02:01",
+      "hauteur": "1.60"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:11",
+      "hauteur": "1.68"
+    }
+  ],
+  "2026-08-02": [
+    {
+      "maree": "haute",
+      "heure": "07:54",
+      "hauteur": "4.61",
+      "coefficient": "83"
+    },
+    {
+      "maree": "haute",
+      "heure": "20:10",
+      "hauteur": "4.78",
+      "coefficient": "82"
+    },
+    {
+      "maree": "basse",
+      "heure": "02:35",
+      "hauteur": "1.60"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:44",
+      "hauteur": "1.68"
+    }
+  ],
+  "2026-08-03": [
+    {
+      "maree": "haute",
+      "heure": "08:29",
+      "hauteur": "4.55",
+      "coefficient": "80"
+    },
+    {
+      "maree": "haute",
+      "heure": "20:49",
+      "hauteur": "4.68",
+      "coefficient": "77"
+    },
+    {
+      "maree": "basse",
+      "heure": "03:06",
+      "hauteur": "1.63"
+    },
+    {
+      "maree": "basse",
+      "heure": "15:17",
+      "hauteur": "1.72"
+    }
+  ],
+  "2026-08-04": [
+    {
+      "maree": "haute",
+      "heure": "09:06",
+      "hauteur": "4.44",
+      "coefficient": "74"
+    },
+    {
+      "maree": "haute",
+      "heure": "21:31",
+      "hauteur": "4.53",
+      "coefficient": "70"
+    },
+    {
+      "maree": "basse",
+      "heure": "03:38",
+      "hauteur": "1.69"
+    },
+    {
+      "maree": "basse",
+      "heure": "15:53",
+      "hauteur": "1.79"
+    }
+  ],
+  "2026-08-05": [
+    {
+      "maree": "haute",
+      "heure": "09:46",
+      "hauteur": "4.30",
+      "coefficient": "66"
+    },
+    {
+      "maree": "haute",
+      "heure": "22:21",
+      "hauteur": "4.35",
+      "coefficient": "61"
+    },
+    {
+      "maree": "basse",
+      "heure": "04:14",
+      "hauteur": "1.79"
+    },
+    {
+      "maree": "basse",
+      "heure": "16:36",
+      "hauteur": "1.91"
+    }
+  ],
+  "2026-08-06": [
+    {
+      "maree": "haute",
+      "heure": "10:44",
+      "hauteur": "4.15",
+      "coefficient": "57"
+    },
+    {
+      "maree": "haute",
+      "heure": "23:31",
+      "hauteur": "4.17",
+      "coefficient": "52"
+    },
+    {
+      "maree": "basse",
+      "heure": "05:00",
+      "hauteur": "1.94"
+    },
+    {
+      "maree": "basse",
+      "heure": "17:34",
+      "hauteur": "2.05"
+    }
+  ],
+  "2026-08-07": [
+    {
+      "maree": "haute",
+      "heure": "12:08",
+      "hauteur": "4.06",
+      "coefficient": "48"
+    },
+    {
+      "maree": "basse",
+      "heure": "06:02",
+      "hauteur": "2.11"
+    },
+    {
+      "maree": "basse",
+      "heure": "18:50",
+      "hauteur": "2.14"
+    }
+  ],
+  "2026-08-08": [
+    {
+      "maree": "haute",
+      "heure": "00:53",
+      "hauteur": "4.07",
+      "coefficient": "46"
+    },
+    {
+      "maree": "haute",
+      "heure": "13:36",
+      "hauteur": "4.10",
+      "coefficient": "46"
+    },
+    {
+      "maree": "basse",
+      "heure": "07:21",
+      "hauteur": "2.18"
+    },
+    {
+      "maree": "basse",
+      "heure": "20:09",
+      "hauteur": "2.10"
+    }
+  ],
+  "2026-08-09": [
+    {
+      "maree": "haute",
+      "heure": "02:19",
+      "hauteur": "4.11",
+      "coefficient": "48"
+    },
+    {
+      "maree": "haute",
+      "heure": "14:59",
+      "hauteur": "4.29",
+      "coefficient": "53"
+    },
+    {
+      "maree": "basse",
+      "heure": "08:39",
+      "hauteur": "2.10"
+    },
+    {
+      "maree": "basse",
+      "heure": "21:25",
+      "hauteur": "1.95"
+    }
+  ],
+  "2026-08-10": [
+    {
+      "maree": "haute",
+      "heure": "03:38",
+      "hauteur": "4.29",
+      "coefficient": "59"
+    },
+    {
+      "maree": "haute",
+      "heure": "16:05",
+      "hauteur": "4.55",
+      "coefficient": "66"
+    },
+    {
+      "maree": "basse",
+      "heure": "09:54",
+      "hauteur": "1.96"
+    },
+    {
+      "maree": "basse",
+      "heure": "22:44",
+      "hauteur": "1.76"
+    }
+  ],
+  "2026-08-11": [
+    {
+      "maree": "haute",
+      "heure": "04:40",
+      "hauteur": "4.53",
+      "coefficient": "74"
+    },
+    {
+      "maree": "haute",
+      "heure": "16:59",
+      "hauteur": "4.79",
+      "coefficient": "81"
+    },
+    {
+      "maree": "basse",
+      "heure": "11:09",
+      "hauteur": "1.79"
+    },
+    {
+      "maree": "basse",
+      "heure": "23:53",
+      "hauteur": "1.56"
+    }
+  ],
+  "2026-08-12": [
+    {
+      "maree": "haute",
+      "heure": "05:29",
+      "hauteur": "4.74",
+      "coefficient": "87"
+    },
+    {
+      "maree": "haute",
+      "heure": "17:44",
+      "hauteur": "4.97",
+      "coefficient": "93"
+    },
+    {
+      "maree": "basse",
+      "heure": "12:12",
+      "hauteur": "1.62"
+    }
+  ],
+  "2026-08-13": [
+    {
+      "maree": "haute",
+      "heure": "06:11",
+      "hauteur": "4.87",
+      "coefficient": "97"
+    },
+    {
+      "maree": "haute",
+      "heure": "18:24",
+      "hauteur": "5.07",
+      "coefficient": "100"
+    },
+    {
+      "maree": "basse",
+      "heure": "00:48",
+      "hauteur": "1.40"
+    },
+    {
+      "maree": "basse",
+      "heure": "13:03",
+      "hauteur": "1.51"
+    }
+  ],
+  "2026-08-14": [
+    {
+      "maree": "haute",
+      "heure": "06:49",
+      "hauteur": "4.92",
+      "coefficient": "102"
+    },
+    {
+      "maree": "haute",
+      "heure": "19:00",
+      "hauteur": "5.08",
+      "coefficient": "102"
+    },
+    {
+      "maree": "basse",
+      "heure": "01:35",
+      "hauteur": "1.32"
+    },
+    {
+      "maree": "basse",
+      "heure": "13:47",
+      "hauteur": "1.47"
+    }
+  ],
+  "2026-08-15": [
+    {
+      "maree": "haute",
+      "heure": "07:24",
+      "hauteur": "4.89",
+      "coefficient": "101"
+    },
+    {
+      "maree": "haute",
+      "heure": "19:35",
+      "hauteur": "5.01",
+      "coefficient": "98"
+    },
+    {
+      "maree": "basse",
+      "heure": "02:15",
+      "hauteur": "1.34"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:24",
+      "hauteur": "1.49"
+    }
+  ],
+  "2026-08-16": [
+    {
+      "maree": "haute",
+      "heure": "07:57",
+      "hauteur": "4.79",
+      "coefficient": "95"
+    },
+    {
+      "maree": "haute",
+      "heure": "20:09",
+      "hauteur": "4.87",
+      "coefficient": "90"
+    },
+    {
+      "maree": "basse",
+      "heure": "02:49",
+      "hauteur": "1.42"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:55",
+      "hauteur": "1.56"
+    }
+  ],
+  "2026-08-17": [
+    {
+      "maree": "haute",
+      "heure": "08:30",
+      "hauteur": "4.64",
+      "coefficient": "84"
+    },
+    {
+      "maree": "haute",
+      "heure": "20:41",
+      "hauteur": "4.65",
+      "coefficient": "78"
+    },
+    {
+      "maree": "basse",
+      "heure": "03:18",
+      "hauteur": "1.56"
+    },
+    {
+      "maree": "basse",
+      "heure": "15:24",
+      "hauteur": "1.67"
+    }
+  ],
+  "2026-08-18": [
+    {
+      "maree": "haute",
+      "heure": "09:02",
+      "hauteur": "4.44",
+      "coefficient": "71"
+    },
+    {
+      "maree": "haute",
+      "heure": "21:18",
+      "hauteur": "4.39",
+      "coefficient": "64"
+    },
+    {
+      "maree": "basse",
+      "heure": "03:46",
+      "hauteur": "1.74"
+    },
+    {
+      "maree": "basse",
+      "heure": "15:56",
+      "hauteur": "1.84"
+    }
+  ],
+  "2026-08-19": [
+    {
+      "maree": "haute",
+      "heure": "09:38",
+      "hauteur": "4.20",
+      "coefficient": "57"
+    },
+    {
+      "maree": "haute",
+      "heure": "21:59",
+      "hauteur": "4.09",
+      "coefficient": "49"
+    },
+    {
+      "maree": "basse",
+      "heure": "04:17",
+      "hauteur": "1.97"
+    },
+    {
+      "maree": "basse",
+      "heure": "16:33",
+      "hauteur": "2.09"
+    }
+  ],
+  "2026-08-20": [
+    {
+      "maree": "haute",
+      "heure": "10:31",
+      "hauteur": "3.96",
+      "coefficient": "42"
+    },
+    {
+      "maree": "haute",
+      "heure": "23:06",
+      "hauteur": "3.80",
+      "coefficient": "36"
+    },
+    {
+      "maree": "basse",
+      "heure": "04:54",
+      "hauteur": "2.24"
+    },
+    {
+      "maree": "basse",
+      "heure": "17:21",
+      "hauteur": "2.37"
+    }
+  ],
+  "2026-08-21": [
+    {
+      "maree": "haute",
+      "heure": "12:09",
+      "hauteur": "3.79",
+      "coefficient": "30"
+    },
+    {
+      "maree": "basse",
+      "heure": "05:47",
+      "hauteur": "2.52"
+    },
+    {
+      "maree": "basse",
+      "heure": "18:42",
+      "hauteur": "2.59"
+    }
+  ],
+  "2026-08-22": [
+    {
+      "maree": "haute",
+      "heure": "00:59",
+      "hauteur": "3.64",
+      "coefficient": "27"
+    },
+    {
+      "maree": "haute",
+      "heure": "13:45",
+      "hauteur": "3.80",
+      "coefficient": "26"
+    },
+    {
+      "maree": "basse",
+      "heure": "07:28",
+      "hauteur": "2.65"
+    },
+    {
+      "maree": "basse",
+      "heure": "20:29",
+      "hauteur": "2.54"
+    }
+  ],
+  "2026-08-23": [
+    {
+      "maree": "haute",
+      "heure": "02:32",
+      "hauteur": "3.69",
+      "coefficient": "28"
+    },
+    {
+      "maree": "haute",
+      "heure": "15:01",
+      "hauteur": "3.96",
+      "coefficient": "32"
+    },
+    {
+      "maree": "basse",
+      "heure": "08:55",
+      "hauteur": "2.52"
+    },
+    {
+      "maree": "basse",
+      "heure": "21:34",
+      "hauteur": "2.33"
+    }
+  ],
+  "2026-08-24": [
+    {
+      "maree": "haute",
+      "heure": "03:41",
+      "hauteur": "3.88",
+      "coefficient": "38"
+    },
+    {
+      "maree": "haute",
+      "heure": "15:54",
+      "hauteur": "4.17",
+      "coefficient": "44"
+    },
+    {
+      "maree": "basse",
+      "heure": "09:50",
+      "hauteur": "2.30"
+    },
+    {
+      "maree": "basse",
+      "heure": "22:21",
+      "hauteur": "2.11"
+    }
+  ],
+  "2026-08-25": [
+    {
+      "maree": "haute",
+      "heure": "04:25",
+      "hauteur": "4.10",
+      "coefficient": "51"
+    },
+    {
+      "maree": "haute",
+      "heure": "16:32",
+      "hauteur": "4.38",
+      "coefficient": "57"
+    },
+    {
+      "maree": "basse",
+      "heure": "10:33",
+      "hauteur": "2.08"
+    },
+    {
+      "maree": "basse",
+      "heure": "23:01",
+      "hauteur": "1.91"
+    }
+  ],
+  "2026-08-26": [
+    {
+      "maree": "haute",
+      "heure": "04:58",
+      "hauteur": "4.31",
+      "coefficient": "63"
+    },
+    {
+      "maree": "haute",
+      "heure": "17:03",
+      "hauteur": "4.58",
+      "coefficient": "68"
+    },
+    {
+      "maree": "basse",
+      "heure": "11:14",
+      "hauteur": "1.89"
+    },
+    {
+      "maree": "basse",
+      "heure": "23:41",
+      "hauteur": "1.75"
+    }
+  ],
+  "2026-08-27": [
+    {
+      "maree": "haute",
+      "heure": "05:26",
+      "hauteur": "4.50",
+      "coefficient": "74"
+    },
+    {
+      "maree": "haute",
+      "heure": "17:32",
+      "hauteur": "4.74",
+      "coefficient": "78"
+    },
+    {
+      "maree": "basse",
+      "heure": "11:55",
+      "hauteur": "1.74"
+    }
+  ],
+  "2026-08-28": [
+    {
+      "maree": "haute",
+      "heure": "05:54",
+      "hauteur": "4.66",
+      "coefficient": "83"
+    },
+    {
+      "maree": "haute",
+      "heure": "18:02",
+      "hauteur": "4.87",
+      "coefficient": "86"
+    },
+    {
+      "maree": "basse",
+      "heure": "00:22",
+      "hauteur": "1.63"
+    },
+    {
+      "maree": "basse",
+      "heure": "12:37",
+      "hauteur": "1.64"
+    }
+  ],
+  "2026-08-29": [
+    {
+      "maree": "haute",
+      "heure": "06:24",
+      "hauteur": "4.77",
+      "coefficient": "89"
+    },
+    {
+      "maree": "haute",
+      "heure": "18:34",
+      "hauteur": "4.96",
+      "coefficient": "91"
+    },
+    {
+      "maree": "basse",
+      "heure": "01:02",
+      "hauteur": "1.56"
+    },
+    {
+      "maree": "basse",
+      "heure": "13:17",
+      "hauteur": "1.59"
+    }
+  ],
+  "2026-08-30": [
+    {
+      "maree": "haute",
+      "heure": "06:55",
+      "hauteur": "4.82",
+      "coefficient": "93"
+    },
+    {
+      "maree": "haute",
+      "heure": "19:08",
+      "hauteur": "4.98",
+      "coefficient": "93"
+    },
+    {
+      "maree": "basse",
+      "heure": "01:40",
+      "hauteur": "1.52"
+    },
+    {
+      "maree": "basse",
+      "heure": "13:53",
+      "hauteur": "1.58"
+    }
+  ],
+  "2026-08-31": [
+    {
+      "maree": "haute",
+      "heure": "07:28",
+      "hauteur": "4.81",
+      "coefficient": "93"
+    },
+    {
+      "maree": "haute",
+      "heure": "19:44",
+      "hauteur": "4.93",
+      "coefficient": "91"
+    },
+    {
+      "maree": "basse",
+      "heure": "02:14",
+      "hauteur": "1.54"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:26",
+      "hauteur": "1.60"
+    }
+  ],
+  "2026-09-01": [
+    {
+      "maree": "haute",
+      "heure": "08:01",
+      "hauteur": "4.74",
+      "coefficient": "89"
+    },
+    {
+      "maree": "haute",
+      "heure": "20:21",
+      "hauteur": "4.79",
+      "coefficient": "85"
+    },
+    {
+      "maree": "basse",
+      "heure": "02:44",
+      "hauteur": "1.58"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:57",
+      "hauteur": "1.65"
+    }
+  ],
+  "2026-09-02": [
+    {
+      "maree": "haute",
+      "heure": "08:36",
+      "hauteur": "4.61",
+      "coefficient": "81"
+    },
+    {
+      "maree": "haute",
+      "heure": "21:02",
+      "hauteur": "4.58",
+      "coefficient": "75"
+    },
+    {
+      "maree": "basse",
+      "heure": "03:14",
+      "hauteur": "1.66"
+    },
+    {
+      "maree": "basse",
+      "heure": "15:31",
+      "hauteur": "1.74"
+    }
+  ],
+  "2026-09-03": [
+    {
+      "maree": "haute",
+      "heure": "09:17",
+      "hauteur": "4.42",
+      "coefficient": "69"
+    },
+    {
+      "maree": "haute",
+      "heure": "21:56",
+      "hauteur": "4.32",
+      "coefficient": "62"
+    },
+    {
+      "maree": "basse",
+      "heure": "03:49",
+      "hauteur": "1.79"
+    },
+    {
+      "maree": "basse",
+      "heure": "16:14",
+      "hauteur": "1.90"
+    }
+  ],
+  "2026-09-04": [
+    {
+      "maree": "haute",
+      "heure": "10:18",
+      "hauteur": "4.21",
+      "coefficient": "55"
+    },
+    {
+      "maree": "haute",
+      "heure": "23:15",
+      "hauteur": "4.07",
+      "coefficient": "48"
+    },
+    {
+      "maree": "basse",
+      "heure": "04:35",
+      "hauteur": "1.99"
+    },
+    {
+      "maree": "basse",
+      "heure": "17:12",
+      "hauteur": "2.10"
+    }
+  ],
+  "2026-09-05": [
+    {
+      "maree": "haute",
+      "heure": "11:52",
+      "hauteur": "4.06",
+      "coefficient": "43"
+    },
+    {
+      "maree": "basse",
+      "heure": "05:37",
+      "hauteur": "2.21"
+    },
+    {
+      "maree": "basse",
+      "heure": "18:30",
+      "hauteur": "2.24"
+    }
+  ],
+  "2026-09-06": [
+    {
+      "maree": "haute",
+      "heure": "00:52",
+      "hauteur": "3.96",
+      "coefficient": "40"
+    },
+    {
+      "maree": "haute",
+      "heure": "13:36",
+      "hauteur": "4.10",
+      "coefficient": "41"
+    },
+    {
+      "maree": "basse",
+      "heure": "07:00",
+      "hauteur": "2.32"
+    },
+    {
+      "maree": "basse",
+      "heure": "19:59",
+      "hauteur": "2.19"
+    }
+  ],
+  "2026-09-07": [
+    {
+      "maree": "haute",
+      "heure": "02:29",
+      "hauteur": "4.08",
+      "coefficient": "45"
+    },
+    {
+      "maree": "haute",
+      "heure": "15:03",
+      "hauteur": "4.34",
+      "coefficient": "52"
+    },
+    {
+      "maree": "basse",
+      "heure": "08:27",
+      "hauteur": "2.23"
+    },
+    {
+      "maree": "basse",
+      "heure": "21:26",
+      "hauteur": "1.98"
+    }
+  ],
+  "2026-09-08": [
+    {
+      "maree": "haute",
+      "heure": "03:40",
+      "hauteur": "4.34",
+      "coefficient": "60"
+    },
+    {
+      "maree": "haute",
+      "heure": "16:01",
+      "hauteur": "4.63",
+      "coefficient": "68"
+    },
+    {
+      "maree": "basse",
+      "heure": "09:50",
+      "hauteur": "2.01"
+    },
+    {
+      "maree": "basse",
+      "heure": "22:40",
+      "hauteur": "1.73"
+    }
+  ],
+  "2026-09-09": [
+    {
+      "maree": "haute",
+      "heure": "04:30",
+      "hauteur": "4.60",
+      "coefficient": "76"
+    },
+    {
+      "maree": "haute",
+      "heure": "16:46",
+      "hauteur": "4.87",
+      "coefficient": "83"
+    },
+    {
+      "maree": "basse",
+      "heure": "10:59",
+      "hauteur": "1.78"
+    },
+    {
+      "maree": "basse",
+      "heure": "23:38",
+      "hauteur": "1.53"
+    }
+  ],
+  "2026-09-10": [
+    {
+      "maree": "haute",
+      "heure": "05:11",
+      "hauteur": "4.80",
+      "coefficient": "90"
+    },
+    {
+      "maree": "haute",
+      "heure": "17:24",
+      "hauteur": "5.02",
+      "coefficient": "95"
+    },
+    {
+      "maree": "basse",
+      "heure": "11:55",
+      "hauteur": "1.60"
+    }
+  ],
+  "2026-09-11": [
+    {
+      "maree": "haute",
+      "heure": "05:47",
+      "hauteur": "4.92",
+      "coefficient": "98"
+    },
+    {
+      "maree": "haute",
+      "heure": "17:59",
+      "hauteur": "5.10",
+      "coefficient": "101"
+    },
+    {
+      "maree": "basse",
+      "heure": "00:28",
+      "hauteur": "1.41"
+    },
+    {
+      "maree": "basse",
+      "heure": "12:42",
+      "hauteur": "1.51"
+    }
+  ],
+  "2026-09-12": [
+    {
+      "maree": "haute",
+      "heure": "06:20",
+      "hauteur": "4.97",
+      "coefficient": "102"
+    },
+    {
+      "maree": "haute",
+      "heure": "18:31",
+      "hauteur": "5.09",
+      "coefficient": "101"
+    },
+    {
+      "maree": "basse",
+      "heure": "01:11",
+      "hauteur": "1.39"
+    },
+    {
+      "maree": "basse",
+      "heure": "13:22",
+      "hauteur": "1.49"
+    }
+  ],
+  "2026-09-13": [
+    {
+      "maree": "haute",
+      "heure": "06:52",
+      "hauteur": "4.95",
+      "coefficient": "100"
+    },
+    {
+      "maree": "haute",
+      "heure": "19:03",
+      "hauteur": "5.00",
+      "coefficient": "97"
+    },
+    {
+      "maree": "basse",
+      "heure": "01:46",
+      "hauteur": "1.43"
+    },
+    {
+      "maree": "basse",
+      "heure": "13:55",
+      "hauteur": "1.53"
+    }
+  ],
+  "2026-09-14": [
+    {
+      "maree": "haute",
+      "heure": "07:22",
+      "hauteur": "4.87",
+      "coefficient": "93"
+    },
+    {
+      "maree": "haute",
+      "heure": "19:33",
+      "hauteur": "4.85",
+      "coefficient": "89"
+    },
+    {
+      "maree": "basse",
+      "heure": "02:16",
+      "hauteur": "1.53"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:23",
+      "hauteur": "1.60"
+    }
+  ],
+  "2026-09-15": [
+    {
+      "maree": "haute",
+      "heure": "07:52",
+      "hauteur": "4.72",
+      "coefficient": "83"
+    },
+    {
+      "maree": "haute",
+      "heure": "20:03",
+      "hauteur": "4.63",
+      "coefficient": "77"
+    },
+    {
+      "maree": "basse",
+      "heure": "02:41",
+      "hauteur": "1.65"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:50",
+      "hauteur": "1.72"
+    }
+  ],
+  "2026-09-16": [
+    {
+      "maree": "haute",
+      "heure": "08:21",
+      "hauteur": "4.53",
+      "coefficient": "70"
+    },
+    {
+      "maree": "haute",
+      "heure": "20:34",
+      "hauteur": "4.36",
+      "coefficient": "63"
+    },
+    {
+      "maree": "basse",
+      "heure": "03:06",
+      "hauteur": "1.80"
+    },
+    {
+      "maree": "basse",
+      "heure": "15:19",
+      "hauteur": "1.89"
+    }
+  ],
+  "2026-09-17": [
+    {
+      "maree": "haute",
+      "heure": "08:52",
+      "hauteur": "4.29",
+      "coefficient": "56"
+    },
+    {
+      "maree": "haute",
+      "heure": "21:10",
+      "hauteur": "4.06",
+      "coefficient": "49"
+    },
+    {
+      "maree": "basse",
+      "heure": "03:35",
+      "hauteur": "2.02"
+    },
+    {
+      "maree": "basse",
+      "heure": "15:54",
+      "hauteur": "2.14"
+    }
+  ],
+  "2026-09-18": [
+    {
+      "maree": "haute",
+      "heure": "09:35",
+      "hauteur": "4.04",
+      "coefficient": "41"
+    },
+    {
+      "maree": "haute",
+      "heure": "22:09",
+      "hauteur": "3.75",
+      "coefficient": "35"
+    },
+    {
+      "maree": "basse",
+      "heure": "04:08",
+      "hauteur": "2.29"
+    },
+    {
+      "maree": "basse",
+      "heure": "16:35",
+      "hauteur": "2.42"
+    }
+  ],
+  "2026-09-19": [
+    {
+      "maree": "haute",
+      "heure": "11:02",
+      "hauteur": "3.81",
+      "coefficient": "28"
+    },
+    {
+      "maree": "basse",
+      "heure": "04:50",
+      "hauteur": "2.58"
+    },
+    {
+      "maree": "basse",
+      "heure": "17:36",
+      "hauteur": "2.68"
+    }
+  ],
+  "2026-09-20": [
+    {
+      "maree": "haute",
+      "heure": "00:27",
+      "hauteur": "3.58",
+      "coefficient": "24"
+    },
+    {
+      "maree": "haute",
+      "heure": "13:04",
+      "hauteur": "3.78",
+      "coefficient": "22"
+    },
+    {
+      "maree": "basse",
+      "heure": "06:06",
+      "hauteur": "2.79"
+    },
+    {
+      "maree": "basse",
+      "heure": "20:02",
+      "hauteur": "2.68"
+    }
+  ],
+  "2026-09-21": [
+    {
+      "maree": "haute",
+      "heure": "02:05",
+      "hauteur": "3.67",
+      "coefficient": "24"
+    },
+    {
+      "maree": "haute",
+      "heure": "14:27",
+      "hauteur": "3.94",
+      "coefficient": "29"
+    },
+    {
+      "maree": "basse",
+      "heure": "08:25",
+      "hauteur": "2.68"
+    },
+    {
+      "maree": "basse",
+      "heure": "21:09",
+      "hauteur": "2.42"
+    }
+  ],
+  "2026-09-22": [
+    {
+      "maree": "haute",
+      "heure": "03:11",
+      "hauteur": "3.89",
+      "coefficient": "35"
+    },
+    {
+      "maree": "haute",
+      "heure": "15:22",
+      "hauteur": "4.17",
+      "coefficient": "42"
+    },
+    {
+      "maree": "basse",
+      "heure": "09:20",
+      "hauteur": "2.40"
+    },
+    {
+      "maree": "basse",
+      "heure": "21:51",
+      "hauteur": "2.16"
+    }
+  ],
+  "2026-09-23": [
+    {
+      "maree": "haute",
+      "heure": "03:53",
+      "hauteur": "4.15",
+      "coefficient": "50"
+    },
+    {
+      "maree": "haute",
+      "heure": "16:00",
+      "hauteur": "4.42",
+      "coefficient": "57"
+    },
+    {
+      "maree": "basse",
+      "heure": "10:02",
+      "hauteur": "2.13"
+    },
+    {
+      "maree": "basse",
+      "heure": "22:29",
+      "hauteur": "1.93"
+    }
+  ],
+  "2026-09-24": [
+    {
+      "maree": "haute",
+      "heure": "04:25",
+      "hauteur": "4.40",
+      "coefficient": "64"
+    },
+    {
+      "maree": "haute",
+      "heure": "16:32",
+      "hauteur": "4.65",
+      "coefficient": "71"
+    },
+    {
+      "maree": "basse",
+      "heure": "10:43",
+      "hauteur": "1.91"
+    },
+    {
+      "maree": "basse",
+      "heure": "23:09",
+      "hauteur": "1.75"
+    }
+  ],
+  "2026-09-25": [
+    {
+      "maree": "haute",
+      "heure": "04:54",
+      "hauteur": "4.62",
+      "coefficient": "77"
+    },
+    {
+      "maree": "haute",
+      "heure": "17:03",
+      "hauteur": "4.85",
+      "coefficient": "82"
+    },
+    {
+      "maree": "basse",
+      "heure": "11:26",
+      "hauteur": "1.74"
+    },
+    {
+      "maree": "basse",
+      "heure": "23:51",
+      "hauteur": "1.63"
+    }
+  ],
+  "2026-09-26": [
+    {
+      "maree": "haute",
+      "heure": "05:24",
+      "hauteur": "4.80",
+      "coefficient": "87"
+    },
+    {
+      "maree": "haute",
+      "heure": "17:35",
+      "hauteur": "4.99",
+      "coefficient": "92"
+    },
+    {
+      "maree": "basse",
+      "heure": "12:10",
+      "hauteur": "1.63"
+    }
+  ],
+  "2026-09-27": [
+    {
+      "maree": "haute",
+      "heure": "05:55",
+      "hauteur": "4.92",
+      "coefficient": "95"
+    },
+    {
+      "maree": "haute",
+      "heure": "18:08",
+      "hauteur": "5.08",
+      "coefficient": "97"
+    },
+    {
+      "maree": "basse",
+      "heure": "00:34",
+      "hauteur": "1.55"
+    },
+    {
+      "maree": "basse",
+      "heure": "12:52",
+      "hauteur": "1.58"
+    }
+  ],
+  "2026-09-28": [
+    {
+      "maree": "haute",
+      "heure": "06:28",
+      "hauteur": "4.98",
+      "coefficient": "99"
+    },
+    {
+      "maree": "haute",
+      "heure": "18:43",
+      "hauteur": "5.09",
+      "coefficient": "99"
+    },
+    {
+      "maree": "basse",
+      "heure": "01:14",
+      "hauteur": "1.53"
+    },
+    {
+      "maree": "basse",
+      "heure": "13:31",
+      "hauteur": "1.57"
+    }
+  ],
+  "2026-09-29": [
+    {
+      "maree": "haute",
+      "heure": "07:01",
+      "hauteur": "4.97",
+      "coefficient": "98"
+    },
+    {
+      "maree": "haute",
+      "heure": "19:20",
+      "hauteur": "5.01",
+      "coefficient": "96"
+    },
+    {
+      "maree": "basse",
+      "heure": "01:50",
+      "hauteur": "1.56"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:06",
+      "hauteur": "1.60"
+    }
+  ],
+  "2026-09-30": [
+    {
+      "maree": "haute",
+      "heure": "07:37",
+      "hauteur": "4.89",
+      "coefficient": "92"
+    },
+    {
+      "maree": "haute",
+      "heure": "20:00",
+      "hauteur": "4.83",
+      "coefficient": "88"
+    },
+    {
+      "maree": "basse",
+      "heure": "02:22",
+      "hauteur": "1.62"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:39",
+      "hauteur": "1.66"
+    }
+  ],
+  "2026-10-01": [
+    {
+      "maree": "haute",
+      "heure": "08:17",
+      "hauteur": "4.74",
+      "coefficient": "82"
+    },
+    {
+      "maree": "haute",
+      "heure": "20:47",
+      "hauteur": "4.58",
+      "coefficient": "75"
+    },
+    {
+      "maree": "basse",
+      "heure": "02:53",
+      "hauteur": "1.72"
+    },
+    {
+      "maree": "basse",
+      "heure": "15:15",
+      "hauteur": "1.77"
+    }
+  ],
+  "2026-10-02": [
+    {
+      "maree": "haute",
+      "heure": "09:06",
+      "hauteur": "4.52",
+      "coefficient": "68"
+    },
+    {
+      "maree": "haute",
+      "heure": "21:51",
+      "hauteur": "4.28",
+      "coefficient": "60"
+    },
+    {
+      "maree": "basse",
+      "heure": "03:30",
+      "hauteur": "1.87"
+    },
+    {
+      "maree": "basse",
+      "heure": "16:00",
+      "hauteur": "1.94"
+    }
+  ],
+  "2026-10-03": [
+    {
+      "maree": "haute",
+      "heure": "10:16",
+      "hauteur": "4.29",
+      "coefficient": "53"
+    },
+    {
+      "maree": "haute",
+      "heure": "23:18",
+      "hauteur": "4.05",
+      "coefficient": "46"
+    },
+    {
+      "maree": "basse",
+      "heure": "04:18",
+      "hauteur": "2.09"
+    },
+    {
+      "maree": "basse",
+      "heure": "17:00",
+      "hauteur": "2.15"
+    }
+  ],
+  "2026-10-04": [
+    {
+      "maree": "haute",
+      "heure": "11:52",
+      "hauteur": "4.15",
+      "coefficient": "41"
+    },
+    {
+      "maree": "basse",
+      "heure": "05:22",
+      "hauteur": "2.30"
+    },
+    {
+      "maree": "basse",
+      "heure": "18:21",
+      "hauteur": "2.28"
+    }
+  ],
+  "2026-10-05": [
+    {
+      "maree": "haute",
+      "heure": "01:02",
+      "hauteur": "4.01",
+      "coefficient": "40"
+    },
+    {
+      "maree": "haute",
+      "heure": "13:39",
+      "hauteur": "4.23",
+      "coefficient": "43"
+    },
+    {
+      "maree": "basse",
+      "heure": "06:47",
+      "hauteur": "2.40"
+    },
+    {
+      "maree": "basse",
+      "heure": "19:58",
+      "hauteur": "2.20"
+    }
+  ],
+  "2026-10-06": [
+    {
+      "maree": "haute",
+      "heure": "02:29",
+      "hauteur": "4.19",
+      "coefficient": "48"
+    },
+    {
+      "maree": "haute",
+      "heure": "14:54",
+      "hauteur": "4.46",
+      "coefficient": "55"
+    },
+    {
+      "maree": "basse",
+      "heure": "08:21",
+      "hauteur": "2.26"
+    },
+    {
+      "maree": "basse",
+      "heure": "21:20",
+      "hauteur": "1.97"
+    }
+  ],
+  "2026-10-07": [
+    {
+      "maree": "haute",
+      "heure": "03:27",
+      "hauteur": "4.43",
+      "coefficient": "62"
+    },
+    {
+      "maree": "haute",
+      "heure": "15:45",
+      "hauteur": "4.70",
+      "coefficient": "70"
+    },
+    {
+      "maree": "basse",
+      "heure": "09:37",
+      "hauteur": "2.02"
+    },
+    {
+      "maree": "basse",
+      "heure": "22:21",
+      "hauteur": "1.75"
+    }
+  ],
+  "2026-10-08": [
+    {
+      "maree": "haute",
+      "heure": "04:10",
+      "hauteur": "4.65",
+      "coefficient": "77"
+    },
+    {
+      "maree": "haute",
+      "heure": "16:25",
+      "hauteur": "4.87",
+      "coefficient": "83"
+    },
+    {
+      "maree": "basse",
+      "heure": "10:38",
+      "hauteur": "1.81"
+    },
+    {
+      "maree": "basse",
+      "heure": "23:14",
+      "hauteur": "1.61"
+    }
+  ],
+  "2026-10-09": [
+    {
+      "maree": "haute",
+      "heure": "04:46",
+      "hauteur": "4.81",
+      "coefficient": "87"
+    },
+    {
+      "maree": "haute",
+      "heure": "16:59",
+      "hauteur": "4.98",
+      "coefficient": "91"
+    },
+    {
+      "maree": "basse",
+      "heure": "11:29",
+      "hauteur": "1.67"
+    },
+    {
+      "maree": "basse",
+      "heure": "23:59",
+      "hauteur": "1.54"
+    }
+  ],
+  "2026-10-10": [
+    {
+      "maree": "haute",
+      "heure": "05:19",
+      "hauteur": "4.92",
+      "coefficient": "94"
+    },
+    {
+      "maree": "haute",
+      "heure": "17:31",
+      "hauteur": "5.02",
+      "coefficient": "95"
+    },
+    {
+      "maree": "basse",
+      "heure": "12:14",
+      "hauteur": "1.61"
+    }
+  ],
+  "2026-10-11": [
+    {
+      "maree": "haute",
+      "heure": "05:50",
+      "hauteur": "4.97",
+      "coefficient": "95"
+    },
+    {
+      "maree": "haute",
+      "heure": "18:03",
+      "hauteur": "5.00",
+      "coefficient": "95"
+    },
+    {
+      "maree": "basse",
+      "heure": "00:39",
+      "hauteur": "1.55"
+    },
+    {
+      "maree": "basse",
+      "heure": "12:52",
+      "hauteur": "1.62"
+    }
+  ],
+  "2026-10-12": [
+    {
+      "maree": "haute",
+      "heure": "06:22",
+      "hauteur": "4.96",
+      "coefficient": "93"
+    },
+    {
+      "maree": "haute",
+      "heure": "18:34",
+      "hauteur": "4.92",
+      "coefficient": "91"
+    },
+    {
+      "maree": "basse",
+      "heure": "01:12",
+      "hauteur": "1.60"
+    },
+    {
+      "maree": "basse",
+      "heure": "13:24",
+      "hauteur": "1.66"
+    }
+  ],
+  "2026-10-13": [
+    {
+      "maree": "haute",
+      "heure": "06:53",
+      "hauteur": "4.89",
+      "coefficient": "88"
+    },
+    {
+      "maree": "haute",
+      "heure": "19:04",
+      "hauteur": "4.77",
+      "coefficient": "83"
+    },
+    {
+      "maree": "basse",
+      "heure": "01:39",
+      "hauteur": "1.67"
+    },
+    {
+      "maree": "basse",
+      "heure": "13:51",
+      "hauteur": "1.72"
+    }
+  ],
+  "2026-10-14": [
+    {
+      "maree": "haute",
+      "heure": "07:23",
+      "hauteur": "4.76",
+      "coefficient": "79"
+    },
+    {
+      "maree": "haute",
+      "heure": "19:34",
+      "hauteur": "4.57",
+      "coefficient": "74"
+    },
+    {
+      "maree": "basse",
+      "heure": "02:04",
+      "hauteur": "1.76"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:20",
+      "hauteur": "1.81"
+    }
+  ],
+  "2026-10-15": [
+    {
+      "maree": "haute",
+      "heure": "07:51",
+      "hauteur": "4.58",
+      "coefficient": "68"
+    },
+    {
+      "maree": "haute",
+      "heure": "20:05",
+      "hauteur": "4.33",
+      "coefficient": "62"
+    },
+    {
+      "maree": "basse",
+      "heure": "02:31",
+      "hauteur": "1.90"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:51",
+      "hauteur": "1.96"
+    }
+  ],
+  "2026-10-16": [
+    {
+      "maree": "haute",
+      "heure": "08:23",
+      "hauteur": "4.38",
+      "coefficient": "56"
+    },
+    {
+      "maree": "haute",
+      "heure": "20:42",
+      "hauteur": "4.07",
+      "coefficient": "50"
+    },
+    {
+      "maree": "basse",
+      "heure": "03:02",
+      "hauteur": "2.08"
+    },
+    {
+      "maree": "basse",
+      "heure": "15:25",
+      "hauteur": "2.16"
+    }
+  ],
+  "2026-10-17": [
+    {
+      "maree": "haute",
+      "heure": "09:05",
+      "hauteur": "4.16",
+      "coefficient": "43"
+    },
+    {
+      "maree": "haute",
+      "heure": "21:38",
+      "hauteur": "3.82",
+      "coefficient": "37"
+    },
+    {
+      "maree": "basse",
+      "heure": "03:35",
+      "hauteur": "2.32"
+    },
+    {
+      "maree": "basse",
+      "heure": "16:04",
+      "hauteur": "2.39"
+    }
+  ],
+  "2026-10-18": [
+    {
+      "maree": "haute",
+      "heure": "10:12",
+      "hauteur": "3.96",
+      "coefficient": "32"
+    },
+    {
+      "maree": "haute",
+      "heure": "23:33",
+      "hauteur": "3.65",
+      "coefficient": "28"
+    },
+    {
+      "maree": "basse",
+      "heure": "04:16",
+      "hauteur": "2.55"
+    },
+    {
+      "maree": "basse",
+      "heure": "16:54",
+      "hauteur": "2.60"
+    }
+  ],
+  "2026-10-19": [
+    {
+      "maree": "haute",
+      "heure": "12:03",
+      "hauteur": "3.87",
+      "coefficient": "25"
+    },
+    {
+      "maree": "basse",
+      "heure": "05:14",
+      "hauteur": "2.73"
+    },
+    {
+      "maree": "basse",
+      "heure": "18:23",
+      "hauteur": "2.71"
+    }
+  ],
+  "2026-10-20": [
+    {
+      "maree": "haute",
+      "heure": "01:17",
+      "hauteur": "3.72",
+      "coefficient": "26"
+    },
+    {
+      "maree": "haute",
+      "heure": "13:33",
+      "hauteur": "3.97",
+      "coefficient": "29"
+    },
+    {
+      "maree": "basse",
+      "heure": "07:08",
+      "hauteur": "2.74"
+    },
+    {
+      "maree": "basse",
+      "heure": "20:19",
+      "hauteur": "2.52"
+    }
+  ],
+  "2026-10-21": [
+    {
+      "maree": "haute",
+      "heure": "02:24",
+      "hauteur": "3.93",
+      "coefficient": "34"
+    },
+    {
+      "maree": "haute",
+      "heure": "14:33",
+      "hauteur": "4.18",
+      "coefficient": "41"
+    },
+    {
+      "maree": "basse",
+      "heure": "08:31",
+      "hauteur": "2.49"
+    },
+    {
+      "maree": "basse",
+      "heure": "21:06",
+      "hauteur": "2.26"
+    }
+  ],
+  "2026-10-22": [
+    {
+      "maree": "haute",
+      "heure": "03:09",
+      "hauteur": "4.18",
+      "coefficient": "48"
+    },
+    {
+      "maree": "haute",
+      "heure": "15:18",
+      "hauteur": "4.43",
+      "coefficient": "55"
+    },
+    {
+      "maree": "basse",
+      "heure": "09:19",
+      "hauteur": "2.21"
+    },
+    {
+      "maree": "basse",
+      "heure": "21:47",
+      "hauteur": "2.02"
+    }
+  ],
+  "2026-10-23": [
+    {
+      "maree": "haute",
+      "heure": "03:45",
+      "hauteur": "4.44",
+      "coefficient": "62"
+    },
+    {
+      "maree": "haute",
+      "heure": "15:55",
+      "hauteur": "4.66",
+      "coefficient": "69"
+    },
+    {
+      "maree": "basse",
+      "heure": "10:04",
+      "hauteur": "1.98"
+    },
+    {
+      "maree": "basse",
+      "heure": "22:30",
+      "hauteur": "1.83"
+    }
+  ],
+  "2026-10-24": [
+    {
+      "maree": "haute",
+      "heure": "04:18",
+      "hauteur": "4.68",
+      "coefficient": "76"
+    },
+    {
+      "maree": "haute",
+      "heure": "16:31",
+      "hauteur": "4.86",
+      "coefficient": "82"
+    },
+    {
+      "maree": "basse",
+      "heure": "10:50",
+      "hauteur": "1.81"
+    },
+    {
+      "maree": "basse",
+      "heure": "23:15",
+      "hauteur": "1.70"
+    }
+  ],
+  "2026-10-25": [
+    {
+      "maree": "haute",
+      "heure": "03:52",
+      "hauteur": "4.87",
+      "coefficient": "87"
+    },
+    {
+      "maree": "haute",
+      "heure": "16:07",
+      "hauteur": "5.01",
+      "coefficient": "92"
+    },
+    {
+      "maree": "basse",
+      "heure": "10:38",
+      "hauteur": "1.70"
+    },
+    {
+      "maree": "basse",
+      "heure": "23:01",
+      "hauteur": "1.62"
+    }
+  ],
+  "2026-10-26": [
+    {
+      "maree": "haute",
+      "heure": "04:26",
+      "hauteur": "5.00",
+      "coefficient": "95"
+    },
+    {
+      "maree": "haute",
+      "heure": "16:43",
+      "hauteur": "5.09",
+      "coefficient": "98"
+    },
+    {
+      "maree": "basse",
+      "heure": "11:25",
+      "hauteur": "1.64"
+    },
+    {
+      "maree": "basse",
+      "heure": "23:46",
+      "hauteur": "1.60"
+    }
+  ],
+  "2026-10-27": [
+    {
+      "maree": "haute",
+      "heure": "05:03",
+      "hauteur": "5.07",
+      "coefficient": "99"
+    },
+    {
+      "maree": "haute",
+      "heure": "17:22",
+      "hauteur": "5.09",
+      "coefficient": "100"
+    },
+    {
+      "maree": "basse",
+      "heure": "12:09",
+      "hauteur": "1.62"
+    }
+  ],
+  "2026-10-28": [
+    {
+      "maree": "haute",
+      "heure": "05:40",
+      "hauteur": "5.06",
+      "coefficient": "99"
+    },
+    {
+      "maree": "haute",
+      "heure": "18:04",
+      "hauteur": "5.00",
+      "coefficient": "96"
+    },
+    {
+      "maree": "basse",
+      "heure": "00:26",
+      "hauteur": "1.63"
+    },
+    {
+      "maree": "basse",
+      "heure": "12:50",
+      "hauteur": "1.63"
+    }
+  ],
+  "2026-10-29": [
+    {
+      "maree": "haute",
+      "heure": "06:22",
+      "hauteur": "4.98",
+      "coefficient": "93"
+    },
+    {
+      "maree": "haute",
+      "heure": "18:51",
+      "hauteur": "4.83",
+      "coefficient": "88"
+    },
+    {
+      "maree": "basse",
+      "heure": "01:03",
+      "hauteur": "1.69"
+    },
+    {
+      "maree": "basse",
+      "heure": "13:28",
+      "hauteur": "1.68"
+    }
+  ],
+  "2026-10-30": [
+    {
+      "maree": "haute",
+      "heure": "07:10",
+      "hauteur": "4.84",
+      "coefficient": "82"
+    },
+    {
+      "maree": "haute",
+      "heure": "19:46",
+      "hauteur": "4.59",
+      "coefficient": "76"
+    },
+    {
+      "maree": "basse",
+      "heure": "01:39",
+      "hauteur": "1.80"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:09",
+      "hauteur": "1.78"
+    }
+  ],
+  "2026-10-31": [
+    {
+      "maree": "haute",
+      "heure": "08:06",
+      "hauteur": "4.64",
+      "coefficient": "69"
+    },
+    {
+      "maree": "haute",
+      "heure": "20:53",
+      "hauteur": "4.33",
+      "coefficient": "62"
+    },
+    {
+      "maree": "basse",
+      "heure": "02:20",
+      "hauteur": "1.95"
+    },
+    {
+      "maree": "basse",
+      "heure": "14:56",
+      "hauteur": "1.94"
+    }
+  ]
+}
