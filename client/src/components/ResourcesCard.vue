@@ -5,6 +5,7 @@ interface ResourceLink {
   label: string;
   url: string;
   icon?: string; // classe bootstrap-icons de la tuile
+  summary?: string; // court résumé du contenu du document
   children?: ResourceLink[];
 }
 
@@ -13,22 +14,30 @@ const LINKS: ResourceLink[] = [
   {
     label: 'Guide pratique « Cap sur la Ria d\'Étel »',
     url: 'https://www.navix.fr/wp-content/uploads/2023/03/guide_pratique_Etel.pdf',
-    icon: 'bi-book'
+    icon: 'bi-book',
+    summary: 'Bonnes pratiques des loisirs nautiques dans la ria : consignes de sécurité et sémaphore (feux et horaires d\'entrée, calés sur les marées de Port-Tudy), réglementation de la pêche à pied (tailles et quotas) et de la pêche embarquée.'
   },
   {
     label: 'Tailles, quotas et outils de pêche',
     url: 'https://www.pecheapied-responsable.fr/fr/les-tailles-quotas-et-outils-de-peche',
     icon: 'bi-rulers',
     children: [
-      { label: 'Réglementation pêche à pied de loisir – Morbihan', url: 'https://www.pecheapied-loisir.fr/reglementation/morbihan/' },
-      { label: 'Tableau récapitulatif des tailles et quotas', url: 'https://www.pecheapied-responsable.fr/sites/default/files/2023-06/tableau_recap.pdf' },
-      { label: 'Engins de pêche autorisés', url: 'https://www.pecheapied-responsable.fr/sites/default/files/2023-06/engins_de_peche_0.pdf' }
+      {
+        label: 'Réglementation pêche à pied de loisir – Morbihan',
+        url: 'https://www.pecheapied-loisir.fr/reglementation/morbihan/',
+        children: [
+          { label: 'Dépliant Morbihan 2026', url: 'https://www.pecheapied-loisir.fr/wp-content/uploads/2026/01/Depliant_Morbihan_MAJ2026.pdf' }
+        ]
+      },
+      { label: 'Tableau récapitulatif des tailles et quotas de coquillages', url: 'https://www.pecheapied-responsable.fr/sites/default/files/2023-06/tableau_recap.pdf' },
+      { label: 'Engins de pêche à pied autorisés', url: 'https://www.pecheapied-responsable.fr/sites/default/files/2023-06/engins_de_peche_0.pdf' }
     ]
   },
   {
     label: 'Situation sanitaire des coquillages du Morbihan',
     url: 'https://www.morbihan.gouv.fr/Actions-de-l-Etat/Mer-littoral-et-securite-maritime/Alertes-sanitaires-sur-les-coquillages/Situation-sanitaire-des-coquillages-du-Morbihan',
-    icon: 'bi-shield-check'
+    icon: 'bi-shield-check',
+    summary: 'Alertes sanitaires officielles et zones de pêche à pied de loisir fermées (norovirus, E. coli, toxines) par secteur et par espèce (coques, palourdes, moules, huîtres). À vérifier avant chaque sortie.'
   }
 ];
 
@@ -48,7 +57,7 @@ const open = ref(false);
         :aria-expanded="open"
         @click="open = !open"
       >
-        <i class="bi bi-compass me-1"></i> Ressources · Pêche Ria d'Étel
+        <i class="bi bi-compass me-1"></i> Liens utiles · Pêche Ria d'Étel
         <i :class="open ? 'bi bi-chevron-up' : 'bi bi-chevron-down'" class="small ms-1"></i>
       </button>
     </div>
@@ -75,6 +84,10 @@ const open = ref(false);
                 </a>
               </div>
 
+              <p v-if="link.summary" class="small text-body-secondary mb-0 mt-2">
+                {{ link.summary }}
+              </p>
+
               <ul v-if="link.children" class="list-unstyled small mb-0 mt-3 pt-3 border-top">
                 <li v-for="child in link.children" :key="child.url" class="mb-2 last-mb-0">
                   <a
@@ -89,6 +102,23 @@ const open = ref(false);
                       <span v-if="isPdf(child.url)" class="badge rounded-pill bg-body-secondary text-body-secondary border ms-1">PDF</span>
                     </span>
                   </a>
+
+                  <ul v-if="child.children" class="list-unstyled small mb-0 mt-1 ms-4">
+                    <li v-for="grandchild in child.children" :key="grandchild.url" class="mt-1">
+                      <a
+                        :href="grandchild.url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="link-secondary text-decoration-none d-inline-flex align-items-baseline"
+                      >
+                        <i class="bi bi-arrow-return-right me-2 flex-shrink-0"></i>
+                        <span>
+                          {{ grandchild.label }}
+                          <span v-if="isPdf(grandchild.url)" class="badge rounded-pill bg-body-secondary text-body-secondary border ms-1">PDF</span>
+                        </span>
+                      </a>
+                    </li>
+                  </ul>
                 </li>
               </ul>
             </div>
