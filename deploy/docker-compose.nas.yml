@@ -18,7 +18,9 @@ services:
       # push-to-nas.sh → il survit aux mises à jour et garde le mot de passe hors Git.
       #   APP_USER=marees
       #   APP_PASSWORD=un-mot-de-passe-solide   # vide → authentification désactivée (LAN only)
-      #   READ_ONLY=false                        # true → PUT /api/settings renvoie 403
+      #   READ_ONLY=false                        # true → lecture seule PARTOUT (LAN inclus)
+      # NB : l'écriture des réglages est de toute façon réservée au réseau local ; l'accès
+      # externe (via reverse proxy) est toujours en lecture seule.
       - APP_USER=${APP_USER:-marees}
       - APP_PASSWORD=${APP_PASSWORD:-}
       - READ_ONLY=${READ_ONLY:-false}

@@ -235,7 +235,7 @@ cd /volume1/docker/marees
 cat > .env <<'EOF'
 APP_USER=marees
 APP_PASSWORD=un-mot-de-passe-solide     # à partager au cercle restreint
-READ_ONLY=false                          # true → édition des réglages désactivée (PUT → 403)
+READ_ONLY=false                          # true → verrou lecture seule PARTOUT (LAN inclus)
 EOF
 chmod 600 .env
 sudo docker-compose up -d                # recrée le conteneur avec les nouvelles variables
@@ -243,6 +243,11 @@ sudo docker-compose up -d                # recrée le conteneur avec les nouvell
 
 Le navigateur demandera identifiant + mot de passe une seule fois. `GET /api/health` reste public
 (sonde). **Sans `.env` / `APP_PASSWORD` vide, l'accès est libre** — ne pas exposer dans ce cas.
+
+**Écriture des réglages :** modifiable **uniquement depuis le réseau local** (accès direct au NAS,
+IP privée). Toute requête arrivant **par le reverse proxy** (donc de l'extérieur) est en **lecture
+seule** automatiquement (`PUT /api/settings` → 403). Laisser `READ_ONLY=false` pour pouvoir éditer
+depuis chez soi ; mettre `READ_ONLY=true` seulement pour verrouiller **aussi** le LAN.
 
 - `READ_ONLY=true` : à activer si vous voulez que les réglages (Navihan, liens météo, période) ne
   soient **pas** modifiables à distance. Laisser désactivé si le cercle de confiance peut les ajuster

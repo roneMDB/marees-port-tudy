@@ -52,4 +52,13 @@ describe('API /api/settings', () => {
       .send('{ not valid json');
     expect(res.status).toBe(400);
   });
+
+  it('PUT refuse (403) une requête « externe » (X-Forwarded-For public via reverse proxy)', async () => {
+    const res = await request(app)
+      .put('/api/settings')
+      .set('X-Forwarded-For', '203.0.113.9')
+      .send({ rangeDays: 20 });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/réseau local/i);
+  });
 });

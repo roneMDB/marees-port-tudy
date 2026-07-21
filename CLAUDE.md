@@ -44,8 +44,11 @@ en même origine → **pas de CORS**.
 
 **Durcissement / exposition externe** (variables d'env, cf. `deploy/INSTALLATION-NAS.md` §8) :
 `APP_PASSWORD` (+ `APP_USER`, défaut `marees`) active l'auth Basic sur tout sauf `/api/health`
-(vide → désactivée, dev/tests intacts) ; `READ_ONLY=true` → `PUT /api/settings` renvoie **403**.
-Conteneur non-root (`USER node`) + `HEALTHCHECK` sur `/api/health`. Tests : `src/security.test.ts`.
+(vide → désactivée, dev/tests intacts). **Écriture des réglages (`PUT /api/settings`) réservée au
+réseau local** : `isPrivateIp(req.ip)` (via `trust proxy`, les requêtes du reverse proxy portent
+l'IP publique → refusées 403) ; `READ_ONLY=true` verrouille en lecture seule **partout** (LAN
+inclus). Conteneur non-root (`USER node`) + `HEALTHCHECK` sur `/api/health`. Tests :
+`src/security.test.ts`, `src/routes/settings.test.ts`, `src/lib/net.test.ts`.
 
 Routes tides (`src/routes/tides.ts`) :
 - `GET /api/health` → `{ status: 'ok' }`.
