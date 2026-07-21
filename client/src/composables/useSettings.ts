@@ -19,6 +19,8 @@ const settings = reactive<Settings>({
   weatherLinks: DEFAULTS.weatherLinks.map(l => ({ ...l }))
 });
 const loaded = ref(false);
+// Dernier échec d'enregistrement (ex. 403 en mode lecture seule) ; null si tout va bien.
+const saveError = ref<string | null>(null);
 let loadPromise: Promise<void> | null = null;
 let hydrating = false;
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -38,9 +40,14 @@ watch(
     if (hydrating) return;
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      saveSettings(snapshot()).catch(() => {
-        /* échec réseau : la prochaine modification retentera */
-      });
+      saveSettings(snapshot())
+        .then(() => {
+          saveError.value = null;
+        })
+        .catch(e => {
+          // Ex. 403 en lecture seule → on remonte le message pour l'afficher dans l'UI.
+          saveError.value = e instanceof Error ? e.message : String(e);
+        });
     }, 500);
   },
   { deep: true }
@@ -66,5 +73,5 @@ function load(): Promise<void> {
 }
 
 export function useSettings() {
-  return { settings, loaded, load };
+  return { settings, loaded, load, saveError };
 }

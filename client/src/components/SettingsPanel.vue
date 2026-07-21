@@ -12,7 +12,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ (e: 'reset'): void }>();
 
-const { settings } = useSettings();
+const { settings, saveError } = useSettings();
 const { offsets, reset: resetNavihan } = useNavihan();
 
 type OffsetKey = keyof NavihanOffsets;
@@ -85,6 +85,14 @@ function resetWeatherLinks(): void {
     </div>
 
     <div class="offcanvas-body">
+      <div v-if="saveError" class="alert alert-warning py-2 small d-flex align-items-start gap-2" role="alert">
+        <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+        <span>
+          <strong>Modification non enregistrée.</strong><br />
+          {{ saveError }}
+        </span>
+      </div>
+
       <!-- Période (configuration enregistrée) -->
       <h6 class="text-uppercase text-muted small fw-bold mb-2">Période</h6>
       <div class="row g-3 mb-4">
