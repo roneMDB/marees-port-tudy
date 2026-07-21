@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useTides } from '../composables/useTides';
 import { useSite } from '../composables/useSite';
+import { useContext } from '../composables/useContext';
 import SettingsPanel from '../components/SettingsPanel.vue';
 import StatCards from '../components/StatCards.vue';
 import WeatherCard from '../components/WeatherCard.vue';
@@ -11,6 +12,7 @@ import CoefChart from '../components/CoefChart.vue';
 
 const { loading, error, meta, filters, filteredTides, allTides, reload } = useTides();
 const { current, isReference } = useSite();
+const { canEditSettings } = useContext();
 
 function resetFilters(): void {
   filters.type = 'all';
@@ -44,7 +46,7 @@ function resetFilters(): void {
 
       <ResourcesCard />
 
-      <SettingsPanel :filters="filters" :meta="meta" @reset="resetFilters" />
+      <SettingsPanel v-if="canEditSettings" :filters="filters" :meta="meta" @reset="resetFilters" />
 
       <StatCards :all-tides="allTides" />
 

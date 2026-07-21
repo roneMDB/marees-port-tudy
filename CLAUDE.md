@@ -73,8 +73,9 @@ Route météo (`src/routes/weather.ts` + `src/service/weather.ts`) :
   (`settings.weatherLinks`, cf. Config) avec placeholders `{lat}`/`{lon}` (`lib/weather.resolveLinkUrl`).
 
 Routes accès/stats (`src/routes/stats.ts` + `src/middleware/accessLog.ts`) :
-- `GET /api/context` → `{ local }` (basé sur `isPrivateIp(req.ip)`) : le client n'affiche le bouton
-  Stats que sur le réseau local.
+- `GET /api/context` → `{ local, canEditSettings }` (`isPrivateIp(req.ip)` ; `canEditSettings` =
+  LAN **et** pas `READ_ONLY`, reflète le verrou de `PUT /api/settings`). Le client (`useContext`)
+  n'affiche le bouton **Stats** qu'en LAN, et le bouton/panneau **Réglages** que si `canEditSettings`.
 - `GET /api/stats` → agrégats d'accès (`lib/stats.ts` `aggregateAccess`), **réservé au réseau local**
   (403 sinon). Le middleware `accessLog` journalise chaque **ouverture de page** (requête de document
   HTML, hors `/api`/assets) dans `DATA_DIR/access-log.jsonl` — anonymisé : IP **tronquée**
@@ -152,8 +153,9 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   `today`/`date` + `startDate` + `rangeDays`), **Décalages Navihan** (config : 3 offsets + `aFlotDays`,
   bouton défauts), **Liens météo** (config : liste éditable `settings.weatherLinks` — libellé + URL,
   ajout/suppression, bouton défauts), **Filtres d'affichage** (éphémères : `Type`, `Coef min`, reset).
-  Remplace les anciens `TideFilters.vue` / `NavihanSettings.vue`. `StatCards.vue` — carte « À flot »
-  sur `settings.aFlotDays`.
+  Remplace les anciens `TideFilters.vue` / `NavihanSettings.vue`. **Bouton + panneau masqués si
+  `!canEditSettings`** (accès externe ou `READ_ONLY`) : on ne montre pas des réglages non modifiables.
+  `StatCards.vue` — carte « À flot » sur `settings.aFlotDays`.
 - `components/StatsPanel.vue` — **panneau « Statistiques d'accès »** (offcanvas) : KPIs (visites,
   LAN/externe), graphe visites/jour, pays/navigateurs/appareils. Charge `getStats()` à l'ouverture.
   Le bouton (navbar, `App.vue`) et le panneau ne sont montés que si `getContext().local` (réseau

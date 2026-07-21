@@ -23,12 +23,12 @@ afterAll(() => {
 });
 
 describe('accès & statistiques', () => {
-  it('GET /api/context indique le réseau local', async () => {
+  it('GET /api/context indique le réseau local et le droit d’édition', async () => {
     const local = await request(app).get('/api/context');
-    expect(local.body).toEqual({ local: true });
+    expect(local.body).toEqual({ local: true, canEditSettings: true });
 
     const external = await request(app).get('/api/context').set('X-Forwarded-For', '203.0.113.9');
-    expect(external.body).toEqual({ local: false });
+    expect(external.body).toEqual({ local: false, canEditSettings: false });
   });
 
   it('journalise une ouverture de page puis l’expose via /api/stats (LAN)', async () => {

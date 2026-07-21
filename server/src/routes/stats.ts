@@ -13,7 +13,10 @@ export function createStatsRouter(logger: Logger): Router {
   const router = Router();
 
   router.get('/context', (req, res) => {
-    res.json({ local: isPrivateIp(req.ip) });
+    const local = isPrivateIp(req.ip);
+    // Reflète exactement le verrou d'écriture de PUT /api/settings.
+    const canEditSettings = process.env.READ_ONLY !== 'true' && local;
+    res.json({ local, canEditSettings });
   });
 
   router.get('/stats', (req, res, next) => {

@@ -1,26 +1,22 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted } from 'vue';
 import Dashboard from './views/Dashboard.vue';
 import StatsPanel from './components/StatsPanel.vue';
 import { useTheme } from './composables/useTheme';
 import { useClock } from './composables/useClock';
 import { useSite } from './composables/useSite';
-import { getContext } from './api/tides';
+import { useContext } from './composables/useContext';
 
 const { isDark, toggle } = useTheme();
 const { clock } = useClock();
 const { sites, siteId, load: loadSites } = useSite();
 
-// Le panneau Stats n'est proposé que sur le réseau local (verrou réel côté serveur).
-const isLocal = ref(false);
+// Panneaux réservés : Stats en réseau local, Réglages seulement si éditables (verrou serveur réel).
+const { local: isLocal, canEditSettings, load: loadContext } = useContext();
 
-onMounted(async () => {
+onMounted(() => {
   loadSites();
-  try {
-    isLocal.value = (await getContext()).local;
-  } catch {
-    /* contexte indisponible : on n'affiche pas le bouton Stats */
-  }
+  loadContext();
 });
 </script>
 
@@ -61,6 +57,7 @@ onMounted(async () => {
           <i class="bi bi-bar-chart-line"></i>
         </button>
         <button
+          v-if="canEditSettings"
           type="button"
           class="btn btn-outline-light btn-sm"
           data-bs-toggle="offcanvas"

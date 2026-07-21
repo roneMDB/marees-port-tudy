@@ -36,9 +36,9 @@ export function getSites(): Promise<Site[]> {
   return fetchJson<Site[]>('/api/sites');
 }
 
-/** GET /api/context — indique si le client est sur le réseau local. */
-export function getContext(): Promise<{ local: boolean }> {
-  return fetchJson<{ local: boolean }>('/api/context');
+/** GET /api/context — réseau local ? droit d'édition des réglages ? */
+export function getContext(): Promise<{ local: boolean; canEditSettings: boolean }> {
+  return fetchJson<{ local: boolean; canEditSettings: boolean }>('/api/context');
 }
 
 /** GET /api/stats — statistiques d'accès (réservé au réseau local, 403 sinon). */
