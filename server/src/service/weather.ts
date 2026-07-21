@@ -55,6 +55,7 @@ export interface DailyWeather {
   precipitation: number;
   windMax: number;
   gustMax: number;
+  windDirection: number | null; // direction dominante (degrés), null si indisponible
 }
 
 export interface MarineWeather {
@@ -97,7 +98,7 @@ export async function fetchWeather(
     current:
       'temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m',
     daily:
-      'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max',
+      'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant',
     timezone: 'auto',
     forecast_days: String(days)
   });
@@ -116,7 +117,8 @@ export async function fetchWeather(
     tempMax: d.temperature_2m_max[i],
     precipitation: d.precipitation_sum[i],
     windMax: d.wind_speed_10m_max[i],
-    gustMax: d.wind_gusts_10m_max[i]
+    gustMax: d.wind_gusts_10m_max[i],
+    windDirection: d.wind_direction_10m_dominant?.[i] ?? null
   }));
 
   // Conditions marines : optionnelles (peuvent manquer près des côtes → marine = null).

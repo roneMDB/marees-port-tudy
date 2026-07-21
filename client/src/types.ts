@@ -100,6 +100,7 @@ export interface WeatherDaily {
   precipitation: number;
   windMax: number;
   gustMax: number;
+  windDirection: number | null;
 }
 
 export interface WeatherMarine {

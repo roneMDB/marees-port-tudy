@@ -22,7 +22,8 @@ const forecastJson = {
     temperature_2m_min: [17.2, 15.9],
     precipitation_sum: [0, 2.4],
     wind_speed_10m_max: [29.3, 30.1],
-    wind_gusts_10m_max: [50, 52]
+    wind_gusts_10m_max: [50, 52],
+    wind_direction_10m_dominant: [58, 240]
   }
 };
 
@@ -57,6 +58,18 @@ describe('fetchWeather', () => {
     expect(w.daily).toHaveLength(2);
     expect(w.daily[0]).toMatchObject({ date: '2026-07-19', weatherText: 'Couvert', tempMax: 26.7 });
     expect(w.daily[1].weatherText).toBe('Pluie faible'); // code 61
+    // Direction dominante du vent par jour (null si absente de la réponse).
+    expect(w.daily.map(d => d.windDirection)).toEqual([58, 240]);
+  });
+
+  it('sets daily windDirection to null when the field is absent', async () => {
+    const noDir = (async () =>
+      ({ ok: true, status: 200, json: async () => ({
+        ...forecastJson,
+        daily: { ...forecastJson.daily, wind_direction_10m_dominant: undefined }
+      }) }) as Response) as unknown as typeof fetch;
+    const w = await fetchWeather(47.6, -3.5, 2, noDir);
+    expect(w.daily.every(d => d.windDirection === null)).toBe(true);
   });
 
   it('includes marine data when available', async () => {

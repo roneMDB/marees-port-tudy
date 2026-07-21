@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { getWeather } from '../api/weather';
 import { degToCompass, wmoIcon } from '../lib/weather';
 import { formatDate } from '../lib/format';
@@ -8,6 +8,12 @@ import type { Weather } from '../types';
 const loading = ref(true);
 const error = ref<string | null>(null);
 const weather = ref<Weather | null>(null);
+
+// Lien Windy centré sur les coordonnées courantes (repli sur la page d'accueil).
+const windyUrl = computed(() => {
+  const loc = weather.value?.location;
+  return loc ? `https://www.windy.com/?${loc.latitude},${loc.longitude},9` : 'https://www.windy.com';
+});
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -89,9 +95,25 @@ onMounted(load);
               </div>
               <div class="small text-muted">
                 <i class="bi bi-wind"></i> {{ Math.round(d.windMax) }}
+                <span v-if="d.windDirection != null">{{ degToCompass(d.windDirection) }}</span>
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- Liens vers des sites météo (le lieu pour Windy) -->
+        <div class="mt-2 pt-2 border-top small text-muted text-center">
+          <i class="bi bi-box-arrow-up-right me-1"></i>Plus de météo :
+          <a :href="windyUrl" target="_blank" rel="noopener noreferrer" class="link-secondary">Windy</a>
+          <span class="mx-1">·</span>
+          <a
+            href="https://meteofrance.com/previsions-meteo-france/belz/56550"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="link-secondary"
+          >Météo-France</a>
+          <span class="mx-1">·</span>
+          <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" class="link-secondary">Open-Meteo</a>
         </div>
       </template>
     </div>
