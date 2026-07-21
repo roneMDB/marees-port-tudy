@@ -225,19 +225,24 @@ et `horaires_marees_port-tudy.json` (horaires embarqués dans l'image).
 
 ### 8.2 Mot de passe d'accès (authentification Basic)
 
-L'app protège **toute** l'interface par un mot de passe dès que `APP_PASSWORD` est défini. Dans le
-`docker-compose.yml` du NAS, décommenter et renseigner (voir `deploy/docker-compose.nas.yml`) :
+L'app protège **toute** l'interface par un mot de passe dès que `APP_PASSWORD` est défini. Le
+compose du NAS lit ces variables depuis un fichier **`.env`** placé à côté de lui — ce fichier
+**n'est pas transféré** par `push-to-nas.sh`, il survit donc aux mises à jour et garde le mot de
+passe hors Git. En SSH sur le NAS :
 
-```yaml
-    environment:
-      - APP_USER=marees          # identifiant (défaut : marees)
-      - APP_PASSWORD=un-mot-de-passe-solide   # à partager au cercle restreint
-      - READ_ONLY=true           # optionnel : édition des réglages désactivée à distance (PUT → 403)
+```bash
+cd /volume1/docker/marees
+cat > .env <<'EOF'
+APP_USER=marees
+APP_PASSWORD=un-mot-de-passe-solide     # à partager au cercle restreint
+READ_ONLY=false                          # true → édition des réglages désactivée (PUT → 403)
+EOF
+chmod 600 .env
+sudo docker-compose up -d                # recrée le conteneur avec les nouvelles variables
 ```
 
-Puis recréer le conteneur (`docker-compose up -d`). Le navigateur demandera identifiant + mot de
-passe une seule fois. `GET /api/health` reste public (sonde). **Sans `APP_PASSWORD`, l'accès est
-libre** — ne pas exposer dans ce cas.
+Le navigateur demandera identifiant + mot de passe une seule fois. `GET /api/health` reste public
+(sonde). **Sans `.env` / `APP_PASSWORD` vide, l'accès est libre** — ne pas exposer dans ce cas.
 
 - `READ_ONLY=true` : à activer si vous voulez que les réglages (Navihan, liens météo, période) ne
   soient **pas** modifiables à distance. Laisser désactivé si le cercle de confiance peut les ajuster

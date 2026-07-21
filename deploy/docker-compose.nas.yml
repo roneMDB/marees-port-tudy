@@ -13,11 +13,13 @@ services:
     environment:
       - DATA_DIR=/data
       - PORT=3000
-      # --- Exposition externe (reverse proxy DSM) : décommenter pour activer ---
-      # Authentification Basic : protège TOUTE l'app (mot de passe partagé au cercle restreint).
-      # Sans APP_PASSWORD, l'auth est désactivée (accès libre en LAN).
-      # - APP_USER=marees
-      # - APP_PASSWORD=change-moi
-      # Lecture seule : PUT /api/settings → 403 (réserve l'édition des réglages au local).
-      # - READ_ONLY=true
+      # Exposition externe : valeurs lues depuis un fichier `.env` placé À CÔTÉ de ce compose
+      # sur le NAS (/volume1/docker/marees/.env). Ce `.env` n'est PAS transféré par
+      # push-to-nas.sh → il survit aux mises à jour et garde le mot de passe hors Git.
+      #   APP_USER=marees
+      #   APP_PASSWORD=un-mot-de-passe-solide   # vide → authentification désactivée (LAN only)
+      #   READ_ONLY=false                        # true → PUT /api/settings renvoie 403
+      - APP_USER=${APP_USER:-marees}
+      - APP_PASSWORD=${APP_PASSWORD:-}
+      - READ_ONLY=${READ_ONLY:-false}
     restart: unless-stopped
