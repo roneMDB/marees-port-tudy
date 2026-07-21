@@ -14,6 +14,7 @@ export const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data')
 export const TIDES_FILENAME = 'horaires_marees_port-tudy.json';
 export const TIDES_FILE = path.join(DATA_DIR, TIDES_FILENAME);
 export const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+export const ACCESS_LOG_FILE = path.join(DATA_DIR, 'access-log.jsonl');
 
 /** Répertoire des graines versionnées, embarquées dans l'image (`dist/resources/`). */
 const RESOURCES_DIR = path.join(__dirname, '..', 'resources');

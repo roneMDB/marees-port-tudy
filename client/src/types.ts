@@ -47,6 +47,24 @@ export interface Site {
   label: string;
 }
 
+/** Statistiques d'accès (miroir du contrat `/api/stats`). */
+export interface AccessCount {
+  name: string;
+  count: number;
+}
+
+export interface AccessStats {
+  total: number;
+  lan: number;
+  external: number;
+  firstTs: string | null;
+  lastTs: string | null;
+  perDay: { date: string; count: number }[];
+  countries: AccessCount[];
+  browsers: AccessCount[];
+  devices: AccessCount[];
+}
+
 /** Décalages Navihan (en minutes) appliqués aux heures de Port-Tudy. */
 export interface NavihanOffsets {
   basseMer: number;

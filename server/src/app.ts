@@ -7,7 +7,9 @@ import { Logger } from 'pino';
 import { createTidesRouter } from './routes/tides';
 import { createSettingsRouter } from './routes/settings';
 import { createWeatherRouter } from './routes/weather';
+import { createStatsRouter } from './routes/stats';
 import { basicAuth } from './middleware/auth';
+import { accessLog } from './middleware/accessLog';
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 
@@ -37,11 +39,15 @@ export function createApp(logger: Logger): Application {
   // Authentification Basic optionnelle (activée par `APP_PASSWORD`).
   app.use(basicAuth());
 
+  // Journalisation des ouvertures de l'app (accès), après l'auth.
+  app.use(accessLog());
+
   app.use(express.json());
 
   app.use('/api', createTidesRouter(logger));
   app.use('/api', createSettingsRouter(logger));
   app.use('/api', createWeatherRouter(logger));
+  app.use('/api', createStatsRouter(logger));
 
   // En production, sert le client Vue buildé (client/dist) sur la même origine.
   const clientDist = path.resolve(__dirname, '..', '..', 'client', 'dist');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isPrivateIp } from './net';
+import { isPrivateIp, truncateIp } from './net';
 
 describe('isPrivateIp', () => {
   it('reconnaît loopback et plages privées IPv4', () => {
@@ -24,5 +24,21 @@ describe('isPrivateIp', () => {
     expect(isPrivateIp('2a01:e0a::1')).toBe(false);
     expect(isPrivateIp(undefined)).toBe(false);
     expect(isPrivateIp('')).toBe(false);
+  });
+});
+
+describe('truncateIp', () => {
+  it('tronque une IPv4 aux deux premiers octets', () => {
+    expect(truncateIp('88.186.251.122')).toBe('88.186.x.x');
+    expect(truncateIp('::ffff:203.0.113.9')).toBe('203.0.x.x');
+  });
+
+  it('tronque une IPv6 aux trois premiers groupes', () => {
+    expect(truncateIp('2a01:e0a:ebe:de90:211:32ff:fe:1')).toBe('2a01:e0a:ebe::');
+  });
+
+  it('renvoie une chaîne vide pour une entrée vide', () => {
+    expect(truncateIp('')).toBe('');
+    expect(truncateIp(undefined)).toBe('');
   });
 });

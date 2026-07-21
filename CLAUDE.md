@@ -72,6 +72,14 @@ Route météo (`src/routes/weather.ts` + `src/service/weather.ts`) :
   Codes WMO traduits (`weatherText`). La carte météo affiche aussi des **liens configurables**
   (`settings.weatherLinks`, cf. Config) avec placeholders `{lat}`/`{lon}` (`lib/weather.resolveLinkUrl`).
 
+Routes accès/stats (`src/routes/stats.ts` + `src/middleware/accessLog.ts`) :
+- `GET /api/context` → `{ local }` (basé sur `isPrivateIp(req.ip)`) : le client n'affiche le bouton
+  Stats que sur le réseau local.
+- `GET /api/stats` → agrégats d'accès (`lib/stats.ts` `aggregateAccess`), **réservé au réseau local**
+  (403 sinon). Le middleware `accessLog` journalise chaque **ouverture de page** (requête de document
+  HTML, hors `/api`/assets) dans `DATA_DIR/access-log.jsonl` — anonymisé : IP **tronquée**
+  (`net.truncateIp`), pays via **`geoip-lite`** (hors-ligne), User-Agent. Rotation ~1 Mo (`.1`).
+
 Service `src/service/Maree.ts` (données uniquement, aucun rendu) :
 - `getTidesRange(from?, to?)` — filtre `[from, to]` **inclusif** ; sans bornes → tout le fichier.
 - `getTides(nbDays)` — fenêtre `[aujourd'hui, +nbDays[` (**`to` exclusif**) ; historique, conservé.
@@ -82,8 +90,9 @@ Service `src/service/Maree.ts` (données uniquement, aucun rendu) :
 - Types exportés (contrat REST) : `Extreme`, `TideOutput`, `TidesMeta`.
 
 **Répertoire de données** (`src/config/dataDir.ts`) : `DATA_DIR` (env, défaut `<cwd>/data`)
-contient `settings.json` et **un fichier d'horaires par site** (`horaires_marees_port-tudy.json`,
-`horaires_marees_etel.json`, isolés pour un volume Docker). `ensureDataDir()` crée le dossier et,
+contient `settings.json`, **un fichier d'horaires par site** (`horaires_marees_port-tudy.json`,
+`horaires_marees_etel.json`) et le journal d'accès `access-log.jsonl` (anonymisé, cf. Routes
+accès/stats), isolés pour un volume Docker. `ensureDataDir()` crée le dossier et,
 **pour chaque site de `SITES`**, copie le fichier depuis la graine (`dist/resources/`, via
 `__dirname`) s'il est absent (volume vide au 1er run). `tidesFileForSite(id)` résout le chemin
 runtime d'un site. `ensureSettingsFile()` écrit les défauts si `settings.json` manque. Les données
@@ -145,6 +154,11 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   ajout/suppression, bouton défauts), **Filtres d'affichage** (éphémères : `Type`, `Coef min`, reset).
   Remplace les anciens `TideFilters.vue` / `NavihanSettings.vue`. `StatCards.vue` — carte « À flot »
   sur `settings.aFlotDays`.
+- `components/StatsPanel.vue` — **panneau « Statistiques d'accès »** (offcanvas) : KPIs (visites,
+  LAN/externe), graphe visites/jour, pays/navigateurs/appareils. Charge `getStats()` à l'ouverture.
+  Le bouton (navbar, `App.vue`) et le panneau ne sont montés que si `getContext().local` (réseau
+  local) ; le verrou réel est côté serveur (`/api/stats` → 403 hors LAN). `SettingsPanel` affiche un
+  avertissement (`useSettings.saveError`) quand un enregistrement est refusé (lecture seule / hors LAN).
 - `Dashboard.vue` affiche un encart explicatif : heures **Port-Tudy** = référence, le but est
   d'en déduire les heures **Navihan** (basse mer, pleine mer, « à flot »).
 - `src/composables/useTheme.ts` — thème clair/sombre (singleton). Applique `data-bs-theme`

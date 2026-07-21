@@ -1,4 +1,4 @@
-import type { Site, TideOutput, TidesMeta } from '../types';
+import type { AccessStats, Site, TideOutput, TidesMeta } from '../types';
 
 /** Récupère du JSON, en remontant le message d'erreur de l'API si présent. */
 export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -34,4 +34,14 @@ export function getMeta(): Promise<TidesMeta> {
 /** GET /api/sites — liste des ports disponibles. */
 export function getSites(): Promise<Site[]> {
   return fetchJson<Site[]>('/api/sites');
+}
+
+/** GET /api/context — indique si le client est sur le réseau local. */
+export function getContext(): Promise<{ local: boolean }> {
+  return fetchJson<{ local: boolean }>('/api/context');
+}
+
+/** GET /api/stats — statistiques d'accès (réservé au réseau local, 403 sinon). */
+export function getStats(): Promise<AccessStats> {
+  return fetchJson<AccessStats>('/api/stats');
 }

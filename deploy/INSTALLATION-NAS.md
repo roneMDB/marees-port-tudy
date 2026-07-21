@@ -267,6 +267,14 @@ Durcissement déjà **intégré à l'image** : en-têtes de sécurité (helmet),
 - **Secret hérité** : une ancienne clé `API_MAREE_KEY` (inutilisée par le code) figure dans
   l'historique Git du dépôt — si le dépôt est public, **révoquez/rotez cette clé**.
 
+### 8.4 Statistiques d'accès (réseau local)
+
+L'app enregistre chaque ouverture dans `data/access-log.jsonl` — **anonymisé** (IP tronquée, pays
+via une base géoIP hors-ligne, navigateur/appareil). Un bouton **« Statistiques »** (icône graphique
+dans la navbar) ouvre un tableau de bord (visites/jour, LAN vs externe, pays…). Il n'apparaît et ne
+répond **que sur le réseau local** (`http://ds218plus.home:3000`) ; depuis l'extérieur l'endpoint
+renvoie 403. Le journal tourne automatiquement (~1 Mo, une génération conservée) — rien à gérer.
+
 ---
 
 ## 9. Mettre à jour l'application

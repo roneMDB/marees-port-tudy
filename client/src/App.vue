@@ -1,15 +1,27 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import Dashboard from './views/Dashboard.vue';
+import StatsPanel from './components/StatsPanel.vue';
 import { useTheme } from './composables/useTheme';
 import { useClock } from './composables/useClock';
 import { useSite } from './composables/useSite';
+import { getContext } from './api/tides';
 
 const { isDark, toggle } = useTheme();
 const { clock } = useClock();
 const { sites, siteId, load: loadSites } = useSite();
 
-onMounted(loadSites);
+// Le panneau Stats n'est proposé que sur le réseau local (verrou réel côté serveur).
+const isLocal = ref(false);
+
+onMounted(async () => {
+  loadSites();
+  try {
+    isLocal.value = (await getContext()).local;
+  } catch {
+    /* contexte indisponible : on n'affiche pas le bouton Stats */
+  }
+});
 </script>
 
 <template>
@@ -37,6 +49,18 @@ onMounted(loadSites);
           </select>
         </div>
         <button
+          v-if="isLocal"
+          type="button"
+          class="btn btn-outline-light btn-sm"
+          data-bs-toggle="offcanvas"
+          data-bs-target="#statsOffcanvas"
+          aria-controls="statsOffcanvas"
+          title="Statistiques d'accès"
+          aria-label="Statistiques d'accès"
+        >
+          <i class="bi bi-bar-chart-line"></i>
+        </button>
+        <button
           type="button"
           class="btn btn-outline-light btn-sm"
           data-bs-toggle="offcanvas"
@@ -63,6 +87,8 @@ onMounted(loadSites);
   <main class="bg-body-tertiary min-vh-100 overflow-x-hidden">
     <Dashboard />
   </main>
+
+  <StatsPanel v-if="isLocal" />
 </template>
 
 <style scoped>

@@ -23,3 +23,23 @@ export function isPrivateIp(ip: string | undefined | null): boolean {
 
   return false;
 }
+
+/**
+ * Tronque une IP pour l'anonymiser tout en gardant une granularité utile :
+ * IPv4 `a.b.c.d` → `a.b.x.x` ; IPv6 → 3 premiers groupes + `::`. Renvoie `''` si vide.
+ */
+export function truncateIp(ip: string | undefined | null): string {
+  if (!ip) return '';
+  let a = ip.trim().toLowerCase();
+  if (a.startsWith('::ffff:')) a = a.slice(7); // IPv4 mappée
+
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(a)) {
+    const [p, q] = a.split('.');
+    return `${p}.${q}.x.x`;
+  }
+  if (a.includes(':')) {
+    const groups = a.split(':').filter(Boolean).slice(0, 3);
+    return `${groups.join(':')}::`;
+  }
+  return a;
+}
