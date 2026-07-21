@@ -13,9 +13,11 @@ Monorepo **npm workspaces** : `server/` + `client/`. (La version CLI historique 
 
 **Multi-sites** : plusieurs ports sont exposés (`server/src/config/sites.ts` : Port-Tudy, Étel).
 Un **sélecteur de port** (navbar) bascule l'affichage. **Les heures Navihan restent toujours
-dérivées de Port-Tudy** (port de référence), quel que soit le port sélectionné : choisir un autre
-port ne fait que **substituer les colonnes Heure/Hauteur** (par appariement jour + type + rang),
-Navihan et coefficient restant ceux de Port-Tudy.
+dérivées de Port-Tudy** (port de référence), quel que soit le port sélectionné. Quand un autre
+port est choisi, **les lignes du tableau sont les marées de ce port** (ses propres heure / hauteur /
+coefficient) et la colonne **Navihan** est reliée à la marée de Port-Tudy de **même type la plus
+proche dans le temps** (appariement par proximité, gère le décalage horaire / passage de minuit ;
+« — » si aucune à moins de 3 h).
 
 ## Commandes
 
@@ -95,9 +97,9 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   `TideFilters`) ; découplage via le JSON, **pas de package partagé**.
 - `src/api/tides.ts` — `getTides(from,to,site)`, `getMeta`, `getSites` (`fetch`, chemins `/api/...`).
 - `src/lib/tides.ts` — `flatten()` (aplatit `days` en `FlatTide[]` triés), `filterTides()`
-  (plage de dates inclusive, type, coef min) et `withSiteTimes(reference, site)` (substitue
-  `displayTime`/`displayHeight` du port sélectionné sur la référence Port-Tudy, appariement jour +
-  type + rang) — **fonctions pures, testées**.
+  (plage de dates inclusive, type, coef min) et `matchNavihanReference(site, reference)` (annote
+  chaque marée du port sélectionné d'un `refTime` = heure Port-Tudy de même type la plus proche,
+  tolérance 3 h, sinon `null`) — **fonctions pures, testées**.
 - `src/lib/format.ts` — `formatDate`, `formatHeight`.
 - `src/composables/useSettings.ts` — **config serveur** (singleton) : `settings` réactif (défauts
   puis hydraté via `GET /api/settings`), `load()`, et **sauvegarde auto débouncée** (~500 ms → `PUT`).
@@ -108,10 +110,10 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   `isReference` (= `port-tudy`, référence Navihan), `setSite`, `load`. Sélecteur dans `App.vue`.
 - `src/composables/useTides.ts` — charge config + sites + meta + marées au montage, expose `loading/
   error/meta/settings/filters/dateWindow/filteredTides/allTides`. `allTides` = **référence
-  Port-Tudy** ; les marées du port sélectionné (`≠` référence) sont chargées en plus et fusionnées
-  via `withSiteTimes` dans `filteredTides` (heure/hauteur substituées, Navihan/coef inchangés).
-  `watch(siteId)` recharge à la bascule. `filters` = **filtres éphémères** (`type`, `minCoef`)
-  uniquement. La fenêtre de dates dérive de `resolveWindow(settings, minDate, maxDate)`
+  Port-Tudy** (marégramme, carte à flot). Les **lignes** (`filteredTides`) sont les marées du **port
+  sélectionné** : pour la référence, `refTime = time` ; sinon `matchNavihanReference(siteTides,
+  allTides)`. Le Navihan est (re)calculé par `computeNavihan(refTime, …)`, « — » si `refTime` null.
+  `watch(siteId)` recharge à la bascule. `filters` = **filtres éphémères** (`type`, `minCoef`). La fenêtre de dates dérive de `resolveWindow(settings, minDate, maxDate)`
   (`src/lib/tides.ts`, pure/testée) : début = aujourd'hui (`today`) ou `startDate` (`date`), fin =
   début + `rangeDays`, bornée. Filtrage **côté client**.
 - `src/composables/useNavihan.ts` + `src/lib/navihan.ts` — décalages Navihan **éditables** (basse
@@ -141,9 +143,10 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   sélection filtrée, nombre de jours dans le titre. Tous deux reçoivent leurs données du Dashboard
   (`HeightChart` = `allTides`, indépendant du filtre ; `CoefChart` = `filteredTides`).
 - Colonnes du tableau (`TideTable.vue`) = Date, Type, **Heure ‹port sélectionné›**, Hauteur, Coef,
-  Navihan basse mer, Navihan pleine mer, Navihan à flot. La colonne Heure/Hauteur suit le port
-  sélectionné (prop `siteLabel` + `displayTime`/`displayHeight`, « — » si pas de marée appariée) ;
-  Coef et Navihan restent Port-Tudy. Tri par colonne. Lignes colorées par type.
+  Navihan basse mer, Navihan pleine mer, Navihan à flot. Chaque ligne est une marée du port
+  sélectionné (Heure/Hauteur/Coef propres, en-tête via prop `siteLabel`) ; les colonnes Navihan
+  sont dérivées de Port-Tudy (« — » si pas de marée de référence appariée). Tri par colonne.
+  Lignes colorées par type.
 
 Le proxy Vite (`vite.config.ts`) redirige `/api` vers `:3000` en dev.
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clampDate, filterTides, flatten, resolveWindow, withSiteTimes } from './tides';
+import { clampDate, filterTides, flatten, matchNavihanReference, resolveWindow } from './tides';
 import { addDays } from './format';
 import type { FlatTide, Settings, TideOutput } from '../types';
 
@@ -132,43 +132,43 @@ describe('filterTides', () => {
   });
 });
 
-describe('withSiteTimes', () => {
+describe('matchNavihanReference', () => {
+  // Port-Tudy (référence Navihan).
   const reference: FlatTide[] = [
-    { date: '2026-06-01', time: '03:00', height: 4.6, type: 'high', coefficient: 71, navihan: {} },
-    { date: '2026-06-01', time: '09:00', height: 1.1, type: 'low', coefficient: null, navihan: {} },
-    { date: '2026-06-01', time: '15:30', height: 4.7, type: 'high', coefficient: 71, navihan: {} },
-    { date: '2026-06-01', time: '21:45', height: 1.2, type: 'low', coefficient: null, navihan: {} }
+    { date: '2026-07-22', time: '23:40', height: 3.9, type: 'high', coefficient: 40, navihan: {} },
+    { date: '2026-07-23', time: '06:22', height: 1.9, type: 'low', coefficient: null, navihan: {} },
+    { date: '2026-07-23', time: '12:28', height: 3.8, type: 'high', coefficient: 35, navihan: {} },
+    { date: '2026-07-23', time: '19:01', height: 2.3, type: 'low', coefficient: null, navihan: {} }
   ];
 
-  it('substitutes time/height from the paired site tide, keeping coef & navihan from reference', () => {
-    const site: FlatTide[] = [
-      { date: '2026-06-01', time: '03:20', height: 5.1, type: 'high', coefficient: 71, navihan: {} },
-      { date: '2026-06-01', time: '09:25', height: 0.6, type: 'low', coefficient: null, navihan: {} },
-      { date: '2026-06-01', time: '15:55', height: 5.2, type: 'high', coefficient: 71, navihan: {} },
-      { date: '2026-06-01', time: '22:10', height: 0.7, type: 'low', coefficient: null, navihan: {} }
+  it('keeps the selected port tides as rows and matches the nearest same-type reference', () => {
+    // Étel : 4 marées le 23, dont une pleine mer à 00:14 (cycle de la veille au soir à Port-Tudy).
+    const etel: FlatTide[] = [
+      { date: '2026-07-23', time: '00:14', height: 3.93, type: 'high', coefficient: 40, navihan: {} },
+      { date: '2026-07-23', time: '06:59', height: 2.36, type: 'low', coefficient: null, navihan: {} },
+      { date: '2026-07-23', time: '13:05', height: 3.89, type: 'high', coefficient: 37, navihan: {} },
+      { date: '2026-07-23', time: '19:35', height: 2.38, type: 'low', coefficient: null, navihan: {} }
     ];
-    const merged = withSiteTimes(reference, site);
-    expect(merged.map(t => t.displayTime)).toEqual(['03:20', '09:25', '15:55', '22:10']);
-    expect(merged.map(t => t.displayHeight)).toEqual([5.1, 0.6, 5.2, 0.7]);
-    // Référence intacte (heure Port-Tudy conservée pour Navihan).
-    expect(merged.map(t => t.time)).toEqual(['03:00', '09:00', '15:30', '21:45']);
-    expect(merged[0].coefficient).toBe(71);
+    const rows = matchNavihanReference(etel, reference);
+    // Toutes les marées d'Étel restent (4 lignes), avec leurs propres heures.
+    expect(rows.map(t => t.time)).toEqual(['00:14', '06:59', '13:05', '19:35']);
+    // Appariement par proximité (même type), passage de minuit géré :
+    expect(rows[0].refTime).toBe('23:40'); // 00:14 (23) ↔ pleine mer Port-Tudy 23:40 (22)
+    expect(rows[1].refTime).toBe('06:22'); // basse ↔ basse
+    expect(rows[2].refTime).toBe('12:28'); // 13:05 ↔ pleine mer 12:28 (et non 23:40)
+    expect(rows[3].refTime).toBe('19:01');
   });
 
-  it('pairs by rank within day+type (1re/2e marée), independent of interleaved order', () => {
-    const site: FlatTide[] = [
-      { date: '2026-06-01', time: '15:55', height: 5.2, type: 'high', coefficient: 71, navihan: {} },
-      { date: '2026-06-01', time: '03:20', height: 5.1, type: 'high', coefficient: 71, navihan: {} }
+  it('returns null refTime when no same-type reference is within tolerance', () => {
+    const isolated: FlatTide[] = [
+      { date: '2026-07-23', time: '09:00', height: 2.0, type: 'low', coefficient: null, navihan: {} }
     ];
-    const merged = withSiteTimes(reference, site);
-    // 1re haute réf (03:00) ↔ 1re haute site (03:20) ; 2e haute réf (15:30) ↔ 2e haute site (15:55).
-    expect(merged[0].displayTime).toBe('03:20');
-    expect(merged[2].displayTime).toBe('15:55');
-  });
-
-  it('marks missing site tides with empty time / NaN height', () => {
-    const merged = withSiteTimes(reference, []);
-    expect(merged.every(t => t.displayTime === '')).toBe(true);
-    expect(merged.every(t => Number.isNaN(t.displayHeight))).toBe(true);
+    // Aucune basse mer de référence à moins de 3 h (la plus proche est à 06:22, ~2h38 → OK ;
+    // on force le cas « hors tolérance » avec une référence lointaine seulement).
+    const farRef: FlatTide[] = [
+      { date: '2026-07-23', time: '01:00', height: 1.9, type: 'low', coefficient: null, navihan: {} }
+    ];
+    expect(matchNavihanReference(isolated, farRef)[0].refTime).toBeNull();
+    expect(matchNavihanReference(isolated, [])[0].refTime).toBeNull();
   });
 });

@@ -29,32 +29,30 @@ describe('TideTable', () => {
     expect(wrapper.text()).toContain('Aucune marée');
   });
 
-  it('labels the time column with the site and shows Port-Tudy hours by default', () => {
+  it('labels the time column with the selected site and shows the row own hours', () => {
     const wrapper = mount(TideTable, { props: { tides } });
     expect(wrapper.find('thead').text()).toContain('Heure Port-Tudy');
     expect(wrapper.text()).toContain('03:00');
-  });
 
-  it('substitutes the displayed time/height for the selected site, keeping Navihan', () => {
     const etel: FlatTide[] = [
-      { ...tides[0], displayTime: '03:25', displayHeight: 5.2 }
+      { date: '2026-07-23', time: '13:05', height: 3.89, type: 'high', coefficient: 37, navihan: { 'Pleine mer': '13:43' } }
     ];
-    const wrapper = mount(TideTable, { props: { tides: etel, siteLabel: 'Étel' } });
-    expect(wrapper.find('thead').text()).toContain('Heure Étel');
-    const text = wrapper.text();
-    expect(text).toContain('03:25'); // heure Étel affichée
-    expect(text).toContain('5.20 m'); // hauteur Étel
-    expect(text).not.toContain('03:00'); // plus l'heure de Port-Tudy
-    expect(text).toContain('04:15'); // Navihan (Port-Tudy) conservé
+    const w2 = mount(TideTable, { props: { tides: etel, siteLabel: 'Étel' } });
+    expect(w2.find('thead').text()).toContain('Heure Étel');
+    const text = w2.text();
+    expect(text).toContain('13:05'); // heure propre d'Étel
+    expect(text).toContain('3.89 m'); // hauteur propre d'Étel
+    expect(text).toContain('37'); // coef propre d'Étel
+    expect(text).toContain('13:43'); // Navihan (dérivé de Port-Tudy) présent
   });
 
-  it('renders — when the selected site has no matching tide', () => {
-    const missing: FlatTide[] = [
-      { ...tides[0], displayTime: '', displayHeight: NaN }
+  it('renders — in the Navihan columns when a tide has no reference match', () => {
+    const unmatched: FlatTide[] = [
+      { date: '2026-07-23', time: '00:14', height: 3.93, type: 'high', coefficient: 40, navihan: {} }
     ];
-    const wrapper = mount(TideTable, { props: { tides: missing, siteLabel: 'Étel' } });
+    const wrapper = mount(TideTable, { props: { tides: unmatched, siteLabel: 'Étel' } });
     const rowText = wrapper.find('tbody tr').text();
-    expect(rowText).toContain('—');
-    expect(rowText).toContain('04:15'); // Navihan toujours présent
+    expect(rowText).toContain('00:14'); // l'heure d'Étel reste affichée
+    expect(rowText).toContain('—'); // colonnes Navihan vides → tiret
   });
 });

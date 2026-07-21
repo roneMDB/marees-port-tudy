@@ -10,14 +10,6 @@ const props = withDefaults(defineProps<{ tides: FlatTide[]; siteLabel?: string }
 
 const today = todayKey();
 
-/** Heure/hauteur du port affiché (repli sur la référence Port-Tudy si non substituées). */
-function heureOf(t: FlatTide): string {
-  return t.displayTime !== undefined ? t.displayTime : t.time;
-}
-function hauteurOf(t: FlatTide): number {
-  return t.displayHeight !== undefined ? t.displayHeight : t.height;
-}
-
 type SortKey = 'date' | 'type' | 'time' | 'height' | 'coef';
 const sortKey = ref<SortKey>('date');
 const sortAsc = ref(true);
@@ -33,10 +25,10 @@ function toggleSort(key: SortKey): void {
 
 function sortValue(t: FlatTide, key: SortKey): string | number {
   switch (key) {
-    case 'date': return t.date + t.time; // chronologie stable sur la référence Port-Tudy
+    case 'date': return t.date + t.time;
     case 'type': return t.type;
-    case 'time': return heureOf(t) || '99:99'; // lignes sans heure appariée en fin
-    case 'height': return Number.isFinite(hauteurOf(t)) ? hauteurOf(t) : -Infinity;
+    case 'time': return t.time;
+    case 'height': return Number.isFinite(t.height) ? t.height : -Infinity;
     case 'coef': return t.coefficient ?? -Infinity;
   }
 }
@@ -116,8 +108,8 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
               {{ t.type === 'high' ? 'Pleine mer' : 'Basse mer' }}
             </span>
           </td>
-          <td :data-label="`Heure ${siteLabel}`" class="fw-semibold">{{ heureOf(t) || '—' }}</td>
-          <td data-label="Hauteur">{{ formatHeight(hauteurOf(t)) }}</td>
+          <td :data-label="`Heure ${siteLabel}`" class="fw-semibold">{{ t.time }}</td>
+          <td data-label="Hauteur">{{ formatHeight(t.height) }}</td>
           <td data-label="Coef">
             <span
               v-if="t.coefficient != null"

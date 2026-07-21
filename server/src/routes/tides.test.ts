@@ -80,11 +80,12 @@ describe('API /api', () => {
     ]);
   });
 
-  it('GET /api/tides?site=etel returns the (empty) Étel dataset', async () => {
-    const res = await request(app).get('/api/tides?site=etel');
+  it('GET /api/tides?site=etel returns the Étel dataset', async () => {
+    const res = await request(app).get('/api/tides?site=etel&from=2026-07-23&to=2026-07-23');
     expect(res.status).toBe(200);
     expect(res.body.siteId).toBe('etel');
-    expect(res.body.days).toEqual({});
+    // Étel a bien 4 extrêmes ce jour-là (2 PM dont une vers minuit, 2 BM).
+    expect(res.body.days['2026-07-23']).toHaveLength(4);
   });
 
   it('GET /api/tides?site=port-tudy is equivalent to the default site', async () => {

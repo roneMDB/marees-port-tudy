@@ -1,6 +1,6 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { getMeta, getTides } from '../api/tides';
-import { filterTides, flatten, resolveWindow, withSiteTimes } from '../lib/tides';
+import { filterTides, flatten, matchNavihanReference, resolveWindow } from '../lib/tides';
 import { computeNavihan } from '../lib/navihan';
 import { useSettings } from './useSettings';
 import { useSite } from './useSite';
@@ -10,15 +10,16 @@ import type { FlatTide, TideDisplayFilters, TidesMeta } from '../types';
  * Charge la config, les métadonnées et l'ensemble des marées au montage, puis
  * expose un filtrage réactif côté client (données petites → pas de refetch).
  *
- * La **référence** Port-Tudy (`allTides`) pilote les lignes, la fenêtre de dates, le
- * coefficient et les heures **Navihan**. Le **port sélectionné** ne fait que substituer
- * l'heure et la hauteur affichées (`displayTime`/`displayHeight`, via `withSiteTimes`).
+ * Les **lignes** sont les marées du **port sélectionné** (ses propres heure/hauteur/coef).
+ * Les heures **Navihan** restent dérivées de **Port-Tudy** : chaque marée est reliée à la
+ * marée Port-Tudy de même type la plus proche (`matchNavihanReference` → `refTime`), « — »
+ * si aucune. Quand le port sélectionné est la référence, `refTime = time` (comportement initial).
  */
 export function useTides() {
   const loading = ref(true);
   const error = ref<string | null>(null);
   const meta = ref<TidesMeta | null>(null);
-  const allTides = ref<FlatTide[]>([]); // référence Port-Tudy
+  const allTides = ref<FlatTide[]>([]); // référence Port-Tudy (marégramme, à flot, Navihan)
   const siteTides = ref<FlatTide[]>([]); // marées du port sélectionné (si ≠ référence)
 
   const { settings, load: loadSettings } = useSettings();
@@ -32,16 +33,22 @@ export function useTides() {
     resolveWindow(settings, meta.value?.minDate ?? '', meta.value?.maxDate ?? '')
   );
 
-  // Référence enrichie de l'heure/hauteur du port sélectionné (identité si port de référence).
-  const tidesForSite = computed(() =>
-    isReference.value ? allTides.value : withSiteTimes(allTides.value, siteTides.value)
+  // Lignes = marées du port sélectionné, chacune reliée à une heure de référence Port-Tudy
+  // (`refTime`) pour le Navihan. Pour le port de référence, `refTime` = sa propre heure.
+  const rows = computed<FlatTide[]>(() =>
+    isReference.value
+      ? allTides.value.map(t => ({ ...t, refTime: t.time }))
+      : matchNavihanReference(siteTides.value, allTides.value)
   );
 
-  // Filtrage (fenêtre + filtres éphémères) + recalcul Navihan depuis l'heure Port-Tudy.
+  // Filtrage (fenêtre + filtres éphémères) + calcul Navihan depuis l'heure Port-Tudy appariée.
   const filteredTides = computed(() => {
     const { from, to } = dateWindow.value;
-    return filterTides(tidesForSite.value, { from, to, type: filters.type, minCoef: filters.minCoef })
-      .map(t => ({ ...t, navihan: computeNavihan(t, settings.navihan) }));
+    return filterTides(rows.value, { from, to, type: filters.type, minCoef: filters.minCoef })
+      .map(t => ({
+        ...t,
+        navihan: t.refTime ? computeNavihan({ time: t.refTime, type: t.type }, settings.navihan) : {}
+      }));
   });
 
   /** Charge les marées du port sélectionné (inutile quand c'est la référence). */
