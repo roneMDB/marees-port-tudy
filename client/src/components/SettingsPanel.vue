@@ -2,6 +2,7 @@
 import { useSettings } from '../composables/useSettings';
 import { useNavihan } from '../composables/useNavihan';
 import { formatOffset } from '../lib/navihan';
+import { DEFAULT_WEATHER_LINKS } from '../types';
 import type { NavihanOffsets, TideDisplayFilters, TidesMeta } from '../types';
 
 const props = defineProps<{
@@ -51,6 +52,16 @@ function onRangeDays(event: Event): void {
 function onMinCoef(event: Event): void {
   const value = (event.target as HTMLInputElement).value;
   props.filters.minCoef = value === '' ? null : Number(value);
+}
+
+function addWeatherLink(): void {
+  settings.weatherLinks.push({ label: '', url: '' });
+}
+function removeWeatherLink(index: number): void {
+  settings.weatherLinks.splice(index, 1);
+}
+function resetWeatherLinks(): void {
+  settings.weatherLinks = DEFAULT_WEATHER_LINKS.map(l => ({ ...l }));
 }
 </script>
 
@@ -156,6 +167,47 @@ function onMinCoef(event: Event): void {
       <div class="mt-3 mb-4">
         <button type="button" class="btn btn-sm btn-outline-secondary" @click="resetNavihan">
           <i class="bi bi-arrow-counterclockwise me-1"></i> Décalages par défaut
+        </button>
+      </div>
+
+      <!-- Liens météo (configuration enregistrée) -->
+      <h6 class="text-uppercase text-muted small fw-bold mb-2">Liens météo</h6>
+      <p class="text-muted small mb-3">
+        Liens affichés sous la météo. <code>{lat}</code>/<code>{lon}</code> sont remplacés par les
+        coordonnées du lieu. Enregistrés côté serveur.
+      </p>
+      <div
+        v-for="(link, i) in settings.weatherLinks"
+        :key="i"
+        class="row g-2 mb-2 align-items-center"
+      >
+        <div class="col-4">
+          <label class="visually-hidden">Nom du lien {{ i + 1 }}</label>
+          <input type="text" class="form-control form-control-sm" placeholder="Nom" v-model="link.label" />
+        </div>
+        <div class="col-7">
+          <label class="visually-hidden">URL du lien {{ i + 1 }}</label>
+          <input type="url" class="form-control form-control-sm" placeholder="https://…" v-model="link.url" />
+        </div>
+        <div class="col-1 d-grid">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger"
+            :title="`Supprimer ${link.label || 'ce lien'}`"
+            :aria-label="`Supprimer ${link.label || 'ce lien'}`"
+            @click="removeWeatherLink(i)"
+          >
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+      <p v-if="!settings.weatherLinks.length" class="text-muted small fst-italic">Aucun lien.</p>
+      <div class="d-flex gap-2 mt-2 mb-4">
+        <button type="button" class="btn btn-sm btn-outline-secondary" @click="addWeatherLink">
+          <i class="bi bi-plus-lg me-1"></i> Ajouter un lien
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" @click="resetWeatherLinks">
+          <i class="bi bi-arrow-counterclockwise me-1"></i> Liens par défaut
         </button>
       </div>
 

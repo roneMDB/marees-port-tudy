@@ -1,5 +1,6 @@
 import { nextTick, reactive, ref, watch } from 'vue';
 import { getSettings, saveSettings } from '../api/settings';
+import { DEFAULT_WEATHER_LINKS } from '../types';
 import type { Settings } from '../types';
 
 const DEFAULTS: Settings = {
@@ -7,18 +8,27 @@ const DEFAULTS: Settings = {
   startDate: null,
   rangeDays: 30,
   navihan: { basseMer: 75, pleineMer: 75, aFlot: 160 },
-  aFlotDays: 3
+  aFlotDays: 3,
+  weatherLinks: DEFAULT_WEATHER_LINKS.map(l => ({ ...l }))
 };
 
 // État partagé (singleton) : la config vaut pour toute l'application.
-const settings = reactive<Settings>({ ...DEFAULTS, navihan: { ...DEFAULTS.navihan } });
+const settings = reactive<Settings>({
+  ...DEFAULTS,
+  navihan: { ...DEFAULTS.navihan },
+  weatherLinks: DEFAULTS.weatherLinks.map(l => ({ ...l }))
+});
 const loaded = ref(false);
 let loadPromise: Promise<void> | null = null;
 let hydrating = false;
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
 function snapshot(): Settings {
-  return { ...settings, navihan: { ...settings.navihan } };
+  return {
+    ...settings,
+    navihan: { ...settings.navihan },
+    weatherLinks: settings.weatherLinks.map(l => ({ ...l }))
+  };
 }
 
 // Sauvegarde automatique débouncée (~500 ms) à chaque changement (hors hydratation).

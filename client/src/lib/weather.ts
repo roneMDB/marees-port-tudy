@@ -18,3 +18,13 @@ export function degToCompass(deg: number): string {
   const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
   return dirs[Math.round(deg / 45) % 8];
 }
+
+/**
+ * Remplace les placeholders `{lat}`/`{lon}` d'une URL de lien météo par les coordonnées
+ * du lieu (chaîne vide si non fournies). Les URL sans placeholder sont renvoyées telles quelles.
+ */
+export function resolveLinkUrl(url: string, lat?: number | null, lon?: number | null): string {
+  return url
+    .replace(/\{lat\}/g, lat != null ? String(lat) : '')
+    .replace(/\{lon\}/g, lon != null ? String(lon) : '');
+}

@@ -54,6 +54,32 @@ describe('sanitizeSettings', () => {
     expect(sanitizeSettings({ startMode: 'date', startDate: 'nope' }).startDate).toBeNull();
     expect(sanitizeSettings({ startMode: 'bogus' }).startMode).toBe('today');
   });
+
+  it('defaults weatherLinks when absent, keeps an explicit empty list', () => {
+    expect(sanitizeSettings({}).weatherLinks).toEqual(DEFAULT_SETTINGS.weatherLinks);
+    expect(sanitizeSettings({ weatherLinks: [] }).weatherLinks).toEqual([]);
+  });
+
+  it('keeps valid weather links and drops invalid ones', () => {
+    const s = sanitizeSettings({
+      weatherLinks: [
+        { label: 'Windy', url: 'https://www.windy.com/?{lat},{lon},9' },
+        { label: '', url: 'https://valid.example' }, // libellé vide → écarté
+        { label: 'Pas http', url: 'ftp://nope' }, // URL non http(s) → écartée
+        { label: 'Sans url' }, // url absente → écartée
+        { label: 'Ok', url: 'http://example.org' }
+      ]
+    });
+    expect(s.weatherLinks).toEqual([
+      { label: 'Windy', url: 'https://www.windy.com/?{lat},{lon},9' },
+      { label: 'Ok', url: 'http://example.org' }
+    ]);
+  });
+
+  it('caps the number of weather links at 12', () => {
+    const many = Array.from({ length: 20 }, (_, i) => ({ label: `L${i}`, url: `https://e${i}.example` }));
+    expect(sanitizeSettings({ weatherLinks: many }).weatherLinks).toHaveLength(12);
+  });
 });
 
 describe('read/write/ensure', () => {

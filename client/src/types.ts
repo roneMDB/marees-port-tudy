@@ -69,6 +69,12 @@ export interface TideDisplayFilters {
   minCoef: number | null;
 }
 
+/** Lien externe affiché sous la météo. L'URL accepte les placeholders `{lat}`/`{lon}`. */
+export interface WeatherLink {
+  label: string;
+  url: string;
+}
+
 /** Configuration persistée côté serveur (miroir du contrat `/api/settings`). */
 export interface Settings {
   startMode: 'today' | 'date';
@@ -76,6 +82,7 @@ export interface Settings {
   rangeDays: number; // « Au » = début + rangeDays
   navihan: NavihanOffsets; // décalages en minutes
   aFlotDays: number; // carte « À flot · N prochains jours »
+  weatherLinks: WeatherLink[]; // liens sous la météo (éditables dans les réglages)
 }
 
 /** Météo (miroir du contrat `/api/weather`). */
@@ -122,3 +129,10 @@ export const NAVIHAN = {
   pleineMer: 'Pleine mer',
   aFlot: 'A flot'
 } as const;
+
+/** Liens météo par défaut (miroir du serveur ; `{lat}`/`{lon}` = coordonnées du lieu). */
+export const DEFAULT_WEATHER_LINKS: WeatherLink[] = [
+  { label: 'Windy', url: 'https://www.windy.com/?{lat},{lon},9' },
+  { label: 'Météo-France', url: 'https://meteofrance.com/previsions-meteo-france/belz/56550' },
+  { label: 'Open-Meteo', url: 'https://open-meteo.com' }
+];

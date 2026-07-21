@@ -1,19 +1,21 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { getWeather } from '../api/weather';
-import { degToCompass, wmoIcon } from '../lib/weather';
+import { degToCompass, resolveLinkUrl, wmoIcon } from '../lib/weather';
 import { formatDate } from '../lib/format';
+import { useSettings } from '../composables/useSettings';
 import type { Weather } from '../types';
 
 const loading = ref(true);
 const error = ref<string | null>(null);
 const weather = ref<Weather | null>(null);
 
-// Lien Windy centré sur les coordonnées courantes (repli sur la page d'accueil).
-const windyUrl = computed(() => {
+// Liens météo configurables (réglages) ; {lat}/{lon} résolus sur le lieu courant.
+const { settings } = useSettings();
+function linkHref(url: string): string {
   const loc = weather.value?.location;
-  return loc ? `https://www.windy.com/?${loc.latitude},${loc.longitude},9` : 'https://www.windy.com';
-});
+  return resolveLinkUrl(url, loc?.latitude, loc?.longitude);
+}
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -33,7 +35,10 @@ onMounted(load);
 <template>
   <div class="card shadow-sm mb-3">
     <div class="card-header bg-body-tertiary fw-semibold d-flex justify-content-between align-items-center">
-      <span><i class="bi bi-cloud-sun me-1"></i> Météo · Belz</span>
+      <span>
+        <i class="bi bi-cloud-sun me-1"></i> Météo · Belz
+        <span class="fw-normal text-muted small">· données Open-Meteo</span>
+      </span>
       <button
         v-if="!loading"
         type="button"
@@ -101,19 +106,13 @@ onMounted(load);
           </div>
         </div>
 
-        <!-- Liens vers des sites météo (le lieu pour Windy) -->
-        <div class="mt-2 pt-2 border-top small text-muted text-center">
+        <!-- Liens météo configurables (réglages) -->
+        <div v-if="settings.weatherLinks.length" class="mt-2 pt-2 border-top small text-muted text-center">
           <i class="bi bi-box-arrow-up-right me-1"></i>Plus de météo :
-          <a :href="windyUrl" target="_blank" rel="noopener noreferrer" class="link-secondary">Windy</a>
-          <span class="mx-1">·</span>
-          <a
-            href="https://meteofrance.com/previsions-meteo-france/belz/56550"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="link-secondary"
-          >Météo-France</a>
-          <span class="mx-1">·</span>
-          <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" class="link-secondary">Open-Meteo</a>
+          <template v-for="(link, i) in settings.weatherLinks" :key="i">
+            <span v-if="i > 0" class="mx-1">·</span>
+            <a :href="linkHref(link.url)" target="_blank" rel="noopener noreferrer" class="link-secondary">{{ link.label }}</a>
+          </template>
         </div>
       </template>
     </div>

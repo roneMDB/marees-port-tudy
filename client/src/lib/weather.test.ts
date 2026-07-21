@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { degToCompass, wmoIcon } from './weather';
+import { degToCompass, resolveLinkUrl, wmoIcon } from './weather';
 
 describe('degToCompass', () => {
   it('maps degrees to an 8-point French compass', () => {
@@ -18,5 +18,21 @@ describe('wmoIcon', () => {
     expect(wmoIcon(63)).toBe('bi-cloud-rain');
     expect(wmoIcon(95)).toBe('bi-cloud-lightning-rain');
     expect(wmoIcon(4)).toBe('bi-cloud'); // code non mappé → défaut
+  });
+});
+
+describe('resolveLinkUrl', () => {
+  it('substitutes {lat}/{lon} with the coordinates', () => {
+    expect(resolveLinkUrl('https://www.windy.com/?{lat},{lon},9', 47.64, -3.45)).toBe(
+      'https://www.windy.com/?47.64,-3.45,9'
+    );
+  });
+
+  it('leaves URLs without placeholders unchanged', () => {
+    expect(resolveLinkUrl('https://open-meteo.com', 47.64, -3.45)).toBe('https://open-meteo.com');
+  });
+
+  it('replaces placeholders with empty string when coordinates are missing', () => {
+    expect(resolveLinkUrl('https://x/?{lat},{lon}')).toBe('https://x/?,');
   });
 });

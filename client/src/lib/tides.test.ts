@@ -8,7 +8,8 @@ const baseSettings: Settings = {
   startDate: null,
   rangeDays: 30,
   navihan: { basseMer: 75, pleineMer: 75, aFlot: 160 },
-  aFlotDays: 3
+  aFlotDays: 3,
+  weatherLinks: []
 };
 
 const sample: TideOutput = {

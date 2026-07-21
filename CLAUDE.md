@@ -56,9 +56,11 @@ Routes settings (`src/routes/settings.ts`) :
 
 Route météo (`src/routes/weather.ts` + `src/service/weather.ts`) :
 - `GET /api/weather?lat&lon&days` → `fetchWeather()` (Open-Meteo, **sans clé**) : normalise
-  conditions actuelles + prévisions quotidiennes + marine (vagues, `null` si indisponible près des
-  côtes). Défaut = zone Port-Tudy (Groix). `400` sur coordonnées invalides. `fetchWeather` prend un
-  `fetchImpl` injectable (tests sans réseau). Codes WMO traduits (`weatherText`).
+  conditions actuelles + prévisions quotidiennes (dont `windDirection` dominante, `null` si absente)
+  + marine (vagues, `null` si indisponible près des côtes). Défaut = zone Port-Tudy (Groix). `400`
+  sur coordonnées invalides. `fetchWeather` prend un `fetchImpl` injectable (tests sans réseau).
+  Codes WMO traduits (`weatherText`). La carte météo affiche aussi des **liens configurables**
+  (`settings.weatherLinks`, cf. Config) avec placeholders `{lat}`/`{lon}` (`lib/weather.resolveLinkUrl`).
 
 Service `src/service/Maree.ts` (données uniquement, aucun rendu) :
 - `getTidesRange(from?, to?)` — filtre `[from, to]` **inclusif** ; sans bornes → tout le fichier.
@@ -79,8 +81,11 @@ d'Étel ne sont pas encore fournies : la graine `horaires_marees_etel.json` est 
 (le port s'affiche « Aucune marée » jusqu'à ce qu'on la remplisse, comme pour Port-Tudy).
 
 **Config** (`src/service/SettingsStore.ts`) : type `Settings` (`startMode`/`startDate`/`rangeDays`,
-`navihan` en minutes, `aFlotDays`), `DEFAULT_SETTINGS`, `sanitizeSettings` (validation/bornage),
-`readSettings`/`writeSettings` (paramètre `file` pour la testabilité, comme `readTides`).
+`navihan` en minutes, `aFlotDays`, `weatherLinks` = liens météo éditables `{ label, url }`, défauts
+`DEFAULT_WEATHER_LINKS`), `DEFAULT_SETTINGS`, `sanitizeSettings` (validation/bornage ; les
+`weatherLinks` invalides — libellé vide ou URL non http(s) — sont écartés, liste plafonnée à 12 ;
+tableau absent → défauts, tableau vide explicite conservé), `readSettings`/`writeSettings`
+(paramètre `file` pour la testabilité, comme `readTides`).
 
 Source des horaires : lue par `src/lib/readTides.ts` (**pas de scraping, pas d'API distante**) ;
 le fichier contient déjà les **extrêmes** et `readTides()` **normalise** deux formes (clés date
@@ -124,11 +129,12 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   (panneau repliable, saisie h+min, + champ **`aFlotDays`**). Fonctions pures testées dans
   `lib/navihan.test.ts`.
 - `components/SettingsPanel.vue` — **un seul panneau repliable « Réglages & filtres »** (props
-  `filters` + `meta`, émet `reset`) regroupant 3 sections : **Période** (config : `startMode`
+  `filters` + `meta`, émet `reset`) regroupant 4 sections : **Période** (config : `startMode`
   `today`/`date` + `startDate` + `rangeDays`), **Décalages Navihan** (config : 3 offsets + `aFlotDays`,
-  bouton défauts), **Filtres d'affichage** (éphémères : `Type`, `Coef min`, reset). Remplace les
-  anciens `TideFilters.vue` / `NavihanSettings.vue`. `StatCards.vue` — carte « À flot » sur
-  `settings.aFlotDays`.
+  bouton défauts), **Liens météo** (config : liste éditable `settings.weatherLinks` — libellé + URL,
+  ajout/suppression, bouton défauts), **Filtres d'affichage** (éphémères : `Type`, `Coef min`, reset).
+  Remplace les anciens `TideFilters.vue` / `NavihanSettings.vue`. `StatCards.vue` — carte « À flot »
+  sur `settings.aFlotDays`.
 - `Dashboard.vue` affiche un encart explicatif : heures **Port-Tudy** = référence, le but est
   d'en déduire les heures **Navihan** (basse mer, pleine mer, « à flot »).
 - `src/composables/useTheme.ts` — thème clair/sombre (singleton). Applique `data-bs-theme`
