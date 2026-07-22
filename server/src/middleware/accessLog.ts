@@ -4,8 +4,7 @@ import { ACCESS_LOG_FILE } from '../config/dataDir';
 import { isPrivateIp, truncateIp } from '../lib/net';
 import type { AccessEntry } from '../lib/stats';
 
-// Base géoIP locale (hors-ligne, aucun appel réseau).
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// Base géoIP locale (hors-ligne, aucun appel réseau). `require` idiomatique (serveur CommonJS).
 const geoip = require('geoip-lite') as { lookup(ip: string): { country?: string } | null };
 
 const MAX_BYTES = 1_000_000; // ~1 Mo → rotation (1 génération conservée en .1)

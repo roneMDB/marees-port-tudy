@@ -68,8 +68,8 @@ export function createApp(logger: Logger): Application {
     });
   }
 
-  // Gestionnaire d'erreurs centralisé (dernier middleware).
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // Gestionnaire d'erreurs centralisé (dernier middleware). La signature à 4 arguments est
+  // requise par Express pour être reconnu comme error handler (`_req`/`_next` volontairement inutilisés).
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     const status = (err as { status?: number; statusCode?: number }).status
       ?? (err as { statusCode?: number }).statusCode

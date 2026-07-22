@@ -4,10 +4,16 @@ Application **client/serveur** des marées (pleines et basses mers) du port de P
 (île de Groix), avec les heures dérivées « Navihan » (basse mer +1h15, à flot +2h40).
 
 - **Serveur** Node.js/Express (TypeScript) exposant les marées en **REST**.
-- **Client** Vue 3 (Vite + TypeScript) — un **dashboard** Bootstrap 5.3 avec tableau détaillé,
-  filtres et graphiques.
+- **Client** Vue 3 (Vite + TypeScript) — un **dashboard** Bootstrap 5.3 avec tableau par jour,
+  filtres, graphiques (marégramme, coefficients) et météo.
 
-> Monorepo npm workspaces. La version CLI historique a été retirée (voir l'historique git).
+**Multi-sites** : plusieurs ports sont exposés (Port-Tudy, Étel) ; les heures **Navihan** restent
+dérivées de **Port-Tudy** (port de référence) quel que soit le port affiché. Une **authentification
+optionnelle** (mire + rôles `viewer`/`admin`) protège l'app en cas d'exposition externe — voir
+[Authentification & rôles](#authentification--rôles).
+
+> Monorepo npm workspaces. Node **≥ 20** requis (image Docker en Node 22). La version CLI historique
+> a été retirée (voir l'historique git). Architecture détaillée : **`CLAUDE.md`**.
 
 ## Arborescence
 
@@ -24,10 +30,11 @@ marees-port-tudy/
 └── client/                     # dashboard Vue 3 (Vite + Bootstrap 5.3 + Chart.js)
     └── src/
         ├── main.ts, App.vue, types.ts
-        ├── api/tides.ts        # appels REST
-        ├── composables/useTides.ts   # chargement + filtrage réactif
+        ├── api/tides.ts, api/auth.ts, api/settings.ts   # appels REST
+        ├── composables/        # useTides, useSettings, useAuth, useSite, useTheme…
         ├── views/Dashboard.vue
-        └── components/         # TideFilters, StatCards, TideTable, HeightChart, CoefChart
+        └── components/         # LoginScreen, SettingsPanel, StatsPanel, StatCards,
+                                #   TideDayTable, HeightChart, CoefChart, WeatherCard…
 ```
 
 ## Installation
@@ -40,6 +47,7 @@ npm install        # installe les deux workspaces (server + client)
 
 ```bash
 npm run dev        # lance serveur (:3000) + client Vite (:5173) en parallèle
+npm run dev:auth   # idem, mais AVEC authentification (défaut marees / marees-dev)
 ```
 
 Ouvrir http://localhost:5173. Le client proxifie `/api` vers le serveur (`:3000`).
@@ -67,12 +75,19 @@ Base : `/api`.
 
 | Méthode & route | Description |
 | --- | --- |
-| `GET /api/health` | Sonde de vie → `{ "status": "ok" }`. |
-| `GET /api/tides/meta` | Bornes de dates disponibles (`minDate`/`maxDate`) + libellés d'offsets Navihan. |
-| `GET /api/tides?from=YYYY-MM-DD&to=YYYY-MM-DD` | Marées sur une **plage inclusive**. Sans paramètres → toute la plage disponible. `400` si date malformée ou `from > to`. |
-| `GET /api/settings` | Configuration persistée (fenêtre de dates, Navihan, nb de jours « à flot »). |
-| `PUT /api/settings` | Enregistre la configuration (fusion + validation/bornage), renvoie l'objet normalisé. `400` si corps JSON invalide. |
+| `GET /api/health` | Sonde de vie → `{ "status": "ok" }`. Public. |
+| `GET /api/auth/status` | `{ authRequired, authenticated, role }`. Public. |
+| `POST /api/login` / `POST /api/logout` | Connexion (pose le cookie de session signé porteur du rôle) / déconnexion. Public. |
+| `GET /api/sites` | Liste des ports `{ id, label }`. |
+| `GET /api/tides/meta?site` | Bornes de dates disponibles (`minDate`/`maxDate`) + libellés d'offsets Navihan. |
+| `GET /api/tides?site&from=YYYY-MM-DD&to=YYYY-MM-DD` | Marées sur une **plage inclusive**. Sans paramètres → toute la plage disponible. `400` si date malformée ou `from > to`. |
+| `GET /api/settings` | Configuration persistée (fenêtre de dates, Navihan, liens météo…). |
+| `PUT /api/settings` | Enregistre la configuration (fusion + validation/bornage). **Rôle `admin` requis** (403 sinon). `400` si corps JSON invalide. |
 | `GET /api/weather?lat&lon&days` | Météo via **Open-Meteo** (gratuit, sans clé) : conditions actuelles + prévisions quotidiennes + marine (vagues). Sans `lat`/`lon` → zone de Port-Tudy (Groix). `400` si coordonnées invalides. |
+| `GET /api/stats` | Agrégats d'accès (anonymisés). **Rôle `admin` requis** (403 sinon). |
+
+Quand l'authentification est active, tout `/api` (hors routes publiques ci-dessus) exige une session
+valide (cookie) ou un en-tête Basic.
 
 Chaque marée (`Extreme`) : `time`, `height`, `type` (`high`/`low`), `coefficient`
 (`null` sur les basses mers), et `navihan` (`Basse mer` + `A flot` pour les basses mers,
@@ -88,14 +103,33 @@ Exemple :
 curl "http://localhost:3000/api/tides?from=2026-07-18&to=2026-07-20"
 ```
 
-## Tests
+## Authentification & rôles
+
+En accès libre tant qu'aucun mot de passe n'est défini. Dès que `APP_PASSWORD` **ou**
+`ADMIN_PASSWORD` est renseigné, une **mire de connexion** protège l'app et pose un **cookie de
+session signé (HMAC)** portant un **rôle** :
+
+- **`viewer`** (`APP_USER` / `APP_PASSWORD`) — consultation, depuis n'importe où.
+- **`admin`** (`ADMIN_USER` / `ADMIN_PASSWORD`) — consultation **+ édition des réglages +
+  statistiques**, depuis n'importe où.
+
+`COOKIE_SECURE=true` force le flag `Secure` du cookie derrière un reverse proxy HTTPS. Toutes les
+variables sont décrites dans **`.env.example`**. Exposition sur Internet (reverse proxy DSM, HTTPS,
+durcissement) : **[deploy/INSTALLATION-NAS.md](deploy/INSTALLATION-NAS.md)**.
+
+## Tests & qualité
 
 ```bash
 npm test                  # server (Vitest + supertest) puis client (Vitest + @vue/test-utils)
 npm -w server run test
 npm -w client run test
 npm -w client run type-check   # vue-tsc
+npm run lint              # ESLint (TS + Vue) sur tout le dépôt
+npm run format            # Prettier (écriture)
 ```
+
+Une **CI GitHub Actions** (`.github/workflows/ci.yml`) exécute lint + type-check + tests + build sur
+chaque push/PR.
 
 ## Docker
 

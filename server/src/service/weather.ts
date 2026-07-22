@@ -73,6 +73,8 @@ export interface WeatherResult {
 
 type FetchLike = typeof fetch;
 
+// Réponse Open-Meteo : JSON dynamique non typé (formes variables selon les paramètres).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getJson(url: string, fetchImpl: FetchLike): Promise<any> {
   const res = await fetchImpl(url);
   if (!res.ok) {
@@ -107,7 +109,6 @@ export async function fetchWeather(
   const c = f.current ?? {};
   const cu = f.current_units ?? {};
   const d = f.daily ?? {};
-  const du = f.daily_units ?? {};
 
   const daily: DailyWeather[] = (d.time ?? []).map((date: string, i: number) => ({
     date,
