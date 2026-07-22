@@ -39,12 +39,7 @@ export function getSites(): Promise<Site[]> {
   return fetchJson<Site[]>('/api/sites');
 }
 
-/** GET /api/context — réseau local ? droit d'édition des réglages ? */
-export function getContext(): Promise<{ local: boolean; canEditSettings: boolean }> {
-  return fetchJson<{ local: boolean; canEditSettings: boolean }>('/api/context');
-}
-
-/** GET /api/stats — statistiques d'accès (réservé au réseau local, 403 sinon). */
+/** GET /api/stats — statistiques d'accès (réservé au rôle admin, 403 sinon). */
 export function getStats(): Promise<AccessStats> {
   return fetchJson<AccessStats>('/api/stats');
 }

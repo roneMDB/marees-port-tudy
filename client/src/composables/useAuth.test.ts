@@ -23,14 +23,24 @@ describe('useAuth', () => {
   });
   afterEach(() => { vi.restoreAllMocks(); });
 
-  it('hydrate authRequired/authenticated via checkStatus', async () => {
-    getAuthStatusMock.mockResolvedValue({ authRequired: true, authenticated: false });
+  it('hydrate authRequired/authenticated/role via checkStatus', async () => {
+    getAuthStatusMock.mockResolvedValue({ authRequired: true, authenticated: true, role: 'admin' });
     const useAuth = await freshUseAuth();
-    const { checkStatus, authRequired, authenticated, checking } = useAuth();
+    const { checkStatus, authRequired, authenticated, role, isAdmin, checking } = useAuth();
     await checkStatus();
     expect(authRequired.value).toBe(true);
-    expect(authenticated.value).toBe(false);
+    expect(authenticated.value).toBe(true);
+    expect(role.value).toBe('admin');
+    expect(isAdmin.value).toBe(true);
     expect(checking.value).toBe(false);
+  });
+
+  it('un viewer n’est pas admin', async () => {
+    getAuthStatusMock.mockResolvedValue({ authRequired: true, authenticated: true, role: 'viewer' });
+    const useAuth = await freshUseAuth();
+    const { checkStatus, isAdmin } = useAuth();
+    await checkStatus();
+    expect(isAdmin.value).toBe(false);
   });
 
   it('checkStatus en échec réseau → authRequired=false (dégradation gracieuse)', async () => {
@@ -41,14 +51,15 @@ describe('useAuth', () => {
     expect(authRequired.value).toBe(false);
   });
 
-  it('login réussi passe authenticated à true', async () => {
-    getAuthStatusMock.mockResolvedValue({ authRequired: true, authenticated: false });
-    postLoginMock.mockResolvedValue(undefined);
+  it('login réussi passe authenticated à true et fixe le rôle renvoyé', async () => {
+    postLoginMock.mockResolvedValue('admin');
     const useAuth = await freshUseAuth();
-    const { login, authenticated } = useAuth();
-    await login('marees', 's3cret', true);
-    expect(postLoginMock).toHaveBeenCalledWith('marees', 's3cret', true);
+    const { login, authenticated, role, isAdmin } = useAuth();
+    await login('admin', 'adm1n', true);
+    expect(postLoginMock).toHaveBeenCalledWith('admin', 'adm1n', true);
     expect(authenticated.value).toBe(true);
+    expect(role.value).toBe('admin');
+    expect(isAdmin.value).toBe(true);
   });
 
   it('login en échec remonte le message dans error et relance', async () => {
@@ -60,23 +71,25 @@ describe('useAuth', () => {
     expect(authenticated.value).toBe(false);
   });
 
-  it('logout repasse authenticated à false', async () => {
-    postLoginMock.mockResolvedValue(undefined);
+  it('logout repasse authenticated à false et rôle à null', async () => {
+    postLoginMock.mockResolvedValue('viewer');
     postLogoutMock.mockResolvedValue(undefined);
     const useAuth = await freshUseAuth();
-    const { login, logout, authenticated } = useAuth();
+    const { login, logout, authenticated, role } = useAuth();
     await login('marees', 's3cret', true);
     await logout();
     expect(authenticated.value).toBe(false);
+    expect(role.value).toBe(null);
   });
 
-  it('un événement api-unauthorized repasse authenticated à false', async () => {
-    getAuthStatusMock.mockResolvedValue({ authRequired: true, authenticated: true });
+  it('un événement api-unauthorized repasse authenticated à false et rôle à null', async () => {
+    getAuthStatusMock.mockResolvedValue({ authRequired: true, authenticated: true, role: 'admin' });
     const useAuth = await freshUseAuth();
-    const { checkStatus, authenticated } = useAuth();
+    const { checkStatus, authenticated, role } = useAuth();
     await checkStatus();
     expect(authenticated.value).toBe(true);
     window.dispatchEvent(new CustomEvent('api-unauthorized'));
     expect(authenticated.value).toBe(false);
+    expect(role.value).toBe(null);
   });
 });

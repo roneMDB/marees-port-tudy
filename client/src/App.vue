@@ -6,18 +6,15 @@ import LoginScreen from './components/LoginScreen.vue';
 import { useTheme } from './composables/useTheme';
 import { useClock } from './composables/useClock';
 import { useSite } from './composables/useSite';
-import { useContext } from './composables/useContext';
 import { useAuth } from './composables/useAuth';
 
 const { isDark, toggle } = useTheme();
 const { clock } = useClock();
 const { sites, siteId, load: loadSites } = useSite();
 
-// Panneaux réservés : Stats en réseau local, Réglages seulement si éditables (verrou serveur réel).
-const { local: isLocal, canEditSettings, load: loadContext } = useContext();
-
-// Authentification : la mire s'affiche tant qu'une connexion est requise et non satisfaite.
-const { authRequired, authenticated, checking, checkStatus, logout } = useAuth();
+// Authentification + rôle : la mire s'affiche tant qu'une connexion est requise et non satisfaite ;
+// les fonctions Réglages et Stats sont réservées au rôle admin (verrou serveur réel).
+const { authRequired, authenticated, isAdmin, checking, checkStatus, logout } = useAuth();
 const showApp = computed(() => !authRequired.value || authenticated.value);
 
 let appDataLoaded = false;
@@ -25,7 +22,6 @@ function ensureAppData() {
   if (appDataLoaded) return;
   appDataLoaded = true;
   loadSites();
-  loadContext();
 }
 
 onMounted(async () => {
@@ -74,7 +70,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
             </select>
           </div>
           <button
-            v-if="isLocal"
+            v-if="isAdmin"
             type="button"
             class="btn btn-outline-light btn-sm"
             data-bs-toggle="offcanvas"
@@ -86,7 +82,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
             <i class="bi bi-bar-chart-line"></i>
           </button>
           <button
-            v-if="canEditSettings"
+            v-if="isAdmin"
             type="button"
             class="btn btn-outline-light btn-sm"
             data-bs-toggle="offcanvas"
@@ -124,7 +120,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
       <Dashboard />
     </main>
 
-    <StatsPanel v-if="isLocal" />
+    <StatsPanel v-if="isAdmin" />
   </template>
 </template>
 

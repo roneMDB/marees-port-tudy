@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useTides } from '../composables/useTides';
 import { useSite } from '../composables/useSite';
-import { useContext } from '../composables/useContext';
+import { useAuth } from '../composables/useAuth';
 import { formatDate } from '../lib/format';
 import SettingsPanel from '../components/SettingsPanel.vue';
 import StatCards from '../components/StatCards.vue';
@@ -16,7 +16,8 @@ const {
   tableTides, tablePeriod, prevPeriod, nextPeriod, resetPeriod, canPrevPeriod, canNextPeriod, periodOffset
 } = useTides();
 const { current, isReference } = useSite();
-const { canEditSettings } = useContext();
+// Édition des réglages réservée au rôle admin.
+const { isAdmin: canEditSettings } = useAuth();
 
 function resetFilters(): void {
   filters.type = 'all';
