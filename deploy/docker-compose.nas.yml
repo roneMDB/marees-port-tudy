@@ -6,7 +6,11 @@ services:
     image: marees-port-tudy:latest
     container_name: marees-port-tudy
     ports:
-      - "3000:3000" # hôte:conteneur — changer l'hôte (ex. 8080:3000) si 3000 est pris
+      # Écoute UNIQUEMENT sur la boucle locale du NAS : seul le reverse proxy DSM (qui tourne sur
+      # le NAS et se connecte en localhost:3000) peut atteindre l'app. Ni le LAN ni Internet ne
+      # peuvent taper le 3000 en direct → pas de contournement par X-Forwarded-For usurpé
+      # (cf. revue sécurité VERIFY-001). L'accès se fait donc via l'URL HTTPS du proxy.
+      - "127.0.0.1:3000:3000" # 127.0.0.1:hôte:conteneur — changer l'hôte (ex. 8080) si 3000 est pris
     volumes:
       # Dossier de données sur le NAS (config + horaires) — à créer au préalable.
       - /volume1/docker/marees/data:/data
@@ -19,9 +23,14 @@ services:
       #   APP_USER=marees
       #   APP_PASSWORD=un-mot-de-passe-solide   # vide → authentification désactivée (LAN only)
       #   READ_ONLY=false                        # true → lecture seule PARTOUT (LAN inclus)
+      #   COOKIE_SECURE=true                     # force le flag Secure du cookie de session
       # NB : l'écriture des réglages est de toute façon réservée au réseau local ; l'accès
       # externe (via reverse proxy) est toujours en lecture seule.
       - APP_USER=${APP_USER:-marees}
       - APP_PASSWORD=${APP_PASSWORD:-}
       - READ_ONLY=${READ_ONLY:-false}
+      # Cookie de session en HTTPS : garantit le flag `Secure` même si le proxy DSM ne transmet
+      # pas `X-Forwarded-Proto` (cf. revue sécurité INFO-003). L'accès étant désormais uniquement
+      # via le proxy HTTPS, on peut le laisser à `true` par défaut ici.
+      - COOKIE_SECURE=${COOKIE_SECURE:-true}
     restart: unless-stopped
