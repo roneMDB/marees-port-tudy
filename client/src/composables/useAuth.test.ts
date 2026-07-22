@@ -21,7 +21,7 @@ describe('useAuth', () => {
     postLoginMock.mockReset();
     postLogoutMock.mockReset();
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => { vi.restoreAllMocks(); });
 
   it('hydrate authRequired/authenticated via checkStatus', async () => {
     getAuthStatusMock.mockResolvedValue({ authRequired: true, authenticated: false });
