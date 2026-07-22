@@ -8,6 +8,7 @@ import { createTidesRouter } from './routes/tides';
 import { createSettingsRouter } from './routes/settings';
 import { createWeatherRouter } from './routes/weather';
 import { createStatsRouter } from './routes/stats';
+import { createAuthRouter } from './routes/auth';
 import { basicAuth } from './middleware/auth';
 import { accessLog } from './middleware/accessLog';
 
@@ -35,14 +36,20 @@ export function createApp(logger: Logger): Application {
   // (appels sortants vers Open-Meteo). Placées avant l'auth pour throttler les tentatives.
   app.use(rateLimit({ windowMs: FIVE_MINUTES, max: 600, standardHeaders: true, legacyHeaders: false }));
   app.use('/api/weather', rateLimit({ windowMs: FIVE_MINUTES, max: 60, standardHeaders: true, legacyHeaders: false }));
+  // Anti-brute-force sur la connexion (endpoint public) : 10 tentatives / 5 min par IP.
+  app.use('/api/login', rateLimit({ windowMs: FIVE_MINUTES, max: 10, standardHeaders: true, legacyHeaders: false }));
 
-  // Authentification Basic optionnelle (activée par `APP_PASSWORD`).
-  app.use(basicAuth());
+  app.use(express.json());
+
+  // Routes publiques de la mire (login/logout/status) — AVANT le garde.
+  app.use('/api', createAuthRouter());
+
+  // Garde d'authentification optionnel (activé par `APP_PASSWORD`) : monté sur `/api` pour couvrir
+  // exactement les mêmes requêtes que les routeurs (casse/slash inclus), coquille SPA publique.
+  app.use('/api', basicAuth());
 
   // Journalisation des ouvertures de l'app (accès), après l'auth.
   app.use(accessLog());
-
-  app.use(express.json());
 
   app.use('/api', createTidesRouter(logger));
   app.use('/api', createSettingsRouter(logger));

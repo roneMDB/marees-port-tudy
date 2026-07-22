@@ -190,13 +190,20 @@ Non disponible sur DS218+ (DSM 7.1 max). Sur un NAS plus récent :
 
 ## 7. Accéder à l'application
 
-Ouvrir dans un navigateur :
+> **Binding `127.0.0.1` (recommandé, cf. `docker-compose.nas.yml`).** Par défaut le conteneur
+> n'écoute que sur la **boucle locale du NAS** (`127.0.0.1:3000`) : l'app **n'est donc pas
+> joignable en direct** depuis un autre poste du LAN. C'est voulu — seul le reverse proxy DSM
+> (§8) y accède, ce qui évite tout contournement du verrou LAN / du rate-limit par une IP usurpée.
 
-```
-http://<IP-DU-NAS>:3000
+**Vérifier que l'app tourne**, en SSH sur le NAS (avant même le proxy) :
+
+```bash
+curl -sf http://localhost:3000/api/health && echo OK
 ```
 
-(par IP, ex. `http://192.168.1.50:3000`, ou par nom si résolu, ex. `http://ds218plus.home:3000`.)
+**Y accéder depuis un navigateur** : une fois le reverse proxy configuré (§8), via l'URL **HTTPS**
+`https://tonnas.synology.me`. (Si tu préfères d'abord tester depuis le LAN, remplace temporairement
+le mapping par `"3000:3000"`, puis reviens à `"127.0.0.1:3000:3000"` une fois le proxy en place.)
 
 Au premier démarrage, `data/` se remplit tout seul : `settings.json` (configuration par défaut)
 et `horaires_marees_port-tudy.json` (horaires embarqués dans l'image).
@@ -223,10 +230,12 @@ et `horaires_marees_port-tudy.json` (horaires embarqués dans l'image).
 4. **Box/routeur** : rediriger **uniquement** le port **443** (et **80** temporairement pour
    l'émission/renouvellement du certificat Let's Encrypt) vers le NAS. **Pas** le `3000`.
 
-### 8.2 Mot de passe d'accès (authentification Basic)
+### 8.2 Mot de passe d'accès (mire de connexion)
 
-L'app protège **toute** l'interface par un mot de passe dès que `APP_PASSWORD` est défini. Le
-compose du NAS lit ces variables depuis un fichier **`.env`** placé à côté de lui — ce fichier
+L'app protège **toute** l'interface par un mot de passe dès que `APP_PASSWORD` est défini : une
+**mire de connexion** (page dédiée) demande identifiant + mot de passe, puis pose un **cookie de
+session signé** (`HttpOnly`, `SameSite=Strict`, `Secure`) — « se souvenir de moi » le garde 30 j.
+Le compose du NAS lit ces variables depuis un fichier **`.env`** placé à côté de lui — ce fichier
 **n'est pas transféré** par `push-to-nas.sh`, il survit donc aux mises à jour et garde le mot de
 passe hors Git. En SSH sur le NAS :
 
@@ -236,13 +245,17 @@ cat > .env <<'EOF'
 APP_USER=marees
 APP_PASSWORD=un-mot-de-passe-solide     # à partager au cercle restreint
 READ_ONLY=false                          # true → verrou lecture seule PARTOUT (LAN inclus)
+COOKIE_SECURE=true                       # force le flag Secure du cookie (accès HTTPS via proxy)
 EOF
 chmod 600 .env
 sudo docker-compose up -d                # recrée le conteneur avec les nouvelles variables
 ```
 
-Le navigateur demandera identifiant + mot de passe une seule fois. `GET /api/health` reste public
-(sonde). **Sans `.env` / `APP_PASSWORD` vide, l'accès est libre** — ne pas exposer dans ce cas.
+La mire s'affiche une fois, puis la session est mémorisée. `GET /api/health` reste public (sonde).
+**Sans `.env` / `APP_PASSWORD` vide, l'accès est libre** — ne pas exposer dans ce cas.
+
+> `COOKIE_SECURE=true` garantit le flag `Secure` du cookie même si le reverse proxy ne transmet
+> pas `X-Forwarded-Proto`. À laisser à `true` puisque l'accès externe est en HTTPS.
 
 **Écriture des réglages :** modifiable **uniquement depuis le réseau local** (accès direct au NAS,
 IP privée). Toute requête arrivant **par le reverse proxy** (donc de l'extérieur) est en **lecture
@@ -272,8 +285,9 @@ Durcissement déjà **intégré à l'image** : en-têtes de sécurité (helmet),
 L'app enregistre chaque ouverture dans `data/access-log.jsonl` — **anonymisé** (IP tronquée, pays
 via une base géoIP hors-ligne, navigateur/appareil). Un bouton **« Statistiques »** (icône graphique
 dans la navbar) ouvre un tableau de bord (visites/jour, LAN vs externe, pays…). Il n'apparaît et ne
-répond **que sur le réseau local** (`http://ds218plus.home:3000`) ; depuis l'extérieur l'endpoint
-renvoie 403. Le journal tourne automatiquement (~1 Mo, une génération conservée) — rien à gérer.
+répond **que pour un client du réseau local** (détection par IP privée, via le reverse proxy qui
+transmet l'IP réelle) ; depuis l'extérieur l'endpoint renvoie 403. Le journal tourne automatiquement
+(~1 Mo, une génération conservée) — rien à gérer.
 
 ---
 
@@ -335,7 +349,7 @@ L'application est une **PWA** : après une première visite **en ligne**, la pag
 | Page inaccessible | Vérifier que le conteneur tourne : `sudo docker-compose ps`. Voir les **logs**. |
 | `unknown shorthand flag: 'd' in -d` | Tu as tapé `docker compose` (espace, v2, absent en DSM 7.1). Utiliser `docker-compose` (tiret). |
 | `subsystem request failed on channel 0` (au `scp`) | scp récent + Synology sans SFTP : ajouter le flag `-O` (voir §4). |
-| Port 3000 déjà utilisé | Modifier le mapping dans `docker-compose.yml` (ex. `"8080:3000"`) puis relancer ; accéder via `:8080`. |
+| Port 3000 déjà utilisé | Modifier le mapping dans `docker-compose.yml` (ex. `"127.0.0.1:8080:3000"`) puis relancer ; pointer la **destination du reverse proxy** sur `localhost:8080`. |
 | « data » vide et rien ne se crée | Vérifier le chemin du volume (`/volume1/docker/marees/data:/data`) et les droits du dossier. |
 | Config non conservée après mise à jour | S'assurer que le volume pointe bien sur le dossier NAS (pas un volume anonyme). |
 | Logs en SSH | `sudo docker logs -f marees-port-tudy` ou `sudo docker-compose logs -f` |
@@ -351,6 +365,6 @@ L'application est une **PWA** : après une première visite **en ligne**, la pag
 | Compose | `deploy/docker-compose.nas.yml` (→ `docker-compose.yml` sur le NAS) |
 | Dossier projet | `/volume1/docker/marees/` |
 | Volume données | `/volume1/docker/marees/data` → `/data` (dans le conteneur) |
-| Variables | `DATA_DIR=/data`, `PORT=3000` |
-| Port | `3000` (hôte) → `3000` (conteneur) |
-| URL | `http://<IP-DU-NAS>:3000` |
+| Variables | `DATA_DIR=/data`, `PORT=3000`, `APP_*`, `READ_ONLY`, `COOKIE_SECURE` |
+| Port | `127.0.0.1:3000` (hôte, boucle locale) → `3000` (conteneur) |
+| URL | `https://tonnas.synology.me` (via reverse proxy ; pas d'accès direct `:3000`) |

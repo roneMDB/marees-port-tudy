@@ -33,10 +33,33 @@ afterAll(() => {
 });
 
 describe('sécurité — authentification Basic', () => {
-  it('renvoie 401 (+ WWW-Authenticate) sans identifiants', async () => {
+  it('renvoie 401 SANS WWW-Authenticate (pas de popup natif) sans identifiants', async () => {
     const res = await request(app).get('/api/tides/meta');
     expect(res.status).toBe(401);
-    expect(res.headers['www-authenticate']).toMatch(/Basic/);
+    expect(res.headers['www-authenticate']).toBeUndefined();
+  });
+
+  it('ne se laisse pas contourner par la casse du chemin (/API/… routé sans casse par Express)', async () => {
+    // Régression : un garde testant `req.path.startsWith('/api')` (sensible à la casse) laissait
+    // passer /API/… alors qu'Express route sans distinction de casse → fuite de données sans auth.
+    for (const p of ['/API/tides/meta', '/Api/tides/meta', '/api/TIDES/meta']) {
+      const res = await request(app).get(p);
+      expect(res.status, `${p} devrait exiger l'authentification`).toBe(401);
+    }
+  });
+
+  it('bloque une écriture réglages via variante de casse (PUT /API/settings)', async () => {
+    const res = await request(app).put('/API/settings').send({ rangeDays: 10 });
+    expect(res.status).toBe(401);
+  });
+
+  it('autorise avec un cookie de session valide', async () => {
+    const { signSession, SESSION_COOKIE } = await import('./lib/session');
+    const token = signSession(60_000, Date.now());
+    const res = await request(app)
+      .get('/api/tides/meta')
+      .set('Cookie', `${SESSION_COOKIE}=${token}`);
+    expect(res.status).toBe(200);
   });
 
   it('renvoie 401 avec de mauvais identifiants', async () => {
