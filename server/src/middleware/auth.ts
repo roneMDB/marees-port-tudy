@@ -26,7 +26,11 @@ export function authEnabled(): boolean {
 export function verifyCredentials(user: string, password: string): boolean {
   const expectedUser = process.env.APP_USER || 'marees';
   const expectedPassword = process.env.APP_PASSWORD || '';
-  return safeEqual(user, expectedUser) && safeEqual(password, expectedPassword);
+  // On évalue les deux comparaisons **avant** le `&&` : pas de court-circuit, donc le temps de
+  // réponse ne révèle pas si l'identifiant seul était correct (cf. revue sécurité INFO-002).
+  const okUser = safeEqual(user, expectedUser);
+  const okPassword = safeEqual(password, expectedPassword);
+  return okUser && okPassword;
 }
 
 /** Extrait et valide un en-tête `Authorization: Basic ...`. */

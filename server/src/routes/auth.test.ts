@@ -54,6 +54,23 @@ describe('routes auth', () => {
     expect(cookie).toMatch(/Max-Age=\d+/i);
   });
 
+  it('force le flag Secure quand COOKIE_SECURE=true (même en HTTP)', async () => {
+    process.env.COOKIE_SECURE = 'true';
+    try {
+      const res = await request(app).post('/api/login').send({ user: 'marees', password: 's3cret' });
+      const cookie = (res.headers['set-cookie'] || [])[0] || '';
+      expect(cookie).toMatch(/Secure/i);
+    } finally {
+      delete process.env.COOKIE_SECURE;
+    }
+  });
+
+  it('n\'ajoute pas Secure en HTTP sans COOKIE_SECURE', async () => {
+    const res = await request(app).post('/api/login').send({ user: 'marees', password: 's3cret' });
+    const cookie = (res.headers['set-cookie'] || [])[0] || '';
+    expect(cookie).not.toMatch(/Secure/i);
+  });
+
   it('le cookie posé ouvre les routes protégées', async () => {
     const login = await request(app).post('/api/login').send({ user: 'marees', password: 's3cret' });
     const cookie = (login.headers['set-cookie'] || [])[0];

@@ -11,8 +11,9 @@
 
 ## Résumé
 
-- **Constats** : **1 faille Critique trouvée ET corrigée pendant la revue** (FIX-001) · 1 à vérifier
-  (Moyen) · 4 remarques (Faible)
+- **Constats** : **1 faille Critique trouvée ET corrigée** (FIX-001) · 1 à vérifier (Moyen,
+  déploiement) · 4 remarques (Faible) dont **3 corrigées** (INFO-001 TTL, INFO-002, INFO-003) et
+  1 différée (INFO-004 CSP)
 - **Niveau de risque** : après correctif `8975235`, **Faible** — implémentation globalement solide.
   Avant ce correctif : **Critique** (contournement d'auth).
 - **Confiance** : Élevée
@@ -90,32 +91,36 @@ Le cookie est `HttpOnly` + `SameSite=Strict` + `Secure` conditionnel. Les identi
 
 ## Remarques (Faible — compromis de conception, non signalés comme failles)
 
-### [INFO-001] La déconnexion est côté client uniquement ; sessions non révocables
+### [INFO-001] La déconnexion est côté client uniquement ; sessions non révocables — TTL réduit ✅
 
 - **Emplacement** : `server/src/routes/auth.ts:41` (`logout` → `clearCookie`), `session.ts:22`
 - Jetons sans état, sans stockage serveur : `POST /logout` supprime seulement le cookie client. Un
-  jeton capturé avant déconnexion reste valide toute sa durée (**jusqu'à 60 jours** avec « se
-  souvenir de moi »). Seule révocation globale : changer `APP_PASSWORD`/`SESSION_SECRET`.
-  Acceptable pour une app mono-utilisateur, mais à documenter ; envisager un TTL plus court si la
-  capture de jeton est un risque.
+  jeton capturé avant déconnexion reste valide toute sa durée. Seule révocation globale : changer
+  `APP_PASSWORD`/`SESSION_SECRET`. Acceptable pour une app mono-utilisateur.
+- **Appliqué** : TTL « se souvenir de moi » **réduit de 60 j à 30 j** pour raccourcir la fenêtre en
+  cas de vol de jeton (`SESSION_TTL_MS`). La non-révocabilité côté serveur reste un choix de
+  conception (jeton sans état).
 
-### [INFO-002] Présence de l'identifiant révélée par le court-circuit `&&`
+### [INFO-002] Présence de l'identifiant révélée par le court-circuit `&&` — CORRIGÉ ✅
 
-- **Emplacement** : `server/src/middleware/auth.ts:29` — `safeEqual(user, …) && safeEqual(password, …)`
-- Si l'identifiant ne correspond pas, la comparaison du mot de passe est sautée : le temps de
-  réponse distingue « mauvais utilisateur » de « bon utilisateur, mauvais mot de passe ». Avec un
-  identifiant devinable (`marees`) et le rate-limiting, l'impact est minime. Pour fermer la
-  brèche : comparer toujours les deux champs sans court-circuit.
+- **Emplacement** : `server/src/middleware/auth.ts` — `verifyCredentials`
+- Si l'identifiant ne correspondait pas, la comparaison du mot de passe était sautée : le temps de
+  réponse distinguait « mauvais utilisateur » de « bon utilisateur, mauvais mot de passe ». Impact
+  minime (identifiant devinable + rate-limiting), mais corrigé par hygiène.
+- **Appliqué** : les deux `safeEqual` sont désormais évalués **avant** le `&&` (`okUser`/`okPassword`),
+  supprimant le court-circuit.
 
-### [INFO-003] Flag `Secure` du cookie conditionné à `req.secure` → dépend du reverse proxy
+### [INFO-003] Flag `Secure` du cookie conditionné à `req.secure` → override ajouté ✅
 
-- **Emplacement** : `server/src/routes/auth.ts:34` (`secure: req.secure`)
+- **Emplacement** : `server/src/routes/auth.ts` (`secure: req.secure || COOKIE_SECURE`)
 - Le cookie de session n'a le flag `Secure` que si `req.secure` est vrai. Derrière le reverse proxy
   DSM (TLS terminé au proxy, trafic interne en HTTP), `req.secure` ne vaut `true` que si le proxy
-  transmet `X-Forwarded-Proto: https` **et** que `trust proxy` est actif (c'est le cas, `:1`). Si le
-  proxy ne pose pas cet en-tête, le cookie **peut transiter sans `Secure`** (risque d'interception
-  en clair). **À vérifier au déploiement** : le proxy DSM doit envoyer `X-Forwarded-Proto`. Le choix
-  `req.secure` (plutôt que `Secure` forcé) est volontaire pour que le dev local en HTTP fonctionne.
+  transmet `X-Forwarded-Proto: https` **et** que `trust proxy` est actif (c'est le cas, `:1`).
+- **Appliqué** : ajout d'un override **`COOKIE_SECURE=true`** qui force le flag `Secure`
+  indépendamment de `req.secure` (ceinture+bretelles si le proxy ne pose pas `X-Forwarded-Proto`).
+  Le dev local en HTTP reste fonctionnel par défaut (variable absente).
+- **Reste au déploiement** : vérifier que le proxy DSM envoie `X-Forwarded-Proto`, **ou** poser
+  `COOKIE_SECURE=true` sur le conteneur.
 
 ### [INFO-004] CSP désactivée à l'échelle de l'app (préexistant)
 
@@ -128,22 +133,23 @@ Le cookie est `HttpOnly` + `SameSite=Strict` + `Secure` conditionnel. Les identi
 ## Conclusion
 
 Implémentation soignée et bien testée. La revue a mis au jour **une faille critique** (FIX-001,
-contournement d'auth par la casse) — **corrigée et verrouillée par des tests** pendant la revue :
-c'était le point le plus grave, absent de la première rédaction. Après correctif, il reste
-principalement des points de **déploiement** :
+contournement d'auth par la casse) — **corrigée et verrouillée par des tests**. Les remarques
+faibles **INFO-001** (TTL 60 j → 30 j), **INFO-002** (court-circuit `&&`) et **INFO-003** (override
+`COOKIE_SECURE`) ont été **corrigées** dans la foulée. Il reste principalement des points de
+**déploiement** :
 
 1. **VERIFY-001** : confirmer qu'Express sur `:3000` n'est **pas** joignable hors du reverse proxy —
    sinon le limiteur anti-brute-force du login **et** le verrou d'écriture LAN peuvent être
    contournés via un `X-Forwarded-For` usurpé.
-2. **INFO-003** : s'assurer que le proxy DSM transmet `X-Forwarded-Proto: https` (flag `Secure` du
-   cookie).
-3. **INFO-001 / INFO-004** : TTL de 60 j (envisager plus court) et CSP désactivée (durcissement
-   ultérieur) — non bloquants.
+2. **INFO-003** (résiduel) : s'assurer que le proxy DSM transmet `X-Forwarded-Proto: https`, **ou**
+   poser `COOKIE_SECURE=true`.
+3. **INFO-004** : CSP désactivée (durcissement ultérieur) — non bloquant.
 
 ### Checklist avant exposition Internet
 
 - [ ] `APP_PASSWORD` **fort** (pas la valeur de dev `marees-dev`).
 - [ ] Accès externe **uniquement via le reverse proxy DSM en HTTPS** ; port conteneur `3000` jamais
       exposé en direct.
-- [ ] Proxy configuré pour transmettre `X-Forwarded-Proto` et `X-Forwarded-For`.
+- [ ] Proxy configuré pour transmettre `X-Forwarded-Proto` et `X-Forwarded-For` — **ou** poser
+      `COOKIE_SECURE=true` sur le conteneur (garantit le flag `Secure`).
 - [ ] (Optionnel) `SESSION_SECRET` explicite pour révoquer les sessions sans changer le mot de passe.

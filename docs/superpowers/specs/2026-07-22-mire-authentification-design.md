@@ -16,8 +16,9 @@ souvent, **sans dégrader la sécurité** de l'application.
   Basic stockés en clair côté client. Motif : le mot de passe n'est jamais exposé au
   JavaScript (résistant au XSS, CSP actuellement désactivée), révocable, `SameSite=Strict`
   contre le CSRF.
-- **Persistance** : case « Se souvenir de moi » → cookie longue durée (**60 jours**) survivant
-  aux redémarrages du navigateur ; sinon cookie de session (effacé à la fermeture).
+- **Persistance** : case « Se souvenir de moi » → cookie longue durée (**30 jours** ; initialement
+  60 j, réduit suite à la revue de sécurité INFO-001) survivant aux redémarrages du navigateur ;
+  sinon cookie de session (effacé à la fermeture).
 - **Aucune nouvelle dépendance npm** : `crypto` natif (comme `middleware/auth.ts` actuel) +
   parsing léger de l'en-tête `Cookie`.
 - **Rétro-compatibilité** : quand `APP_PASSWORD` est vide (développement / tests),
@@ -59,7 +60,8 @@ souvent, **sans dégrader la sécurité** de l'application.
 - `POST /api/login` `{ user, password, remember }` :
   - Vérifie `user`/`password` via `timingSafeEqual` (réutilise/partage la logique de `auth.ts`).
   - Succès → `Set-Cookie: marees_session=<token>; HttpOnly; SameSite=Strict; Path=/`
-    (`Secure` si `req.secure`), `Max-Age` = 60 j si `remember` sinon absent (cookie de session).
+    (`Secure` si `req.secure` **ou** `COOKIE_SECURE=true`), `Max-Age` = 30 j si `remember` sinon
+    absent (cookie de session).
     Réponse `200 { ok: true }`.
   - Échec → `401 { error: 'Identifiants invalides.' }`.
   - Si auth désactivée (`APP_PASSWORD` vide) → `200 { ok: true }` sans cookie (no-op).
@@ -174,7 +176,7 @@ APP_PASSWORD=secret npm run dev:auth   # mot de passe personnalisé
 Ouvrir `http://localhost:5173` → la mire s'affiche → connexion avec `marees` / `marees-dev`.
 Le proxy Vite relaie `/api` (et le `Set-Cookie`) vers `:3000` ; en http local le cookie est
 **non-`Secure`** (`req.secure` faux) donc bien posé. La case « Se souvenir de moi » pose un
-cookie 60 j ; décochée, il disparaît à la fermeture de l'onglet.
+cookie 30 j ; décochée, il disparaît à la fermeture de l'onglet.
 
 **B. Prod-like (Express sert le SPA buildé, `:3000`)** — vérifie aussi la coquille publique + API
 protégée dans les conditions réelles :
