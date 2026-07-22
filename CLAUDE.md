@@ -37,18 +37,24 @@ proche dans le temps** (appariement par proximité, gère le décalage horaire /
 ### Serveur (`server/`)
 
 Flux : `src/index.ts` (pino + `ensureDataDir`/`ensureSettingsFile` + `createApp`) → `src/app.ts`
-(Express : `trust proxy`, **helmet** (CSP off), **rate-limit** global + météo, **auth Basic
-optionnelle** (`middleware/auth.ts`), `express.json`, routers `/api`, statique `client/dist` en
-prod, error handler qui renvoie **400** sur erreur client — ex. JSON invalide — sinon 500). Servi
-en même origine → **pas de CORS**.
+(Express : `trust proxy`, **helmet** (CSP off), **rate-limit** global + météo + login, routeur
+public `auth` (login/logout/status), **garde d'authentification optionnel** (`middleware/auth.ts`,
+monté sur `/api`), `express.json`, routers `/api`, statique `client/dist` en prod, error handler
+qui renvoie **400** sur erreur client — ex. JSON invalide — sinon 500). Servi en même origine →
+**pas de CORS**.
 
-**Durcissement / exposition externe** (variables d'env, cf. `deploy/INSTALLATION-NAS.md` §8) :
-`APP_PASSWORD` (+ `APP_USER`, défaut `marees`) active l'auth Basic sur tout sauf `/api/health`
-(vide → désactivée, dev/tests intacts). **Écriture des réglages (`PUT /api/settings`) réservée au
-réseau local** : `isPrivateIp(req.ip)` (via `trust proxy`, les requêtes du reverse proxy portent
-l'IP publique → refusées 403) ; `READ_ONLY=true` verrouille en lecture seule **partout** (LAN
-inclus). Conteneur non-root (`USER node`) + `HEALTHCHECK` sur `/api/health`. Tests :
-`src/security.test.ts`, `src/routes/settings.test.ts`, `src/lib/net.test.ts`.
+**Authentification & rôles / exposition externe** (variables d'env, cf. `deploy/INSTALLATION-NAS.md`
+§8) : la connexion se fait via une **mire** (`client` `LoginScreen.vue`) qui pose un **cookie de
+session signé HMAC** portant un **rôle** (`lib/session.ts`). Deux rôles selon le mot de passe :
+**`viewer`** (`APP_USER`/`APP_PASSWORD`, défaut user `marees`) = consultation ; **`admin`**
+(`ADMIN_USER`/`ADMIN_PASSWORD`, défaut user `admin`) = **édition des réglages + statistiques**,
+depuis n'importe où. Auth active dès qu'`APP_PASSWORD` **ou** `ADMIN_PASSWORD` est défini (les deux
+vides → désactivée, dev/tests intacts → rôle `admin` ouvert). Le garde (monté sur `/api`, hors
+`/health`, `/login`, `/logout`, `/auth/status`) accepte **cookie OU en-tête Basic**, pas de
+`WWW-Authenticate`. **`PUT /api/settings` et `GET /api/stats` exigent le rôle `admin`**
+(`requestRole(req)`), **plus de verrou LAN ni de `READ_ONLY`**. `COOKIE_SECURE=true` force le flag
+`Secure` du cookie. Conteneur non-root (`USER node`) + `HEALTHCHECK` sur `/api/health`. Tests :
+`src/security.test.ts`, `src/routes/auth.test.ts`, `src/lib/session.test.ts`.
 
 Routes tides (`src/routes/tides.ts`) :
 - `GET /api/health` → `{ status: 'ok' }`.
@@ -72,11 +78,15 @@ Route météo (`src/routes/weather.ts` + `src/service/weather.ts`) :
   Codes WMO traduits (`weatherText`). La carte météo affiche aussi des **liens configurables**
   (`settings.weatherLinks`, cf. Config) avec placeholders `{lat}`/`{lon}` (`lib/weather.resolveLinkUrl`).
 
+Routes auth (`src/routes/auth.ts`, publiques) :
+- `POST /api/login` `{ user, password, remember }` → `resolveRole` (admin puis viewer) ; pose le
+  cookie de session signé portant le rôle ; renvoie `{ ok, role }` ; 401 si aucun rôle.
+- `POST /api/logout` → efface le cookie.
+- `GET /api/auth/status` → `{ authRequired, authenticated, role }`. Le client (`useAuth`) en déduit
+  `isAdmin` et n'affiche les boutons/panneaux **Réglages** et **Stats** que si `admin`.
+
 Routes accès/stats (`src/routes/stats.ts` + `src/middleware/accessLog.ts`) :
-- `GET /api/context` → `{ local, canEditSettings }` (`isPrivateIp(req.ip)` ; `canEditSettings` =
-  LAN **et** pas `READ_ONLY`, reflète le verrou de `PUT /api/settings`). Le client (`useContext`)
-  n'affiche le bouton **Stats** qu'en LAN, et le bouton/panneau **Réglages** que si `canEditSettings`.
-- `GET /api/stats` → agrégats d'accès (`lib/stats.ts` `aggregateAccess`), **réservé au réseau local**
+- `GET /api/stats` → agrégats d'accès (`lib/stats.ts` `aggregateAccess`), **réservé au rôle `admin`**
   (403 sinon). Le middleware `accessLog` journalise chaque **ouverture de page** (requête de document
   HTML, hors `/api`/assets) dans `DATA_DIR/access-log.jsonl` — anonymisé : IP **tronquée**
   (`net.truncateIp`), pays via **`geoip-lite`** (hors-ligne), User-Agent. Rotation ~1 Mo (`.1`).
@@ -163,15 +173,15 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   `today`/`date` + `startDate` + `rangeDays` + `coefDays`), **Décalages Navihan** (config : 3 offsets + `aFlotDays`,
   bouton défauts), **Liens météo** (config : liste éditable `settings.weatherLinks` — libellé + URL,
   ajout/suppression, bouton défauts), **Filtres d'affichage** (éphémères : `Type`, `Coef min`, reset).
-  Remplace les anciens `TideFilters.vue` / `NavihanSettings.vue`. **Bouton + panneau masqués si
-  `!canEditSettings`** (accès externe ou `READ_ONLY`) : on ne montre pas des réglages non modifiables.
+  Remplace les anciens `TideFilters.vue` / `NavihanSettings.vue`. **Bouton + panneau masqués si le
+  rôle n'est pas `admin`** (`useAuth().isAdmin`) : on ne montre pas des réglages non modifiables.
   `StatCards.vue` — carte « Prochaine remise à flot » / « Prochaines remises à flot » sur
   `settings.aFlotDays`.
 - `components/StatsPanel.vue` — **panneau « Statistiques d'accès »** (offcanvas) : KPIs (visites,
   LAN/externe), graphe visites/jour, pays/navigateurs/appareils. Charge `getStats()` à l'ouverture.
-  Le bouton (navbar, `App.vue`) et le panneau ne sont montés que si `getContext().local` (réseau
-  local) ; le verrou réel est côté serveur (`/api/stats` → 403 hors LAN). `SettingsPanel` affiche un
-  avertissement (`useSettings.saveError`) quand un enregistrement est refusé (lecture seule / hors LAN).
+  Le bouton (navbar, `App.vue`) et le panneau ne sont montés que si `useAuth().isAdmin` ; le verrou
+  réel est côté serveur (`/api/stats` → 403 hors rôle admin). `SettingsPanel` affiche un
+  avertissement (`useSettings.saveError`) quand un enregistrement est refusé.
 - `Dashboard.vue` affiche un encart explicatif : heures **Port-Tudy** = référence, le but est
   d'en déduire les heures **Navihan** (basse mer, pleine mer, « remise à flot »).
 - `src/composables/useTheme.ts` — thème clair/sombre (singleton). Applique `data-bs-theme`

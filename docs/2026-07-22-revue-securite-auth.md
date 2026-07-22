@@ -22,6 +22,14 @@
 > important — un **contournement d'authentification par la casse du chemin** — était absent de la
 > première rédaction ; il est documenté en FIX-001 et corrigé. Voir aussi les remarques INFO-003
 > (cookie `Secure`) et INFO-004 (CSP) ajoutées.
+>
+> **Mise à jour (rôles, cf. `docs/superpowers/specs/2026-07-22-roles-reglages-design.md`) :** le
+> verrou « réseau local » (`isPrivateIp`) sur `PUT /settings` et `/stats` a été **remplacé par un
+> rôle `admin`** porté par le jeton de session. La partie « contournement du verrou LAN par
+> `X-Forwarded-For` usurpé » de **VERIFY-001 devient sans objet** (le droit d'écriture ne dépend plus
+> de l'IP). Reste pertinent : le spoofing peut encore offrir un **seau de rate-limit login** neuf si
+> le `:3000` est joignable en direct → d'où le bind `127.0.0.1` (VERIFY-001, volet rate-limit).
+> `READ_ONLY` est supprimé.
 
 La cryptographie est saine : le jeton `"<expiry>.HMAC-SHA256(expiry)"` est signé avec un secret
 dérivé de `APP_PASSWORD` (ou `SESSION_SECRET`), vérifié en **temps constant**, robuste aux entrées

@@ -230,41 +230,45 @@ et `horaires_marees_port-tudy.json` (horaires embarqués dans l'image).
 4. **Box/routeur** : rediriger **uniquement** le port **443** (et **80** temporairement pour
    l'émission/renouvellement du certificat Let's Encrypt) vers le NAS. **Pas** le `3000`.
 
-### 8.2 Mot de passe d'accès (mire de connexion)
+### 8.2 Mots de passe & rôles (mire de connexion)
 
-L'app protège **toute** l'interface par un mot de passe dès que `APP_PASSWORD` est défini : une
-**mire de connexion** (page dédiée) demande identifiant + mot de passe, puis pose un **cookie de
-session signé** (`HttpOnly`, `SameSite=Strict`, `Secure`) — « se souvenir de moi » le garde 30 j.
+L'app protège **toute** l'interface dès qu'un mot de passe est défini : une **mire de connexion**
+(page dédiée) demande identifiant + mot de passe, puis pose un **cookie de session signé**
+(`HttpOnly`, `SameSite=Strict`, `Secure`) portant le **rôle** — « se souvenir de moi » le garde 30 j.
+
+Deux rôles, selon le mot de passe utilisé à la connexion :
+- **`viewer`** (`APP_USER` / `APP_PASSWORD`) : **consultation** du dashboard, depuis n'importe où.
+- **`admin`** (`ADMIN_USER` / `ADMIN_PASSWORD`) : consultation **+ édition des réglages +
+  statistiques d'accès**, depuis n'importe où.
+
 Le compose du NAS lit ces variables depuis un fichier **`.env`** placé à côté de lui — ce fichier
-**n'est pas transféré** par `push-to-nas.sh`, il survit donc aux mises à jour et garde le mot de
+**n'est pas transféré** par `push-to-nas.sh`, il survit donc aux mises à jour et garde les mots de
 passe hors Git. En SSH sur le NAS :
 
 ```bash
 cd /volume1/docker/marees
 cat > .env <<'EOF'
 APP_USER=marees
-APP_PASSWORD=un-mot-de-passe-solide     # à partager au cercle restreint
-READ_ONLY=false                          # true → verrou lecture seule PARTOUT (LAN inclus)
-COOKIE_SECURE=true                       # force le flag Secure du cookie (accès HTTPS via proxy)
+APP_PASSWORD=mot-de-passe-consultation   # rôle viewer — à partager au cercle restreint
+ADMIN_USER=admin
+ADMIN_PASSWORD=mot-de-passe-admin         # rôle admin — gardé pour toi (édition réglages + stats)
+COOKIE_SECURE=true                        # force le flag Secure du cookie (accès HTTPS via proxy)
 EOF
 chmod 600 .env
-sudo docker-compose up -d                # recrée le conteneur avec les nouvelles variables
+sudo docker-compose up -d                 # recrée le conteneur avec les nouvelles variables
 ```
 
 La mire s'affiche une fois, puis la session est mémorisée. `GET /api/health` reste public (sonde).
-**Sans `.env` / `APP_PASSWORD` vide, l'accès est libre** — ne pas exposer dans ce cas.
+**Sans mot de passe (`APP_PASSWORD` et `ADMIN_PASSWORD` vides), l'accès est libre** — ne pas exposer
+dans ce cas.
 
 > `COOKIE_SECURE=true` garantit le flag `Secure` du cookie même si le reverse proxy ne transmet
 > pas `X-Forwarded-Proto`. À laisser à `true` puisque l'accès externe est en HTTPS.
 
-**Écriture des réglages :** modifiable **uniquement depuis le réseau local** (accès direct au NAS,
-IP privée). Toute requête arrivant **par le reverse proxy** (donc de l'extérieur) est en **lecture
-seule** automatiquement (`PUT /api/settings` → 403). Laisser `READ_ONLY=false` pour pouvoir éditer
-depuis chez soi ; mettre `READ_ONLY=true` seulement pour verrouiller **aussi** le LAN.
-
-- `READ_ONLY=true` : à activer si vous voulez que les réglages (Navihan, liens météo, période) ne
-  soient **pas** modifiables à distance. Laisser désactivé si le cercle de confiance peut les ajuster
-  (enjeu faible : ce sont des préférences d'affichage).
+**Édition des réglages & statistiques :** réservées au **rôle admin**, quel que soit le réseau
+(le contrôle se fait sur le rôle porté par le cookie, plus sur l'IP). Sans `ADMIN_PASSWORD`, personne
+n'édite : tout le monde est `viewer`. Les réglages sont des préférences d'affichage (Navihan, liens
+météo, période) — enjeu faible.
 
 Durcissement déjà **intégré à l'image** : en-têtes de sécurité (helmet), limitation de débit
 (anti-abus, dont la météo), conteneur **non-root** (`node`, uid 1000). Le dossier `data/` doit donc
@@ -280,14 +284,13 @@ Durcissement déjà **intégré à l'image** : en-têtes de sécurité (helmet),
 - **Secret hérité** : une ancienne clé `API_MAREE_KEY` (inutilisée par le code) figure dans
   l'historique Git du dépôt — si le dépôt est public, **révoquez/rotez cette clé**.
 
-### 8.4 Statistiques d'accès (réseau local)
+### 8.4 Statistiques d'accès (rôle admin)
 
 L'app enregistre chaque ouverture dans `data/access-log.jsonl` — **anonymisé** (IP tronquée, pays
 via une base géoIP hors-ligne, navigateur/appareil). Un bouton **« Statistiques »** (icône graphique
 dans la navbar) ouvre un tableau de bord (visites/jour, LAN vs externe, pays…). Il n'apparaît et ne
-répond **que pour un client du réseau local** (détection par IP privée, via le reverse proxy qui
-transmet l'IP réelle) ; depuis l'extérieur l'endpoint renvoie 403. Le journal tourne automatiquement
-(~1 Mo, une génération conservée) — rien à gérer.
+répond **que pour le rôle `admin`** (connexion avec `ADMIN_PASSWORD`) ; sinon l'endpoint renvoie 403.
+Le journal tourne automatiquement (~1 Mo, une génération conservée) — rien à gérer.
 
 ---
 
@@ -365,6 +368,6 @@ L'application est une **PWA** : après une première visite **en ligne**, la pag
 | Compose | `deploy/docker-compose.nas.yml` (→ `docker-compose.yml` sur le NAS) |
 | Dossier projet | `/volume1/docker/marees/` |
 | Volume données | `/volume1/docker/marees/data` → `/data` (dans le conteneur) |
-| Variables | `DATA_DIR=/data`, `PORT=3000`, `APP_*`, `READ_ONLY`, `COOKIE_SECURE` |
+| Variables | `DATA_DIR=/data`, `PORT=3000`, `APP_*`, `ADMIN_*`, `COOKIE_SECURE` |
 | Port | `127.0.0.1:3000` (hôte, boucle locale) → `3000` (conteneur) |
 | URL | `https://tonnas.synology.me` (via reverse proxy ; pas d'accès direct `:3000`) |
