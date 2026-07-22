@@ -4,6 +4,9 @@
   "description": "Application client/serveur des marées de Port-Tudy (île de Groix) : API REST Node.js + dashboard Vue 3.",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "workspaces": [
     "server",
     "client"

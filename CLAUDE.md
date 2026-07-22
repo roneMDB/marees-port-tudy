@@ -106,9 +106,9 @@ contient `settings.json`, **un fichier d'horaires par site** (`horaires_marees_p
 accès/stats), isolés pour un volume Docker. `ensureDataDir()` crée le dossier et,
 **pour chaque site de `SITES`**, copie le fichier depuis la graine (`dist/resources/`, via
 `__dirname`) s'il est absent (volume vide au 1er run). `tidesFileForSite(id)` résout le chemin
-runtime d'un site. `ensureSettingsFile()` écrit les défauts si `settings.json` manque. Les données
-d'Étel ne sont pas encore fournies : la graine `horaires_marees_etel.json` est un objet vide `{}`
-(le port s'affiche « Aucune marée » jusqu'à ce qu'on la remplisse, comme pour Port-Tudy).
+runtime d'un site. `ensureSettingsFile()` écrit les défauts si `settings.json` manque. Les deux
+sites disposent de données (graines `horaires_marees_port-tudy.json` et `horaires_marees_etel.json`
+renseignées).
 
 **Config** (`src/service/SettingsStore.ts`) : type `Settings` (`startMode`/`startDate`/`rangeDays`,
 `navihan` en minutes, `aFlotDays`, `coefDays` = durée du graphe coef (défaut 20, 1–90),
@@ -246,6 +246,7 @@ racine reste pour le local.
   dans `DATA_DIR`.
 - Les tests du service figent l'horloge (`vi.useFakeTimers`) pour `getTides` (part de
   `new Date()`) ; `getTidesRange` à bornes explicites en est indépendant.
-- Couverture actuelle des données Port-Tudy : 2026-06-01 → 2026-10-31. **Étel : pas encore de
-  données** (graine `{}`) ; pour les fournir, remplir `server/src/resources/horaires_marees_etel.json`
-  (même format) puis recréer le `DATA_DIR`/volume, ou éditer directement le fichier dans `DATA_DIR`.
+- Couverture actuelle des données : Port-Tudy 2026-06-01 → 2026-10-31, Étel 2026-07-01 → 2026-10-31.
+  Pour mettre à jour un site, éditer sa graine `server/src/resources/horaires_marees_<site>.json`
+  (embarquée dans l'image) puis recréer le `DATA_DIR`/volume, ou éditer directement le fichier dans
+  `DATA_DIR`.
