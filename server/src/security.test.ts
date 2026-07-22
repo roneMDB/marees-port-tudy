@@ -5,16 +5,18 @@ import os from 'os';
 import path from 'path';
 import type { Application } from 'express';
 
-// Répertoire de données isolé + activation de l'auth/lecture seule AVANT de créer l'app
-// (basicAuth lit l'env à la construction ; READ_ONLY est lu à chaque requête).
+// Répertoire de données isolé + activation de l'auth AVANT de créer l'app.
+// Deux jeux d'identifiants → deux rôles : viewer (APP_*) et admin (ADMIN_*).
 const dataDir = path.join(os.tmpdir(), `marees-security-test-${process.pid}`);
 process.env.DATA_DIR = dataDir;
 process.env.APP_USER = 'marees';
 process.env.APP_PASSWORD = 's3cret';
-process.env.READ_ONLY = 'true';
+process.env.ADMIN_USER = 'admin';
+process.env.ADMIN_PASSWORD = 'adm1n';
 
 const fakeLogger = { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() } as any;
-const creds = Buffer.from('marees:s3cret').toString('base64');
+const viewerCreds = Buffer.from('marees:s3cret').toString('base64');
+const adminCreds = Buffer.from('admin:adm1n').toString('base64');
 
 let app: Application;
 
@@ -29,10 +31,11 @@ afterAll(() => {
   fs.rmSync(dataDir, { recursive: true, force: true });
   delete process.env.APP_USER;
   delete process.env.APP_PASSWORD;
-  delete process.env.READ_ONLY;
+  delete process.env.ADMIN_USER;
+  delete process.env.ADMIN_PASSWORD;
 });
 
-describe('sécurité — authentification Basic', () => {
+describe('sécurité — authentification', () => {
   it('renvoie 401 SANS WWW-Authenticate (pas de popup natif) sans identifiants', async () => {
     const res = await request(app).get('/api/tides/meta');
     expect(res.status).toBe(401);
@@ -53,9 +56,9 @@ describe('sécurité — authentification Basic', () => {
     expect(res.status).toBe(401);
   });
 
-  it('autorise avec un cookie de session valide', async () => {
+  it('autorise la lecture avec un cookie de session valide (viewer)', async () => {
     const { signSession, SESSION_COOKIE } = await import('./lib/session');
-    const token = signSession(60_000, Date.now());
+    const token = signSession('viewer', 60_000, Date.now());
     const res = await request(app)
       .get('/api/tides/meta')
       .set('Cookie', `${SESSION_COOKIE}=${token}`);
@@ -67,8 +70,8 @@ describe('sécurité — authentification Basic', () => {
     expect(res.status).toBe(401);
   });
 
-  it('autorise avec les bons identifiants', async () => {
-    const res = await request(app).get('/api/tides/meta').set('Authorization', `Basic ${creds}`);
+  it('autorise la lecture avec les identifiants viewer', async () => {
+    const res = await request(app).get('/api/tides/meta').set('Authorization', `Basic ${viewerCreds}`);
     expect(res.status).toBe(200);
   });
 
@@ -79,13 +82,29 @@ describe('sécurité — authentification Basic', () => {
   });
 });
 
-describe('sécurité — lecture seule', () => {
-  it('renvoie 403 sur PUT /api/settings quand READ_ONLY=true', async () => {
+describe('sécurité — rôle admin pour les actions sensibles', () => {
+  it('refuse PUT /api/settings au rôle viewer (403)', async () => {
     const res = await request(app)
       .put('/api/settings')
-      .set('Authorization', `Basic ${creds}`)
+      .set('Authorization', `Basic ${viewerCreds}`)
       .send({ rangeDays: 10 });
     expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/administrateur/i);
+  });
+
+  it('autorise PUT /api/settings au rôle admin (200)', async () => {
+    const res = await request(app)
+      .put('/api/settings')
+      .set('Authorization', `Basic ${adminCreds}`)
+      .send({ rangeDays: 10 });
+    expect(res.status).toBe(200);
+  });
+
+  it('refuse GET /api/stats au rôle viewer (403) et l’autorise à l’admin', async () => {
+    const viewer = await request(app).get('/api/stats').set('Authorization', `Basic ${viewerCreds}`);
+    expect(viewer.status).toBe(403);
+    const admin = await request(app).get('/api/stats').set('Authorization', `Basic ${adminCreds}`);
+    expect(admin.status).toBe(200);
   });
 });
 

@@ -22,16 +22,10 @@ afterAll(() => {
   fs.rmSync(dataDir, { recursive: true, force: true });
 });
 
+// Sans mot de passe configuré, l'auth est désactivée → rôle `admin` → /stats accessible.
+// Le contrôle de rôle (403 pour viewer) est couvert par security.test.ts.
 describe('accès & statistiques', () => {
-  it('GET /api/context indique le réseau local et le droit d’édition', async () => {
-    const local = await request(app).get('/api/context');
-    expect(local.body).toEqual({ local: true, canEditSettings: true });
-
-    const external = await request(app).get('/api/context').set('X-Forwarded-For', '203.0.113.9');
-    expect(external.body).toEqual({ local: false, canEditSettings: false });
-  });
-
-  it('journalise une ouverture de page puis l’expose via /api/stats (LAN)', async () => {
+  it('journalise une ouverture de page puis l’expose via /api/stats', async () => {
     // Une requête de document HTML est journalisée par le middleware accessLog.
     await request(app).get('/').set('Accept', 'text/html');
 
@@ -40,11 +34,5 @@ describe('accès & statistiques', () => {
     expect(res.body.total).toBeGreaterThanOrEqual(1);
     expect(res.body.lan).toBeGreaterThanOrEqual(1);
     expect(Array.isArray(res.body.perDay)).toBe(true);
-  });
-
-  it('refuse /api/stats depuis l’extérieur (403)', async () => {
-    const res = await request(app).get('/api/stats').set('X-Forwarded-For', '203.0.113.9');
-    expect(res.status).toBe(403);
-    expect(res.body.error).toMatch(/réseau local/i);
   });
 });

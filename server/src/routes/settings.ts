@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { Logger } from 'pino';
 import { readSettings, writeSettings } from '../service/SettingsStore';
-import { isPrivateIp } from '../lib/net';
+import { requestRole } from '../middleware/auth';
 
 /**
  * Routeur de configuration, monté sous `/api` :
@@ -21,14 +21,9 @@ export function createSettingsRouter(logger: Logger): Router {
 
   router.put('/settings', (req, res, next) => {
     try {
-      // Verrou global optionnel : lecture seule partout.
-      if (process.env.READ_ONLY === 'true') {
-        return res.status(403).json({ error: 'Modification désactivée (mode lecture seule).' });
-      }
-      // Sinon, écriture réservée au réseau local : les requêtes passées par le reverse proxy
-      // portent l'IP publique réelle du client (`trust proxy`) → refusées.
-      if (!isPrivateIp(req.ip)) {
-        return res.status(403).json({ error: 'Modification possible uniquement depuis le réseau local.' });
+      // Écriture réservée au rôle admin (le rôle est porté par le jeton de session signé).
+      if (requestRole(req) !== 'admin') {
+        return res.status(403).json({ error: 'Modification réservée au rôle administrateur.' });
       }
 
       const current = readSettings();
