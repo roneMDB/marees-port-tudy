@@ -33,10 +33,19 @@ afterAll(() => {
 });
 
 describe('sécurité — authentification Basic', () => {
-  it('renvoie 401 (+ WWW-Authenticate) sans identifiants', async () => {
+  it('renvoie 401 SANS WWW-Authenticate (pas de popup natif) sans identifiants', async () => {
     const res = await request(app).get('/api/tides/meta');
     expect(res.status).toBe(401);
-    expect(res.headers['www-authenticate']).toMatch(/Basic/);
+    expect(res.headers['www-authenticate']).toBeUndefined();
+  });
+
+  it('autorise avec un cookie de session valide', async () => {
+    const { signSession, SESSION_COOKIE } = await import('./lib/session');
+    const token = signSession(60_000, Date.now());
+    const res = await request(app)
+      .get('/api/tides/meta')
+      .set('Cookie', `${SESSION_COOKIE}=${token}`);
+    expect(res.status).toBe(200);
   });
 
   it('renvoie 401 avec de mauvais identifiants', async () => {
