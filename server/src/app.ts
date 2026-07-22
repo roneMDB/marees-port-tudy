@@ -28,9 +28,31 @@ export function createApp(logger: Logger): Application {
 
   app.set('trust proxy', 1); // 1er saut de confiance = reverse proxy NAS (X-Forwarded-For)
 
-  // En-têtes de sécurité. CSP désactivée pour l'instant (éviterait de casser SPA/Bootstrap/PWA) ;
-  // à tailler ultérieurement. `hidePoweredBy` (défaut) retire `X-Powered-By`.
-  app.use(helmet({ contentSecurityPolicy: false }));
+  // En-têtes de sécurité (helmet). CSP taillée pour la SPA buildée : scripts/styles/fonts servis en
+  // même origine (bundle Vite), API en même origine → `connect-src 'self'` (la météo passe par le
+  // serveur, pas par le navigateur). `style-src 'unsafe-inline'` : styles inline de Bootstrap /
+  // Chart.js / bindings `:style` de Vue. Pas d'`upgrade-insecure-requests` (le reverse proxy gère
+  // HTTPS ; éviterait de casser le test local en http). `hidePoweredBy` (défaut) retire `X-Powered-By`.
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        useDefaults: false,
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:'],
+          fontSrc: ["'self'"],
+          connectSrc: ["'self'"],
+          workerSrc: ["'self'"],
+          manifestSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          baseUri: ["'self'"],
+          frameAncestors: ["'none'"]
+        }
+      }
+    })
+  );
 
   // Limitation de débit : globale (protège aussi le brute-force d'auth), plus stricte sur la météo
   // (appels sortants vers Open-Meteo). Placées avant l'auth pour throttler les tentatives.
