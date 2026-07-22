@@ -2,8 +2,13 @@ import { NextFunction, Request, Response } from 'express';
 import { timingSafeEqual } from 'crypto';
 import { SESSION_COOKIE, parseCookies, verifySession } from '../lib/session';
 
-/** Chemins `/api` accessibles sans authentification (santé + endpoints de la mire). */
-const PUBLIC_API = new Set(['/api/health', '/api/login', '/api/logout', '/api/auth/status']);
+/**
+ * Chemins accessibles sans authentification (santé + endpoints de la mire). **Relatifs au
+ * point de montage `/api`** : le garde est monté via `app.use('/api', basicAuth())`, donc Express
+ * lui présente les mêmes requêtes (mêmes règles de casse/normalisation) qu'aux routeurs `/api`,
+ * et `req.path` est déjà dépouillé du préfixe `/api`.
+ */
+const PUBLIC_API = new Set(['/health', '/login', '/logout', '/auth/status']);
 
 /** Comparaison à temps constant (le test de longueur ne fuit qu'une info négligeable). */
 function safeEqual(a: string, b: string): boolean {
@@ -35,16 +40,18 @@ function basicHeaderMatches(header: string | undefined): boolean {
 }
 
 /**
- * Garde d'authentification **optionnel** (actif si `APP_PASSWORD`). Protège uniquement `/api`
- * (hors `PUBLIC_API`) : la coquille SPA reste publique pour afficher la mire. Accepte un
- * **cookie de session valide** ou un **en-tête Basic** (rétro-compat curl/sonde). Ne renvoie
- * **plus** `WWW-Authenticate` afin d'éviter le popup natif du navigateur.
+ * Garde d'authentification **optionnel** (actif si `APP_PASSWORD`), à **monter sur `/api`**
+ * (`app.use('/api', basicAuth())`) afin qu'il couvre exactement les mêmes requêtes que les
+ * routeurs `/api` — y compris les variantes de casse (`/API/…`) ou de slash qu'Express route
+ * sans distinction : un test de chaîne manuel sur `req.path` laisserait passer ces variantes.
+ * La coquille SPA (hors `/api`) reste publique pour afficher la mire. Accepte un **cookie de
+ * session valide** ou un **en-tête Basic** (rétro-compat curl/sonde). Ne renvoie **plus**
+ * `WWW-Authenticate` afin d'éviter le popup natif du navigateur.
  */
 export function basicAuth() {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!authEnabled()) return next();
-    if (!req.path.startsWith('/api')) return next(); // coquille SPA publique
-    if (PUBLIC_API.has(req.path)) return next();
+    if (PUBLIC_API.has(req.path)) return next(); // req.path est relatif au montage `/api`
 
     const cookies = parseCookies(req.headers.cookie);
     if (verifySession(cookies[SESSION_COOKIE], Date.now())) return next();

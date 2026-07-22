@@ -44,9 +44,9 @@ export function createApp(logger: Logger): Application {
   // Routes publiques de la mire (login/logout/status) — AVANT le garde.
   app.use('/api', createAuthRouter());
 
-  // Garde d'authentification optionnel (activé par `APP_PASSWORD`) : protège `/api` hors publics,
-  // laisse la coquille SPA publique.
-  app.use(basicAuth());
+  // Garde d'authentification optionnel (activé par `APP_PASSWORD`) : monté sur `/api` pour couvrir
+  // exactement les mêmes requêtes que les routeurs (casse/slash inclus), coquille SPA publique.
+  app.use('/api', basicAuth());
 
   // Journalisation des ouvertures de l'app (accès), après l'auth.
   app.use(accessLog());
