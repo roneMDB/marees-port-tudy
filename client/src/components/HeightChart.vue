@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { Line } from 'vue-chartjs';
 import type { ChartData, ChartOptions } from 'chart.js';
 import type { FlatTide } from '../types';
-import { formatDate, todayKey } from '../lib/format';
+import { addDays, formatDate, todayKey } from '../lib/format';
+import { clampDate } from '../lib/tides';
 import { buildNavihanMaregram, navihanAflot, navihanExtremes, navihanHeightAtMinute } from '../lib/maregram';
 import { useTheme } from '../composables/useTheme';
 import { useNavihan } from '../composables/useNavihan';
@@ -12,7 +13,30 @@ const props = defineProps<{ allTides: FlatTide[] }>();
 const { isDark } = useTheme();
 const { offsets } = useNavihan();
 
-const day = computed(() => todayKey());
+// Jour affiché (navigable), borné aux dates disponibles dans les données.
+const dates = computed(() => [...new Set(props.allTides.map(t => t.date))].sort());
+const minDate = computed(() => dates.value[0] ?? '');
+const maxDate = computed(() => dates.value[dates.value.length - 1] ?? '');
+
+const day = ref(todayKey());
+const isToday = computed(() => day.value === todayKey());
+const canPrev = computed(() => !!minDate.value && day.value > minDate.value);
+const canNext = computed(() => !!maxDate.value && day.value < maxDate.value);
+
+function goPrev(): void {
+  if (canPrev.value) day.value = clampDate(addDays(day.value, -1), minDate.value, maxDate.value);
+}
+function goNext(): void {
+  if (canNext.value) day.value = clampDate(addDays(day.value, 1), minDate.value, maxDate.value);
+}
+function goToday(): void {
+  day.value = clampDate(todayKey(), minDate.value, maxDate.value);
+}
+
+// Recale le jour dans la plage une fois les données chargées (ex. aujourd'hui hors plage).
+watch(dates, d => {
+  if (d.length) day.value = clampDate(day.value, d[0], d[d.length - 1]);
+});
 
 // Minute courante, rafraîchie chaque minute pour déplacer le repère « maintenant ».
 function currentMinute(): number {
@@ -46,6 +70,7 @@ const curve = computed(() => buildNavihanMaregram(props.allTides, day.value, off
 const extremes = computed(() => navihanExtremes(props.allTides, day.value, offsets));
 const aflot = computed(() => navihanAflot(props.allTides, day.value, offsets));
 const nowMarker = computed(() => {
+  if (!isToday.value) return null; // le repère « maintenant » n'a de sens que pour aujourd'hui
   const height = navihanHeightAtMinute(props.allTides, day.value, offsets, nowMinute.value);
   return height == null ? null : { x: nowMinute.value, y: Number(height.toFixed(3)) };
 });
@@ -71,7 +96,7 @@ const chartData = computed<ChartData<'line'>>(() => ({
       pointBorderColor: extremes.value.map(e => (e.type === 'high' ? '#0d6efd' : '#fd7e14'))
     },
     {
-      label: 'À flot',
+      label: 'Remise à flot',
       data: aflot.value.map(p => ({ x: p.minutes, y: Number(p.height.toFixed(3)) })),
       showLine: false,
       pointStyle: 'triangle',
@@ -107,7 +132,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
           label: item => {
             const ds = item.dataset.label;
             const h = `${Number(item.parsed.y).toFixed(2)} m`;
-            return ds === 'À flot' ? `À flot · ${h}` : h;
+            return ds === 'Remise à flot' ? `Remise à flot · ${h}` : h;
           }
         }
       }
@@ -132,10 +157,47 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
 
 <template>
   <div class="card shadow-sm h-100">
-    <div class="card-header bg-body-tertiary fw-semibold">
-      <i class="bi bi-graph-up text-primary me-1"></i> Marégramme Navihan
-      <span class="text-muted fw-normal small text-capitalize">· {{ formatDate(day) }}</span>
-      <span v-if="dayCoefs.length" class="text-muted fw-normal small">· coef {{ dayCoefs.join(' · ') }}</span>
+    <div class="card-header bg-body-tertiary d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <span class="fw-semibold">
+        <i class="bi bi-graph-up text-primary me-1"></i> Marégramme Navihan
+        <span class="text-muted fw-normal small text-capitalize">· {{ formatDate(day) }}</span>
+        <span v-if="dayCoefs.length" class="text-muted fw-normal small">· coef {{ dayCoefs.join(' · ') }}</span>
+      </span>
+      <div class="d-flex align-items-center gap-2">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Jour du marégramme">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            :disabled="!canPrev"
+            title="Jour précédent"
+            aria-label="Jour précédent"
+            @click="goPrev"
+          >
+            <i class="bi bi-chevron-left"></i>
+          </button>
+          <button v-if="!isToday" type="button" class="btn btn-outline-secondary" title="Aujourd'hui" @click="goToday">
+            Auj.
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            :disabled="!canNext"
+            title="Jour suivant"
+            aria-label="Jour suivant"
+            @click="goNext"
+          >
+            <i class="bi bi-chevron-right"></i>
+          </button>
+        </div>
+        <input
+          type="date"
+          class="form-control form-control-sm w-auto"
+          v-model="day"
+          :min="minDate || undefined"
+          :max="maxDate || undefined"
+          aria-label="Choisir une date"
+        />
+      </div>
     </div>
     <div class="card-body">
       <div v-if="curve.length" style="height: 260px">

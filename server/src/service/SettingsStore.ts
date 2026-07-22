@@ -21,6 +21,7 @@ export interface Settings {
   rangeDays: number; // « Au » = début + rangeDays
   navihan: NavihanOffsets; // décalages en minutes
   aFlotDays: number; // carte « À flot · N prochains jours »
+  coefDays: number; // durée (jours) du graphe des coefficients
   weatherLinks: WeatherLink[]; // liens affichés sous la météo (éditables)
 }
 
@@ -37,6 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
   rangeDays: 30,
   navihan: { basseMer: 75, pleineMer: 75, aFlot: 160 },
   aFlotDays: 3,
+  coefDays: 20,
   weatherLinks: DEFAULT_WEATHER_LINKS.map(l => ({ ...l }))
 };
 
@@ -87,6 +89,7 @@ export function sanitizeSettings(input: unknown): Settings {
       aFlot: clampInt(nav.aFlot, 0, MAX_MINUTES, DEFAULT_SETTINGS.navihan.aFlot)
     },
     aFlotDays: clampInt(o.aFlotDays, 1, 14, DEFAULT_SETTINGS.aFlotDays),
+    coefDays: clampInt(o.coefDays, 1, 90, DEFAULT_SETTINGS.coefDays),
     weatherLinks: sanitizeWeatherLinks(o.weatherLinks)
   };
 }

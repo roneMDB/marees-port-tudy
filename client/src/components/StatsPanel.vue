@@ -74,10 +74,10 @@ const chartOptions = computed<ChartOptions<'bar'>>(() => {
     aria-labelledby="statsOffcanvasLabel"
   >
     <div class="offcanvas-header border-bottom">
-      <h5 id="statsOffcanvasLabel" class="offcanvas-title mb-0">
+      <h5 id="statsOffcanvasLabel" class="offcanvas-title mb-0 me-3">
         <i class="bi bi-bar-chart-line me-1"></i> Statistiques d'accès
       </h5>
-      <div class="d-flex gap-2">
+      <div class="d-flex align-items-center gap-2 ms-auto flex-shrink-0">
         <button type="button" class="btn btn-sm btn-outline-secondary" title="Rafraîchir" @click="load">
           <i class="bi bi-arrow-clockwise"></i>
         </button>

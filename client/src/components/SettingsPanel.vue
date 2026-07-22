@@ -20,7 +20,7 @@ type OffsetKey = keyof NavihanOffsets;
 const rows: { key: OffsetKey; label: string }[] = [
   { key: 'basseMer', label: 'Basse mer' },
   { key: 'pleineMer', label: 'Pleine mer' },
-  { key: 'aFlot', label: 'À flot' }
+  { key: 'aFlot', label: 'Remise à flot' }
 ];
 
 function clamp(value: number, min: number, max: number): number {
@@ -46,6 +46,13 @@ function onRangeDays(event: Event): void {
   const n = Number((event.target as HTMLInputElement).value);
   if (Number.isFinite(n)) {
     settings.rangeDays = Math.min(365, Math.max(1, Math.round(n)));
+  }
+}
+
+function onCoefDays(event: Event): void {
+  const n = Number((event.target as HTMLInputElement).value);
+  if (Number.isFinite(n)) {
+    settings.coefDays = Math.min(90, Math.max(1, Math.round(n)));
   }
 }
 
@@ -78,7 +85,7 @@ function resetWeatherLinks(): void {
           <i class="bi bi-sliders me-1"></i> Réglages &amp; filtres
         </h5>
         <span class="text-muted small">
-          Navihan à flot +{{ formatOffset(offsets.aFlot) }} · {{ settings.aFlotDays }} j
+          Remise à flot +{{ formatOffset(offsets.aFlot) }} · {{ settings.aFlotDays }} j
         </span>
       </div>
       <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fermer"></button>
@@ -125,6 +132,18 @@ function resetWeatherLinks(): void {
             @input="onRangeDays"
           />
         </div>
+        <div class="col-6">
+          <label class="form-label small text-muted mb-1">Graphe coef. (jours)</label>
+          <input
+            type="number"
+            class="form-control"
+            min="1"
+            max="90"
+            :value="settings.coefDays"
+            @input="onCoefDays"
+          />
+          <div class="form-text">durée du graphe des coefficients</div>
+        </div>
       </div>
 
       <!-- Décalages Navihan (configuration enregistrée) -->
@@ -160,7 +179,7 @@ function resetWeatherLinks(): void {
       </div>
       <div class="row g-3 mt-0">
         <div class="col-12">
-          <label class="form-label small text-muted mb-1">Jours affichés (carte à flot)</label>
+          <label class="form-label small text-muted mb-1">Jours affichés (carte remise à flot)</label>
           <input
             type="number"
             class="form-control"
@@ -169,7 +188,7 @@ function resetWeatherLinks(): void {
             :value="settings.aFlotDays"
             @input="setAFlotDays"
           />
-          <div class="form-text">nombre de jours listés sur la carte « À flot »</div>
+          <div class="form-text">nombre de jours listés sur la carte « Remise à flot »</div>
         </div>
       </div>
       <div class="mt-3 mb-4">

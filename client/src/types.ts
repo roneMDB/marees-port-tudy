@@ -100,6 +100,7 @@ export interface Settings {
   rangeDays: number; // « Au » = début + rangeDays
   navihan: NavihanOffsets; // décalages en minutes
   aFlotDays: number; // carte « À flot · N prochains jours »
+  coefDays: number; // durée (jours) du graphe des coefficients
   weatherLinks: WeatherLink[]; // liens sous la météo (éditables dans les réglages)
 }
 

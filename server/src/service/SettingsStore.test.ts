@@ -37,10 +37,12 @@ describe('sanitizeSettings', () => {
     const s = sanitizeSettings({
       rangeDays: 9999,
       aFlotDays: 0,
+      coefDays: 999,
       navihan: { basseMer: -10, pleineMer: 5000, aFlot: 99 }
     });
     expect(s.rangeDays).toBe(365);
     expect(s.aFlotDays).toBe(1);
+    expect(s.coefDays).toBe(90);
     expect(s.navihan).toEqual({ basseMer: 0, pleineMer: 1439, aFlot: 99 });
   });
 

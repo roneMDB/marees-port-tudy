@@ -1,6 +1,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { getMeta, getTides } from '../api/tides';
-import { filterTides, flatten, matchNavihanReference, resolveWindow } from '../lib/tides';
+import { filterTides, flatten, matchNavihanReference, periodWindow, resolveWindow } from '../lib/tides';
+import { addDays } from '../lib/format';
 import { computeNavihan } from '../lib/navihan';
 import { useSettings } from './useSettings';
 import { useSite } from './useSite';
@@ -28,6 +29,9 @@ export function useTides() {
   // Filtres éphémères (non persistés).
   const filters = reactive<TideDisplayFilters>({ type: 'all', minCoef: null });
 
+  // Décalage de période transitoire du tableau (navigation Précédent/Suivant, non persisté).
+  const periodOffset = ref(0);
+
   // Fenêtre de dates dérivée de la config persistée (bornes = référence Port-Tudy).
   const dateWindow = computed(() =>
     resolveWindow(settings, meta.value?.minDate ?? '', meta.value?.maxDate ?? '')
@@ -42,14 +46,62 @@ export function useTides() {
   );
 
   // Filtrage (fenêtre + filtres éphémères) + calcul Navihan depuis l'heure Port-Tudy appariée.
-  const filteredTides = computed(() => {
-    const { from, to } = dateWindow.value;
-    return filterTides(rows.value, { from, to, type: filters.type, minCoef: filters.minCoef })
-      .map(t => ({
-        ...t,
-        navihan: t.refTime ? computeNavihan({ time: t.refTime, type: t.type }, settings.navihan) : {}
-      }));
+  function windowedTides(from: string, to: string): FlatTide[] {
+    return filterTides(rows.value, { from, to, type: filters.type, minCoef: filters.minCoef }).map(t => ({
+      ...t,
+      navihan: t.refTime ? computeNavihan({ time: t.refTime, type: t.type }, settings.navihan) : {}
+    }));
+  }
+
+  // Graphe des coefficients : durée **éphémère** (session), initialisée sur le réglage `coefDays`
+  // et re-synchronisée si le réglage change (hydratation / édition dans les réglages). La modifier
+  // depuis le titre de la carte ne persiste pas → au rechargement, on repart du réglage.
+  const coefDaysView = ref(settings.coefDays);
+  watch(() => settings.coefDays, v => { coefDaysView.value = v; });
+  function setCoefDaysView(n: number): void {
+    if (Number.isFinite(n)) coefDaysView.value = Math.min(90, Math.max(1, Math.round(n)));
+  }
+  const coefTides = computed(() =>
+    windowedTides(dateWindow.value.from, addDays(dateWindow.value.from, coefDaysView.value))
+  );
+
+  // Fenêtre du tableau, décalée par `periodOffset` (Précédent/Suivant), bornée aux dates dispo.
+  const tablePeriod = computed(() =>
+    periodWindow(
+      dateWindow.value.from,
+      settings.rangeDays,
+      periodOffset.value,
+      meta.value?.minDate ?? '',
+      meta.value?.maxDate ?? ''
+    )
+  );
+  const tableTides = computed(() => windowedTides(tablePeriod.value.from, tablePeriod.value.to));
+
+  const canPrevPeriod = computed(() => {
+    const min = meta.value?.minDate ?? '';
+    return !!min && tablePeriod.value.from > min;
   });
+  const canNextPeriod = computed(() => {
+    const max = meta.value?.maxDate ?? '';
+    return !!max && tablePeriod.value.to < max;
+  });
+  function prevPeriod(): void {
+    if (canPrevPeriod.value) periodOffset.value -= 1;
+  }
+  function nextPeriod(): void {
+    if (canNextPeriod.value) periodOffset.value += 1;
+  }
+  function resetPeriod(): void {
+    periodOffset.value = 0;
+  }
+
+  // Changer le paramétrage de période ramène le tableau à la période configurée.
+  watch(
+    () => [settings.startMode, settings.startDate, settings.rangeDays],
+    () => {
+      periodOffset.value = 0;
+    }
+  );
 
   /** Charge les marées du port sélectionné (inutile quand c'est la référence). */
   async function loadSiteTides(): Promise<void> {
@@ -87,5 +139,25 @@ export function useTides() {
 
   onMounted(load);
 
-  return { loading, error, meta, settings, filters, dateWindow, filteredTides, allTides, reload: load };
+  return {
+    loading,
+    error,
+    meta,
+    settings,
+    filters,
+    dateWindow,
+    coefTides,
+    coefDaysView,
+    setCoefDaysView,
+    allTides,
+    tableTides,
+    tablePeriod,
+    prevPeriod,
+    nextPeriod,
+    resetPeriod,
+    canPrevPeriod,
+    canNextPeriod,
+    periodOffset,
+    reload: load
+  };
 }

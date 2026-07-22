@@ -6,17 +6,25 @@ import type { FlatTide } from '../types';
 import { formatDate } from '../lib/format';
 import { useTheme } from '../composables/useTheme';
 
-const props = defineProps<{ tides: FlatTide[] }>();
+const props = withDefaults(defineProps<{ tides: FlatTide[]; days?: number }>(), { days: 20 });
+const emit = defineEmits<{ (e: 'update:days', value: number): void }>();
 const { isDark } = useTheme();
 
 const dayCount = computed(() => new Set(props.tides.map(t => t.date)).size);
+
+// Durée du graphe modifiable depuis le titre — **éphémère** (session), ne modifie pas les réglages.
+function onCoefDays(event: Event): void {
+  const n = Number((event.target as HTMLInputElement).value);
+  if (Number.isFinite(n)) emit('update:days', Math.min(90, Math.max(1, Math.round(n))));
+}
 
 const chartData = computed<ChartData<'bar'>>(() => {
   const highs = props.tides
     .filter(t => t.type === 'high' && t.coefficient != null)
     .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
   return {
-    labels: highs.map(t => `${formatDate(t.date, { day: '2-digit', month: '2-digit' })} ${t.time}`),
+    // Libellé sur deux lignes : date puis heure (plus lisible qu'une longue chaîne inclinée).
+    labels: highs.map(t => [formatDate(t.date, { day: '2-digit', month: '2-digit' }), t.time]),
     datasets: [
       {
         label: 'Coefficient',
@@ -49,7 +57,7 @@ const chartOptions = computed<ChartOptions<'bar'>>(() => {
         grid: { color: grid }
       },
       x: {
-        ticks: { maxRotation: 90, autoSkip: true, maxTicksLimit: 16, color: tick },
+        ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 12, color: tick, font: { size: 10 } },
         grid: { color: grid }
       }
     }
@@ -59,9 +67,25 @@ const chartOptions = computed<ChartOptions<'bar'>>(() => {
 
 <template>
   <div class="card shadow-sm h-100">
-    <div class="card-header bg-body-tertiary fw-semibold">
-      <i class="bi bi-bar-chart-fill text-info me-1"></i> Coefficients (pleines mers)
-      <span class="text-muted fw-normal small">· {{ dayCount }} jour(s)</span>
+    <div class="card-header bg-body-tertiary d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <span class="fw-semibold">
+        <i class="bi bi-bar-chart-fill text-info me-1"></i> Coefficients (pleines mers)
+        <span class="text-muted fw-normal small">· {{ dayCount }} jour(s)</span>
+      </span>
+      <div class="d-flex align-items-center gap-1">
+        <label for="coefDaysInput" class="form-label small text-muted mb-0">jours</label>
+        <input
+          id="coefDaysInput"
+          type="number"
+          min="1"
+          max="90"
+          class="form-control form-control-sm w-auto"
+          style="max-width: 5rem"
+          :value="days"
+          @input="onCoefDays"
+          title="Durée d'affichage (jours) — pour cette session"
+        />
+      </div>
     </div>
     <div class="card-body">
       <div style="height: 260px">

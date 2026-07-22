@@ -74,9 +74,9 @@ const nextAflotEvent = computed(() => nextAflot(props.allTides, offsets.aFlot, n
         <div class="card-body py-2 px-3 d-flex flex-column justify-content-center">
           <div class="d-flex justify-content-between align-items-center">
             <div>
-              <div class="text-uppercase small opacity-75">Prochain à flot</div>
+              <div class="text-uppercase small opacity-75">Prochaine remise à flot</div>
               <template v-if="nextAflotEvent">
-                <div class="fs-5 fw-bold">À flot {{ nextAflotEvent.time }}</div>
+                <div class="fs-5 fw-bold">{{ nextAflotEvent.time }}</div>
                 <div class="small opacity-75 text-capitalize">
                   Basse mer · {{ nextAflotEvent.basse.time }} · {{ formatDate(nextAflotEvent.basse.date) }}
                 </div>
@@ -133,7 +133,7 @@ const nextAflotEvent = computed(() => nextAflot(props.allTides, offsets.aFlot, n
         <div class="card-body py-2 px-3 d-flex flex-column justify-content-center">
           <div class="d-flex justify-content-between align-items-center">
             <div class="flex-grow-1" style="min-width: 0">
-              <div class="text-uppercase small text-muted mb-1">Prochains à flot</div>
+              <div class="text-uppercase small text-muted mb-1">Prochaines remises à flot</div>
               <div v-if="!upcomingAflot.length" class="small text-muted">—</div>
               <dl v-else class="aflot-list small mb-0">
                 <template v-for="d in upcomingAflot" :key="d.date">

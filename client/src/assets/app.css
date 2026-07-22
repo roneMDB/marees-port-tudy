@@ -117,3 +117,61 @@
     content: none;
   }
 }
+
+/* Tableau « par jour » : pile de cartes sur petit écran (label / valeur via data-label). */
+@media (max-width: 767.98px) {
+  .tide-day-table,
+  .tide-day-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .tide-day-table thead {
+    display: none;
+  }
+
+  .tide-day-table tbody tr {
+    display: block;
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+
+  .tide-day-table tbody tr.is-today {
+    border-left: 4px solid var(--bs-primary);
+  }
+
+  .tide-day-table tbody td {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.25rem 1rem;
+    text-align: right;
+    padding: 0.4rem 0.75rem;
+    border: 0;
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+    white-space: normal;
+  }
+
+  .tide-day-table tbody td:last-child {
+    border-bottom: 0;
+  }
+
+  .tide-day-table tbody td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap;
+    color: var(--bs-secondary-color);
+  }
+
+  .tide-day-table tbody td[colspan] {
+    justify-content: center;
+  }
+
+  .tide-day-table tbody td[colspan]::before {
+    content: none;
+  }
+}

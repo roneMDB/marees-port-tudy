@@ -101,7 +101,8 @@ d'Étel ne sont pas encore fournies : la graine `horaires_marees_etel.json` est 
 (le port s'affiche « Aucune marée » jusqu'à ce qu'on la remplisse, comme pour Port-Tudy).
 
 **Config** (`src/service/SettingsStore.ts`) : type `Settings` (`startMode`/`startDate`/`rangeDays`,
-`navihan` en minutes, `aFlotDays`, `weatherLinks` = liens météo éditables `{ label, url }`, défauts
+`navihan` en minutes, `aFlotDays`, `coefDays` = durée du graphe coef (défaut 20, 1–90),
+`weatherLinks` = liens météo éditables `{ label, url }`, défauts
 `DEFAULT_WEATHER_LINKS`), `DEFAULT_SETTINGS`, `sanitizeSettings` (validation/bornage ; les
 `weatherLinks` invalides — libellé vide ou URL non http(s) — sont écartés, liste plafonnée à 12 ;
 tableau absent → défauts, tableau vide explicite conservé), `readSettings`/`writeSettings`
@@ -124,7 +125,9 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
 - `src/lib/tides.ts` — `flatten()` (aplatit `days` en `FlatTide[]` triés), `filterTides()`
   (plage de dates inclusive, type, coef min) et `matchNavihanReference(site, reference)` (annote
   chaque marée du port sélectionné d'un `refTime` = heure Port-Tudy de même type la plus proche,
-  tolérance 3 h, sinon `null`) — **fonctions pures, testées**.
+  tolérance 3 h, sinon `null`), `groupByDay(tides)` (regroupe par jour → `DayTides` : pleines/
+  basses mers triées + coef du jour) et `periodWindow(from, rangeDays, offset, min, max)` (fenêtre
+  du tableau décalée de `offset` périodes, bornée) — **fonctions pures, testées**.
 - `src/lib/format.ts` — `formatDate`, `formatHeight`.
 - `src/composables/useSettings.ts` — **config serveur** (singleton) : `settings` réactif (défauts
   puis hydraté via `GET /api/settings`), `load()`, et **sauvegarde auto débouncée** (~500 ms → `PUT`).
@@ -134,51 +137,70 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   `marees-site`, comme le thème) : `sites` (hydraté via `getSites()`), `siteId`, `current`,
   `isReference` (= `port-tudy`, référence Navihan), `setSite`, `load`. Sélecteur dans `App.vue`.
 - `src/composables/useTides.ts` — charge config + sites + meta + marées au montage, expose `loading/
-  error/meta/settings/filters/dateWindow/filteredTides/allTides`. `allTides` = **référence
-  Port-Tudy** (marégramme, carte à flot). Les **lignes** (`filteredTides`) sont les marées du **port
-  sélectionné** : pour la référence, `refTime = time` ; sinon `matchNavihanReference(siteTides,
-  allTides)`. Le Navihan est (re)calculé par `computeNavihan(refTime, …)`, « — » si `refTime` null.
-  `watch(siteId)` recharge à la bascule. `filters` = **filtres éphémères** (`type`, `minCoef`). La fenêtre de dates dérive de `resolveWindow(settings, minDate, maxDate)`
-  (`src/lib/tides.ts`, pure/testée) : début = aujourd'hui (`today`) ou `startDate` (`date`), fin =
-  début + `rangeDays`, bornée. Filtrage **côté client**.
+  error/meta/settings/filters/dateWindow/coefTides/tableTides/allTides` (+ nav période). `allTides` =
+  **référence Port-Tudy** (marégramme, carte à flot). Les **lignes** (via `windowedTides`) sont les
+  marées du **port sélectionné** : pour la référence, `refTime = time` ; sinon
+  `matchNavihanReference(siteTides, allTides)` ; le Navihan est (re)calculé par
+  `computeNavihan(refTime, …)`, « — » si `refTime` null. `watch(siteId)` recharge à la bascule.
+  `filters` = **filtres éphémères** (`type`, `minCoef`). La fenêtre configurée dérive de
+  `resolveWindow(settings, minDate, maxDate)` (début = `today`/`startDate`, fin = début+`rangeDays`).
+  Filtrage **côté client**. Le **tableau** utilise `tableTides`/`tablePeriod` (`periodWindow` +
+  `periodOffset` transitoire) : `prevPeriod`/`nextPeriod`/`resetPeriod` + `canPrevPeriod`/
+  `canNextPeriod` décalent la période d'un bloc `rangeDays` (Précédent = jours avant la date de
+  début) sans toucher au réglage ; offset remis à zéro si `startMode`/`startDate`/`rangeDays`
+  changent. Le **graphe des coefficients** utilise `coefTides` = fenêtre de `coefDaysView` jours
+  depuis le début configuré ; `coefDaysView` est **éphémère** (init sur `settings.coefDays`, suit le
+  réglage, modifiable en session via `setCoefDaysView` sans persister).
 - `src/composables/useNavihan.ts` + `src/lib/navihan.ts` — décalages Navihan **éditables** (basse
   mer / pleine mer / à flot indépendants, en minutes) ; `useNavihan` est désormais **adossé à
   `useSettings` (`settings.navihan`)** — persisté **côté serveur** (plus de localStorage).
-  `useTides.filteredTides` **recalcule** `navihan` via `computeNavihan(t, settings.navihan)`, donc
-  tableau/cartes/graphiques se mettent à jour en direct. UI : `components/NavihanSettings.vue`
+  `useTides` (via `windowedTides`) **recalcule** `navihan` via `computeNavihan(t, settings.navihan)`,
+  donc tableau/cartes/graphiques se mettent à jour en direct. UI : `components/NavihanSettings.vue`
   (panneau repliable, saisie h+min, + champ **`aFlotDays`**). Fonctions pures testées dans
   `lib/navihan.test.ts`.
 - `components/SettingsPanel.vue` — **un seul panneau repliable « Réglages & filtres »** (props
   `filters` + `meta`, émet `reset`) regroupant 4 sections : **Période** (config : `startMode`
-  `today`/`date` + `startDate` + `rangeDays`), **Décalages Navihan** (config : 3 offsets + `aFlotDays`,
+  `today`/`date` + `startDate` + `rangeDays` + `coefDays`), **Décalages Navihan** (config : 3 offsets + `aFlotDays`,
   bouton défauts), **Liens météo** (config : liste éditable `settings.weatherLinks` — libellé + URL,
   ajout/suppression, bouton défauts), **Filtres d'affichage** (éphémères : `Type`, `Coef min`, reset).
   Remplace les anciens `TideFilters.vue` / `NavihanSettings.vue`. **Bouton + panneau masqués si
   `!canEditSettings`** (accès externe ou `READ_ONLY`) : on ne montre pas des réglages non modifiables.
-  `StatCards.vue` — carte « À flot » sur `settings.aFlotDays`.
+  `StatCards.vue` — carte « Prochaine remise à flot » / « Prochaines remises à flot » sur
+  `settings.aFlotDays`.
 - `components/StatsPanel.vue` — **panneau « Statistiques d'accès »** (offcanvas) : KPIs (visites,
   LAN/externe), graphe visites/jour, pays/navigateurs/appareils. Charge `getStats()` à l'ouverture.
   Le bouton (navbar, `App.vue`) et le panneau ne sont montés que si `getContext().local` (réseau
   local) ; le verrou réel est côté serveur (`/api/stats` → 403 hors LAN). `SettingsPanel` affiche un
   avertissement (`useSettings.saveError`) quand un enregistrement est refusé (lecture seule / hors LAN).
 - `Dashboard.vue` affiche un encart explicatif : heures **Port-Tudy** = référence, le but est
-  d'en déduire les heures **Navihan** (basse mer, pleine mer, « à flot »).
+  d'en déduire les heures **Navihan** (basse mer, pleine mer, « remise à flot »).
 - `src/composables/useTheme.ts` — thème clair/sombre (singleton). Applique `data-bs-theme`
   (mode couleur natif Bootstrap 5.3) sur `<html>`, persiste dans `localStorage`, défaut =
   préférence système. Bascule via le bouton de la navbar ; les graphiques Chart.js lisent
   `isDark` pour adapter ticks/grilles.
-- `src/views/Dashboard.vue` — assemble `TideFilters` + `StatCards` + `HeightChart`/`CoefChart`
-  + `TideTable` ; états loading (spinner) / error (alert).
-- `HeightChart.vue` — **marégramme du jour** (aujourd'hui, fixe) : courbe de hauteur reconstruite
+- `src/views/Dashboard.vue` — assemble `SettingsPanel` + `StatCards` + `HeightChart`/`CoefChart`
+  + `TideDayTable` ; états loading (spinner) / error (alert).
+- `HeightChart.vue` — **marégramme Navihan du jour** (jour **navigable** : boutons précédent/suivant
+  + « Auj. » + sélecteur de date dans l'en-tête, borné aux dates dispo ; repère « maintenant »
+  seulement aujourd'hui) : courbe de hauteur reconstruite
   par interpolation cosinus entre extrêmes via `lib/maregram.ts` (`buildMaregram`, testée), axe x
-  linéaire en minutes ; coef du jour au titre. `CoefChart.vue` — barres des coefficients sur la
-  sélection filtrée, nombre de jours dans le titre. Tous deux reçoivent leurs données du Dashboard
-  (`HeightChart` = `allTides`, indépendant du filtre ; `CoefChart` = `filteredTides`).
-- Colonnes du tableau (`TideTable.vue`) = Date, Type, **Heure ‹port sélectionné›**, Hauteur, Coef,
-  Navihan basse mer, Navihan pleine mer, Navihan à flot. Chaque ligne est une marée du port
-  sélectionné (Heure/Hauteur/Coef propres, en-tête via prop `siteLabel`) ; les colonnes Navihan
-  sont dérivées de Port-Tudy (« — » si pas de marée de référence appariée). Tri par colonne.
-  Lignes colorées par type.
+  linéaire en minutes ; coef du jour au titre. `CoefChart.vue` — barres des coefficients sur
+  `coefDaysView` jours (défaut = réglage `coefDays` = 20) ; **champ durée dans le titre = éphémère**
+  (session, non persisté, via `update:days` → `setCoefDaysView` ; revient au réglage au rechargement).
+  Labels x sur deux lignes (date + heure). Données du Dashboard (`HeightChart` = `allTides` ;
+  `CoefChart` = `coefTides`).
+- Tableau `TideDayTable.vue` — **une ligne par jour** (`lib/tides.groupByDay`, pure/testée).
+  Colonnes = **Jour · Coef · Pleines mers · Basses mers · Remise à flot**. Chaque cellule
+  Pleines/Basses mers liste les marées du **port sélectionné** en `HH:MM · 🌊 h,hh m` (heure +
+  hauteur d'eau inline, icône `bi-water` + légende) ; le **Coef** du jour = max des coef des pleines
+  mers (Port-Tudy) ; **« Remise à flot »** = heures Navihan (dérivées Port-Tudy) des basses mers,
+  en **pastilles teal** (`info-subtle`, thèmes clair/sombre). Explication de « Remise à flot » en
+  **infobulle** sur l'en-tête de colonne. Responsive : pile de cartes sur mobile (`.tide-day-table`
+  + `data-label`, cf. `assets/app.css`). Repère « aujourd'hui »,
+  `table-responsive` (défilement horizontal mobile). Purement présentationnel : il rend la période
+  qu'on lui passe (`tableTides`) ; la **navigation Précédent/Suivant/Début** (par période, cf.
+  `useTides`) est dans l'en-tête de carte du `Dashboard`. Remplace l'ancien `TideTable`
+  (une-ligne-par-marée, retiré).
 
 Le proxy Vite (`vite.config.ts`) redirige `/api` vers `:3000` en dev.
 

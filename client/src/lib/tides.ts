@@ -63,6 +63,51 @@ export function matchNavihanReference(
   });
 }
 
+/** Marées d'une journée, regroupées pour un affichage « une ligne par jour ». */
+export interface DayTides {
+  date: string;
+  highs: FlatTide[]; // pleines mers, triées par heure
+  lows: FlatTide[]; // basses mers, triées par heure
+  coefficient: number | null; // coef du jour = max des coef des pleines mers (null si aucun)
+}
+
+/** Regroupe une liste d'extrêmes par jour (trié par date croissante ; marées triées par heure). */
+export function groupByDay(tides: FlatTide[]): DayTides[] {
+  const byDate = new Map<string, FlatTide[]>();
+  for (const t of tides) {
+    const list = byDate.get(t.date);
+    if (list) list.push(t);
+    else byDate.set(t.date, [t]);
+  }
+
+  return [...byDate.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, entries]) => {
+      const byTime = (a: FlatTide, b: FlatTide) => a.time.localeCompare(b.time);
+      const highs = entries.filter(t => t.type === 'high').sort(byTime);
+      const lows = entries.filter(t => t.type === 'low').sort(byTime);
+      const coefs = highs.map(h => h.coefficient).filter((c): c is number => c != null);
+      return { date, highs, lows, coefficient: coefs.length ? Math.max(...coefs) : null };
+    });
+}
+
+/**
+ * Fenêtre du tableau décalée de `offset` périodes de `rangeDays` jours par rapport au début
+ * configuré (`offset` négatif = passé). `to` = `from + rangeDays` (période pleine, même en bord de
+ * plage). Bornée à `[min, max]` (bornes vides ignorées). `offset = 0` → fenêtre configurée.
+ */
+export function periodWindow(
+  configuredFrom: string,
+  rangeDays: number,
+  offset: number,
+  min: string,
+  max: string
+): { from: string; to: string } {
+  const from = clampDate(addDays(configuredFrom, offset * rangeDays), min, max);
+  const to = clampDate(addDays(from, rangeDays), min, max);
+  return { from, to };
+}
+
 /** Applique les filtres (plage de dates inclusive, type, coefficient minimum). */
 export function filterTides(tides: FlatTide[], f: TideFilters): FlatTide[] {
   return tides.filter(t => {

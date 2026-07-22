@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clampDate, filterTides, flatten, matchNavihanReference, resolveWindow } from './tides';
+import { clampDate, filterTides, flatten, groupByDay, matchNavihanReference, periodWindow, resolveWindow } from './tides';
 import { addDays } from './format';
 import type { FlatTide, Settings, TideOutput } from '../types';
 
@@ -9,6 +9,7 @@ const baseSettings: Settings = {
   rangeDays: 30,
   navihan: { basseMer: 75, pleineMer: 75, aFlot: 160 },
   aFlotDays: 3,
+  coefDays: 20,
   weatherLinks: []
 };
 
@@ -171,5 +172,61 @@ describe('matchNavihanReference', () => {
     ];
     expect(matchNavihanReference(isolated, farRef)[0].refTime).toBeNull();
     expect(matchNavihanReference(isolated, [])[0].refTime).toBeNull();
+  });
+});
+
+describe('groupByDay', () => {
+  const tides: FlatTide[] = [
+    { date: '2026-07-23', time: '19:01', height: 2.3, type: 'low', coefficient: null, navihan: { 'A flot': '21:41' } },
+    { date: '2026-07-23', time: '12:28', height: 3.8, type: 'high', coefficient: 33, navihan: {} },
+    { date: '2026-07-23', time: '06:22', height: 1.9, type: 'low', coefficient: null, navihan: { 'A flot': '09:02' } },
+    { date: '2026-07-22', time: '11:19', height: 4.0, type: 'high', coefficient: 45, navihan: {} },
+    { date: '2026-07-22', time: '23:47', height: 3.9, type: 'high', coefficient: 40, navihan: {} }
+  ];
+
+  it('groups by day (date asc), splits/sorts highs & lows, coef = max of highs', () => {
+    const days = groupByDay(tides);
+    expect(days.map(d => d.date)).toEqual(['2026-07-22', '2026-07-23']);
+
+    const d22 = days[0];
+    expect(d22.highs.map(h => h.time)).toEqual(['11:19', '23:47']);
+    expect(d22.lows).toEqual([]);
+    expect(d22.coefficient).toBe(45); // max(45, 40)
+
+    const d23 = days[1];
+    expect(d23.highs.map(h => h.time)).toEqual(['12:28']); // une seule pleine mer
+    expect(d23.lows.map(l => l.time)).toEqual(['06:22', '19:01']);
+    expect(d23.coefficient).toBe(33);
+  });
+
+  it('sets coefficient to null when no high has one, and handles an empty list', () => {
+    const noCoef: FlatTide[] = [
+      { date: '2026-07-24', time: '07:00', height: 2.0, type: 'low', coefficient: null, navihan: {} }
+    ];
+    expect(groupByDay(noCoef)[0].coefficient).toBeNull();
+    expect(groupByDay([])).toEqual([]);
+  });
+});
+
+describe('periodWindow', () => {
+  const MIN = '2026-06-01';
+  const MAX = '2026-10-31';
+
+  it('offset 0 = fenêtre configurée [from, from+rangeDays]', () => {
+    expect(periodWindow('2026-07-21', 30, 0, MIN, MAX)).toEqual({ from: '2026-07-21', to: '2026-08-20' });
+  });
+
+  it('offset négatif recule d’une période, positif avance', () => {
+    expect(periodWindow('2026-07-21', 30, -1, MIN, MAX)).toEqual({ from: '2026-06-21', to: '2026-07-21' });
+    expect(periodWindow('2026-07-21', 30, 1, MIN, MAX)).toEqual({ from: '2026-08-20', to: '2026-09-19' });
+  });
+
+  it('borne le début à min et garde une période pleine', () => {
+    // Reculer loin : from clampé à MIN, to = MIN + rangeDays.
+    expect(periodWindow('2026-07-21', 30, -5, MIN, MAX)).toEqual({ from: '2026-06-01', to: '2026-07-01' });
+  });
+
+  it('borne la fin à max', () => {
+    expect(periodWindow('2026-10-20', 30, 0, MIN, MAX)).toEqual({ from: '2026-10-20', to: '2026-10-31' });
   });
 });

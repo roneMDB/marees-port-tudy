@@ -2,15 +2,19 @@
 import { useTides } from '../composables/useTides';
 import { useSite } from '../composables/useSite';
 import { useContext } from '../composables/useContext';
+import { formatDate } from '../lib/format';
 import SettingsPanel from '../components/SettingsPanel.vue';
 import StatCards from '../components/StatCards.vue';
 import WeatherCard from '../components/WeatherCard.vue';
 import ResourcesCard from '../components/ResourcesCard.vue';
-import TideTable from '../components/TideTable.vue';
+import TideDayTable from '../components/TideDayTable.vue';
 import HeightChart from '../components/HeightChart.vue';
 import CoefChart from '../components/CoefChart.vue';
 
-const { loading, error, meta, filters, filteredTides, allTides, reload } = useTides();
+const {
+  loading, error, meta, filters, coefTides, coefDaysView, setCoefDaysView, allTides, reload,
+  tableTides, tablePeriod, prevPeriod, nextPeriod, resetPeriod, canPrevPeriod, canNextPeriod, periodOffset
+} = useTides();
 const { current, isReference } = useSite();
 const { canEditSettings } = useContext();
 
@@ -57,15 +61,55 @@ function resetFilters(): void {
           <HeightChart :all-tides="allTides" />
         </div>
         <div class="col-12 col-xl-6">
-          <CoefChart :tides="filteredTides" />
+          <CoefChart :tides="coefTides" :days="coefDaysView" @update:days="setCoefDaysView" />
         </div>
       </div>
 
       <div class="card shadow-sm">
-        <div class="card-header bg-body-tertiary fw-semibold">
-          <i class="bi bi-table me-1"></i> Horaires détaillés
+        <div class="card-header bg-body-tertiary d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <span class="fw-semibold">
+            <i class="bi bi-calendar-week me-1"></i> Horaires par jour
+            <span class="text-muted fw-normal small">· {{ current.label }}</span>
+          </span>
+          <div class="d-flex align-items-center gap-2">
+            <span class="text-muted small text-nowrap">
+              {{ formatDate(tablePeriod.from, { day: '2-digit', month: 'short' }) }}
+              → {{ formatDate(tablePeriod.to, { day: '2-digit', month: 'short' }) }}
+            </span>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Navigation par période">
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                :disabled="!canPrevPeriod"
+                title="Période précédente"
+                aria-label="Période précédente"
+                @click="prevPeriod"
+              >
+                <i class="bi bi-chevron-left"></i>
+              </button>
+              <button
+                v-if="periodOffset !== 0"
+                type="button"
+                class="btn btn-outline-secondary"
+                title="Revenir à la période configurée"
+                @click="resetPeriod"
+              >
+                <i class="bi bi-house"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                :disabled="!canNextPeriod"
+                title="Période suivante"
+                aria-label="Période suivante"
+                @click="nextPeriod"
+              >
+                <i class="bi bi-chevron-right"></i>
+              </button>
+            </div>
+          </div>
         </div>
-        <TideTable :tides="filteredTides" :site-label="current.label" />
+        <TideDayTable :tides="tableTides" :site-label="current.label" />
       </div>
     </template>
   </div>
