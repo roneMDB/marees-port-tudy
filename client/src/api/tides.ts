@@ -4,6 +4,9 @@ import type { AccessStats, Site, TideOutput, TidesMeta } from '../types';
 export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
   if (!res.ok) {
+    if (res.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('api-unauthorized'));
+    }
     let message = `Erreur ${res.status}`;
     try {
       const body = await res.json();
