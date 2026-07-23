@@ -70,10 +70,41 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
               <option v-for="s in sites" :key="s.id" :value="s.id">{{ s.label }}</option>
             </select>
           </div>
+          <!-- Mobile (< sm) : les actions admin regroupées dans un menu ⋮ pour désencombrer. -->
+          <div v-if="isAdmin" class="dropdown d-sm-none">
+            <button
+              type="button"
+              class="btn btn-outline-light btn-sm"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+              title="Actions"
+              aria-label="Actions"
+            >
+              <i class="bi bi-three-dots-vertical"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li>
+                <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#statsOffcanvas">
+                  <i class="bi bi-bar-chart-line me-2"></i>Statistiques d'accès
+                </button>
+              </li>
+              <li>
+                <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#importOffcanvas">
+                  <i class="bi bi-upload me-2"></i>Import des horaires
+                </button>
+              </li>
+              <li>
+                <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#settingsOffcanvas">
+                  <i class="bi bi-sliders me-2"></i>Réglages &amp; filtres
+                </button>
+              </li>
+            </ul>
+          </div>
+          <!-- ≥ sm : actions admin en ligne dans la navbar. -->
           <button
             v-if="isAdmin"
             type="button"
-            class="btn btn-outline-light btn-sm"
+            class="btn btn-outline-light btn-sm d-none d-sm-inline-flex align-items-center"
             data-bs-toggle="offcanvas"
             data-bs-target="#statsOffcanvas"
             aria-controls="statsOffcanvas"
@@ -85,7 +116,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
           <button
             v-if="isAdmin"
             type="button"
-            class="btn btn-outline-light btn-sm"
+            class="btn btn-outline-light btn-sm d-none d-sm-inline-flex align-items-center"
             data-bs-toggle="offcanvas"
             data-bs-target="#importOffcanvas"
             aria-controls="importOffcanvas"
@@ -97,7 +128,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
           <button
             v-if="isAdmin"
             type="button"
-            class="btn btn-outline-light btn-sm"
+            class="btn btn-outline-light btn-sm d-none d-sm-inline-flex align-items-center"
             data-bs-toggle="offcanvas"
             data-bs-target="#settingsOffcanvas"
             aria-controls="settingsOffcanvas"
