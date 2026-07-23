@@ -13,10 +13,10 @@
   ],
   "scripts": {
     "dev": "concurrently -n server,client -c blue,green \"npm -w server run dev\" \"npm -w client run dev\"",
-    "dev:auth": "APP_PASSWORD=${APP_PASSWORD:-marees-dev} APP_USER=${APP_USER:-marees} npm run dev",
+    "dev:auth": "APP_PASSWORD=${APP_PASSWORD:-marees-dev} APP_USER=${APP_USER:-marees} ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin-dev} ADMIN_USER=${ADMIN_USER:-admin} npm run dev",
     "build": "npm -w server run build && npm -w client run build",
     "start": "npm -w server run start",
-    "start:auth": "APP_PASSWORD=${APP_PASSWORD:-marees-dev} APP_USER=${APP_USER:-marees} npm run start",
+    "start:auth": "APP_PASSWORD=${APP_PASSWORD:-marees-dev} APP_USER=${APP_USER:-marees} ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin-dev} ADMIN_USER=${ADMIN_USER:-admin} npm run start",
     "test": "npm -w server run test && npm -w client run test",
     "test:e2e": "playwright test",
     "test:e2e:report": "playwright show-report",
