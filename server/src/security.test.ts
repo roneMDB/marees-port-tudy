@@ -106,6 +106,21 @@ describe('sécurité — rôle admin pour les actions sensibles', () => {
     const admin = await request(app).get('/api/stats').set('Authorization', `Basic ${adminCreds}`);
     expect(admin.status).toBe(200);
   });
+
+  it('refuse POST /api/tides/import au rôle viewer (403) et l’autorise à l’admin', async () => {
+    const body = { '2026-11-05': [{ maree: 'haute', heure: '09:00', hauteur: '5.20', coefficient: '88' }] };
+    const viewer = await request(app)
+      .post('/api/tides/import?site=port-tudy')
+      .set('Authorization', `Basic ${viewerCreds}`)
+      .send(body);
+    expect(viewer.status).toBe(403);
+
+    const admin = await request(app)
+      .post('/api/tides/import?site=port-tudy')
+      .set('Authorization', `Basic ${adminCreds}`)
+      .send(body);
+    expect(admin.status).toBe(200);
+  });
 });
 
 describe('sécurité — en-têtes & rate-limit', () => {

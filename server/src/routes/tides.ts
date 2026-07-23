@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { Logger } from 'pino';
 import Maree from '../service/Maree';
 import { getDb } from '../db';
-import { getSiteData } from '../db/tidesRepository';
+import { getSiteData, mergeSiteData, replaceSiteData } from '../db/tidesRepository';
+import { sanitizeImport } from '../lib/tidesImport';
+import { requestRole } from '../middleware/auth';
 import { SITES, DEFAULT_SITE_ID, getSite } from '../config/sites';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -84,6 +86,37 @@ export function createTidesRouter(logger: Logger): Router {
 
       const data = await mareeForSite(siteId).getTidesRange(from, to);
       res.json(data);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Import en lot des horaires d'un site (réservé au rôle admin). Reflété immédiatement par
+  // `GET /tides` (Maree relit la base à chaque requête → pas d'invalidation de cache nécessaire).
+  router.post('/tides/import', (req, res, next) => {
+    try {
+      if (requestRole(req) !== 'admin') {
+        return res.status(403).json({ error: 'Import réservé au rôle administrateur.' });
+      }
+      const siteId = resolveSiteId(req.query.site);
+      if (!siteId) {
+        return res.status(400).json({ error: 'Paramètre "site" invalide : port inconnu.' });
+      }
+      const mode = req.query.mode === 'replace' ? 'replace' : 'merge';
+
+      const data = sanitizeImport(req.body);
+      const dates = Object.keys(data).length;
+      if (dates === 0) {
+        return res.status(400).json({ error: 'Aucune marée valide à importer.' });
+      }
+
+      const db = getDb();
+      if (mode === 'replace') replaceSiteData(db, siteId, data);
+      else mergeSiteData(db, siteId, data);
+
+      const entries = Object.values(data).reduce((n, arr) => n + arr.length, 0);
+      logger.info(`Import horaires « ${siteId} » (${mode}) : ${dates} jours, ${entries} marées`);
+      res.json({ ok: true, site: siteId, mode, dates, entries });
     } catch (err) {
       next(err);
     }

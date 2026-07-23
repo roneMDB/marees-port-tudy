@@ -42,15 +42,15 @@ export function readTides(filePath: string = DATA_FILE): RawTideData {
     throw new Error(`Fichier de marées invalide (${filePath}) : objet JSON attendu.`);
   }
 
-  return normalize(parsed as Record<string, unknown>);
+  return normalizeTides(parsed as Record<string, unknown>);
 }
 
 /**
  * Aplatit les données vers `{ date: entries }`. Le fichier mélange deux formes :
  * des clés date directes (`"2026-06-01": [...]`) et des sections groupées par mois
- * (`"septembre": { "2026-09-01": [...] }`).
+ * (`"septembre": { "2026-09-01": [...] }`). Exporté pour être réutilisé par l'import runtime.
  */
-function normalize(parsed: Record<string, unknown>): RawTideData {
+export function normalizeTides(parsed: Record<string, unknown>): RawTideData {
   const result: RawTideData = {};
   for (const [key, value] of Object.entries(parsed)) {
     if (DATE_KEY.test(key) && Array.isArray(value)) {

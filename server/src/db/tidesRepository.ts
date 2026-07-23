@@ -48,6 +48,26 @@ export function replaceSiteData(db: DB, siteId: string, data: RawTideData): void
   tx();
 }
 
+/**
+ * Fusionne `data` dans un site : pour **chaque date fournie**, remplace ses marées (delete +
+ * insert) ; les autres dates du site sont conservées. Transaction unique.
+ */
+export function mergeSiteData(db: DB, siteId: string, data: RawTideData): void {
+  const del = db.prepare('DELETE FROM tides WHERE site_id = ? AND date = ?');
+  const ins = db.prepare(
+    'INSERT INTO tides (site_id, date, maree, heure, hauteur, coefficient) VALUES (?, ?, ?, ?, ?, ?)'
+  );
+  const tx = db.transaction(() => {
+    for (const [date, entries] of Object.entries(data)) {
+      del.run(siteId, date);
+      for (const e of entries) {
+        ins.run(siteId, date, e.maree, e.heure ?? null, e.hauteur ?? null, e.coefficient ?? null);
+      }
+    }
+  });
+  tx();
+}
+
 /** Nombre de marées en base (pour un site, ou toutes). */
 export function countTides(db: DB, siteId?: string): number {
   const row = siteId

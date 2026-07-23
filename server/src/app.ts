@@ -61,7 +61,8 @@ export function createApp(logger: Logger): Application {
   // Anti-brute-force sur la connexion (endpoint public) : 10 tentatives / 5 min par IP.
   app.use('/api/login', rateLimit({ windowMs: FIVE_MINUTES, max: 10, standardHeaders: true, legacyHeaders: false }));
 
-  app.use(express.json());
+  // Limite relevée à 2 Mo pour autoriser l'import d'horaires (une année ≈ 150 ko).
+  app.use(express.json({ limit: '2mb' }));
 
   // Routes publiques de la mire (login/logout/status) — AVANT le garde.
   app.use('/api', createAuthRouter());

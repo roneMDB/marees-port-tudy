@@ -106,4 +106,42 @@ describe('API /api', () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/site/);
   });
+
+  // --- Import en lot (ces tests écrivent en base : placés en dernier pour ne pas gêner les autres). ---
+
+  it('POST /api/tides/import (merge) adds a new day, reflected by GET /tides', async () => {
+    const body = { '2026-11-05': [{ maree: 'haute', heure: '09:00', hauteur: '5.20', coefficient: '88' }] };
+    const imp = await request(app).post('/api/tides/import?site=port-tudy&mode=merge').send(body);
+    expect(imp.status).toBe(200);
+    expect(imp.body).toMatchObject({ ok: true, site: 'port-tudy', mode: 'merge', dates: 1, entries: 1 });
+
+    const res = await request(app).get('/api/tides?site=port-tudy&from=2026-11-05&to=2026-11-05');
+    expect(res.body.days['2026-11-05']).toHaveLength(1);
+    expect(res.body.days['2026-11-05'][0].coefficient).toBe(88);
+  });
+
+  it('POST /api/tides/import returns 400 on a payload with no valid tide', async () => {
+    const res = await request(app)
+      .post('/api/tides/import?site=port-tudy')
+      .send({ '2026-11-06': [{ maree: 'x', heure: 'y', hauteur: 'z' }] });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /api/tides/import returns 400 on an unknown site', async () => {
+    const res = await request(app)
+      .post('/api/tides/import?site=nowhere')
+      .send({ '2026-11-05': [{ maree: 'haute', heure: '09:00', hauteur: '5.20' }] });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /api/tides/import (replace) replaces the whole site set', async () => {
+    const body = { '2026-12-01': [{ maree: 'basse', heure: '03:00', hauteur: '1.10' }] };
+    const imp = await request(app).post('/api/tides/import?site=etel&mode=replace').send(body);
+    expect(imp.status).toBe(200);
+    expect(imp.body).toMatchObject({ mode: 'replace', dates: 1 });
+
+    const meta = await request(app).get('/api/tides/meta?site=etel');
+    expect(meta.body.minDate).toBe('2026-12-01');
+    expect(meta.body.maxDate).toBe('2026-12-01');
+  });
 });

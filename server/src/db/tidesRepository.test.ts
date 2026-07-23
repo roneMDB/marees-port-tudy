@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { openDb } from './index';
-import { getSiteData, replaceSiteData, countTides } from './tidesRepository';
+import { getSiteData, replaceSiteData, mergeSiteData, countTides } from './tidesRepository';
 import type { RawTideData } from '../lib/readTides';
 
 const sample: RawTideData = {
@@ -27,6 +27,20 @@ describe('tidesRepository', () => {
     expect(Object.keys(getSiteData(db, 'etel'))).toEqual(['2026-07-01']);
     expect(countTides(db, 'port-tudy')).toBe(3);
     expect(countTides(db)).toBe(4);
+    db.close();
+  });
+
+  it('mergeSiteData replaces only the provided dates, keeping the others', () => {
+    const db = openDb(':memory:');
+    replaceSiteData(db, 'port-tudy', sample);
+    mergeSiteData(db, 'port-tudy', {
+      '2026-06-02': [{ maree: 'basse', heure: '07:00', hauteur: '1.20' }], // remplace ce jour
+      '2026-06-03': [{ maree: 'haute', heure: '08:00', hauteur: '5.10', coefficient: '80' }] // ajoute
+    });
+    const data = getSiteData(db, 'port-tudy');
+    expect(Object.keys(data)).toEqual(['2026-06-01', '2026-06-02', '2026-06-03']);
+    expect(data['2026-06-01']).toEqual(sample['2026-06-01']); // inchangé
+    expect(data['2026-06-02']).toEqual([{ maree: 'basse', heure: '07:00', hauteur: '1.20' }]); // remplacé
     db.close();
   });
 

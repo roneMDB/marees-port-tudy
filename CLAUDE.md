@@ -64,6 +64,10 @@ Routes tides (`src/routes/tides.ts`) :
   toute la plage disponible). Valide le format `YYYY-MM-DD` et `from <= to`, sinon **400**.
 - Le paramètre `?site=` (défaut `DEFAULT_SITE_ID` = `port-tudy`) sélectionne le fichier
   d'horaires ; **site inconnu → 400**. Une instance `Maree` est mémoïsée par site.
+- `POST /api/tides/import?site&mode=merge|replace` (**rôle `admin`**, 403 sinon) → import en lot des
+  horaires (#8 Phase 2). Corps = JSON format graine ; `sanitizeImport` (`lib/tidesImport.ts`) valide,
+  `mode=merge` (défaut) remplace les jours fournis (`mergeSiteData`), `replace` tout le site. Reflété
+  immédiatement par `GET /tides` (lecture DB à chaque requête). `express.json` relevé à 2 Mo.
 
 Routes settings (`src/routes/settings.ts`) :
 - `GET /api/settings` → `readSettings()` (défauts si non initialisé).
@@ -190,6 +194,10 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   Le bouton (navbar, `App.vue`) et le panneau ne sont montés que si `useAuth().isAdmin` ; le verrou
   réel est côté serveur (`/api/stats` → 403 hors rôle admin). `SettingsPanel` affiche un
   avertissement (`useSettings.saveError`) quand un enregistrement est refusé.
+- `components/TidesImportPanel.vue` — **panneau « Import des horaires »** (offcanvas, **admin-only**,
+  #8 Phase 2) : import en lot pour le port sélectionné (zone JSON + fichier, mode fusionner/remplacer)
+  via `api/tidesAdmin.importTides` → `POST /api/tides/import`. Succès → `useDataRefresh().bump()`
+  (singleton `token` observé par `useTides` → rechargement du dashboard). Bouton navbar admin-only.
 - `Dashboard.vue` affiche un encart explicatif : heures **Port-Tudy** = référence, le but est
   d'en déduire les heures **Navihan** (basse mer, pleine mer, « remise à flot »).
 - `src/composables/useTheme.ts` — thème clair/sombre (singleton). Applique `data-bs-theme`

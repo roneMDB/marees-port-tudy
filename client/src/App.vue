@@ -2,6 +2,7 @@
 import { computed, onMounted, watch } from 'vue';
 import Dashboard from './views/Dashboard.vue';
 import StatsPanel from './components/StatsPanel.vue';
+import TidesImportPanel from './components/TidesImportPanel.vue';
 import LoginScreen from './components/LoginScreen.vue';
 import { useTheme } from './composables/useTheme';
 import { useClock } from './composables/useClock';
@@ -86,6 +87,18 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
             type="button"
             class="btn btn-outline-light btn-sm"
             data-bs-toggle="offcanvas"
+            data-bs-target="#importOffcanvas"
+            aria-controls="importOffcanvas"
+            title="Import des horaires"
+            aria-label="Import des horaires"
+          >
+            <i class="bi bi-upload"></i>
+          </button>
+          <button
+            v-if="isAdmin"
+            type="button"
+            class="btn btn-outline-light btn-sm"
+            data-bs-toggle="offcanvas"
             data-bs-target="#settingsOffcanvas"
             aria-controls="settingsOffcanvas"
             title="Réglages & filtres"
@@ -121,6 +134,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
     </main>
 
     <StatsPanel v-if="isAdmin" />
+    <TidesImportPanel v-if="isAdmin" />
   </template>
 </template>
 

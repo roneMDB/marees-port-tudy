@@ -5,6 +5,7 @@ import { addDays } from '../lib/format';
 import { computeNavihan } from '../lib/navihan';
 import { useSettings } from './useSettings';
 import { useSite } from './useSite';
+import { useDataRefresh } from './useDataRefresh';
 import type { FlatTide, TideDisplayFilters, TidesMeta } from '../types';
 
 /**
@@ -25,6 +26,7 @@ export function useTides() {
 
   const { settings, load: loadSettings } = useSettings();
   const { siteId, isReference, load: loadSites } = useSite();
+  const { token: refreshToken } = useDataRefresh();
 
   // Filtres éphémères (non persistés).
   const filters = reactive<TideDisplayFilters>({ type: 'all', minCoef: null });
@@ -132,6 +134,15 @@ export function useTides() {
   watch(siteId, async () => {
     try {
       await loadSiteTides();
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e);
+    }
+  });
+
+  // Rechargement complet déclenché après un import d'horaires (admin).
+  watch(refreshToken, async () => {
+    try {
+      await load();
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e);
     }
