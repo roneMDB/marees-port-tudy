@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { FlatTide } from '../types';
+import type { DayTides } from '../lib/tides';
 import { NAVIHAN } from '../types';
 import { groupByDay } from '../lib/tides';
 import { formatDate, formatHeight, todayKey, coefBand } from '../lib/format';
@@ -14,9 +15,33 @@ const today = todayKey();
 // Une ligne par jour (la période à afficher est fournie déjà bornée par le parent).
 const rows = computed(() => groupByDay(props.tides).map(day => ({ day, band: coefBand(day.coefficient) })));
 
-/** Heures « à flot » Navihan du jour (dérivées des basses mers). */
-function aflot(lows: FlatTide[]): string[] {
-  return lows.map(l => l.navihan[NAVIHAN.aFlot]).filter((t): t is string => !!t);
+/** Une pastille Navihan : heure + type (icône, couleur, libellé). */
+interface NavihanEntry {
+  time: string; // heure Navihan `HH:MM`
+  pillClass: string; // couleur (par type)
+  icon: string; // classe bootstrap-icons rappelant le type
+  title: string; // libellé complet (infobulle / accessibilité)
+}
+
+/**
+ * Heures Navihan du jour, aplaties et **triées par heure croissante**. Chaque type porte son
+ * icône : basse mer (↓), remise à flot (✓, « feu vert » pour sortir), pleine mer (↑). Les heures
+ * viennent des marées du port sélectionné mais sont dérivées de Port-Tudy en amont ; les valeurs
+ * absentes sont ignorées.
+ */
+function navihanEntries(day: DayTides): NavihanEntry[] {
+  const entries: NavihanEntry[] = [];
+  const push = (time: string | undefined, pillClass: string, icon: string, title: string) => {
+    if (time) entries.push({ time, pillClass, icon, title });
+  };
+  for (const l of day.lows) {
+    push(l.navihan[NAVIHAN.basseMer], 'navihan-pill--bm', 'bi-arrow-down', 'Basse mer');
+    push(l.navihan[NAVIHAN.aFlot], 'navihan-pill--flot', 'bi-check-circle', 'Remise à flot');
+  }
+  for (const h of day.highs) {
+    push(h.navihan[NAVIHAN.pleineMer], 'navihan-pill--pm', 'bi-arrow-up', 'Pleine mer');
+  }
+  return entries.sort((a, b) => a.time.localeCompare(b.time));
 }
 </script>
 
@@ -24,6 +49,12 @@ function aflot(lows: FlatTide[]): string[] {
   <div class="small text-muted px-3 pt-2">
     Chaque marée : <span class="fw-semibold text-body">heure</span>
     · <i class="bi bi-water text-primary"></i> <span class="text-body">hauteur d'eau (m)</span>
+  </div>
+  <div class="small text-muted px-3 pb-1 navihan-legend">
+    Navihan (dérivé de Port-Tudy) :
+    <span class="badge rounded-pill navihan-pill navihan-pill--bm"><i class="bi bi-arrow-down"></i></span> Basse mer
+    · <span class="badge rounded-pill navihan-pill navihan-pill--flot"><i class="bi bi-check-circle"></i></span> Remise à flot
+    · <span class="badge rounded-pill navihan-pill navihan-pill--pm"><i class="bi bi-arrow-up"></i></span> Pleine mer
   </div>
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0 tide-day-table">
@@ -34,10 +65,10 @@ function aflot(lows: FlatTide[]): string[] {
           <th>Pleines mers <span class="fw-normal opacity-75">· {{ siteLabel }}</span></th>
           <th>Basses mers <span class="fw-normal opacity-75">· {{ siteLabel }}</span></th>
           <th class="fw-bold">
-            Remise à flot
+            Navihan
             <i
               class="bi bi-info-circle small text-muted"
-              title="Heure à laquelle le bateau se remet à flotter après la basse mer (heure Navihan dérivée de Port-Tudy)"
+              title="Heures Navihan dérivées de Port-Tudy, par ordre croissant : basse mer (↓), remise à flot (✓, quand le bateau se remet à flotter) et pleine mer (↑)"
             ></i>
           </th>
         </tr>
@@ -93,12 +124,16 @@ function aflot(lows: FlatTide[]): string[] {
               </span>
             </span>
           </td>
-          <td data-label="Remise à flot">
-            <span v-if="!aflot(day.lows).length" class="text-muted">—</span>
-            <span v-else class="tide-values">
-              <span v-for="t in aflot(day.lows)" :key="t" class="badge rounded-pill afloat-pill text-nowrap">
-                <i class="bi bi-water me-1"></i>{{ t }}
-              </span>
+          <td data-label="Navihan">
+            <span v-if="!navihanEntries(day).length" class="text-muted">—</span>
+            <span v-else class="navihan-pills">
+              <span
+                v-for="(e, i) in navihanEntries(day)"
+                :key="e.title + e.time + i"
+                class="badge rounded-pill navihan-pill text-nowrap"
+                :class="e.pillClass"
+                :title="e.title"
+              ><i class="bi" :class="e.icon"></i> {{ e.time }}</span>
             </span>
           </td>
         </tr>
@@ -113,12 +148,44 @@ function aflot(lows: FlatTide[]): string[] {
   vertical-align: middle;
 }
 
-/* Pastille « Remise à flot » : teal doux, adaptée aux thèmes clair/sombre (Bootstrap 5.3). */
-.afloat-pill {
-  background-color: var(--bs-info-bg-subtle);
-  color: var(--bs-info-text-emphasis);
-  border: 1px solid var(--bs-info-border-subtle);
+/* Pastilles Navihan : palette « niveau d'eau », adaptée aux thèmes clair/sombre (Bootstrap 5.3). */
+.navihan-pill {
   font-weight: 600;
+  font-size: 0.78rem;
+}
+
+/* Basse mer : ambre (peu d'eau). */
+.navihan-pill--bm {
+  background-color: var(--bs-warning-bg-subtle);
+  color: var(--bs-warning-text-emphasis);
+  border: 1px solid var(--bs-warning-border-subtle);
+}
+
+/* Remise à flot : vert (feu vert pour sortir). */
+.navihan-pill--flot {
+  background-color: var(--bs-success-bg-subtle);
+  color: var(--bs-success-text-emphasis);
+  border: 1px solid var(--bs-success-border-subtle);
+}
+
+/* Pleine mer : bleu (pleine eau). */
+.navihan-pill--pm {
+  background-color: var(--bs-primary-bg-subtle);
+  color: var(--bs-primary-text-emphasis);
+  border: 1px solid var(--bs-primary-border-subtle);
+}
+
+/* Colonne Navihan : une seule ligne de pastilles triées par heure (icône + couleur = type,
+   cf. légende), repli à l'étroit. Compact pour ne pas gonfler la hauteur de ligne. */
+.navihan-pills {
+  display: inline-flex;
+  flex-flow: row wrap;
+  align-items: center;
+  gap: 0.25rem 0.4rem;
+}
+
+.navihan-legend .navihan-pill {
+  font-size: 0.7rem;
 }
 
 /* Regroupe les horaires d'une cellule (2 marées) ; sur mobile ils s'alignent à droite. */
@@ -132,6 +199,11 @@ function aflot(lows: FlatTide[]): string[] {
   .tide-values {
     justify-content: flex-end;
     text-align: right;
+  }
+
+  /* Sur mobile (cartes empilées), les pastilles s'alignent à droite comme les autres valeurs. */
+  .navihan-pills {
+    justify-content: flex-end;
   }
 }
 </style>
