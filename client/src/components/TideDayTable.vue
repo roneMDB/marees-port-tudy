@@ -5,6 +5,7 @@ import type { DayTides } from '../lib/tides';
 import { NAVIHAN } from '../types';
 import { groupByDay } from '../lib/tides';
 import { formatDate, formatHeight, todayKey, coefBand } from '../lib/format';
+import { useNavihanDisplay, type NavihanKey } from '../composables/useNavihanDisplay';
 
 const props = withDefaults(defineProps<{ tides: FlatTide[]; siteLabel?: string }>(), {
   siteLabel: 'Port-Tudy'
@@ -12,34 +13,45 @@ const props = withDefaults(defineProps<{ tides: FlatTide[]; siteLabel?: string }
 
 const today = todayKey();
 
+// Choix d'affichage des types Navihan (persisté localStorage, préférence par navigateur).
+const { visible, toggle } = useNavihanDisplay();
+
 // Une ligne par jour (la période à afficher est fournie déjà bornée par le parent).
 const rows = computed(() => groupByDay(props.tides).map(day => ({ day, band: coefBand(day.coefficient) })));
 
-/** Une pastille Navihan : heure + type (icône, couleur, libellé). */
+/** Une pastille Navihan : heure + type (clé, icône, couleur, libellé). */
 interface NavihanEntry {
+  key: NavihanKey; // type (bm / flot / pm)
   time: string; // heure Navihan `HH:MM`
   pillClass: string; // couleur (par type)
   icon: string; // classe bootstrap-icons rappelant le type
   title: string; // libellé complet (infobulle / accessibilité)
 }
 
+/** Métadonnées d'un type Navihan (légende cliquable + construction des pastilles). */
+const NAVIHAN_TYPES: { key: NavihanKey; pillClass: string; icon: string; label: string }[] = [
+  { key: 'bm', pillClass: 'navihan-pill--bm', icon: 'bi-arrow-down', label: 'Basse mer' },
+  { key: 'flot', pillClass: 'navihan-pill--flot', icon: 'bi-check-circle', label: 'Remise à flot' },
+  { key: 'pm', pillClass: 'navihan-pill--pm', icon: 'bi-arrow-up', label: 'Pleine mer' }
+];
+
 /**
- * Heures Navihan du jour, aplaties et **triées par heure croissante**. Chaque type porte son
- * icône : basse mer (↓), remise à flot (✓, « feu vert » pour sortir), pleine mer (↑). Les heures
- * viennent des marées du port sélectionné mais sont dérivées de Port-Tudy en amont ; les valeurs
- * absentes sont ignorées.
+ * Heures Navihan du jour, aplaties, **filtrées** selon le choix d'affichage et **triées par heure
+ * croissante**. Chaque type porte son icône : basse mer (↓), remise à flot (✓, « feu vert » pour
+ * sortir), pleine mer (↑). Les heures viennent des marées du port sélectionné mais sont dérivées
+ * de Port-Tudy en amont ; les valeurs absentes ou de type masqué sont ignorées.
  */
 function navihanEntries(day: DayTides): NavihanEntry[] {
   const entries: NavihanEntry[] = [];
-  const push = (time: string | undefined, pillClass: string, icon: string, title: string) => {
-    if (time) entries.push({ time, pillClass, icon, title });
+  const push = (key: NavihanKey, time: string | undefined, pillClass: string, icon: string, title: string) => {
+    if (time && visible[key]) entries.push({ key, time, pillClass, icon, title });
   };
   for (const l of day.lows) {
-    push(l.navihan[NAVIHAN.basseMer], 'navihan-pill--bm', 'bi-arrow-down', 'Basse mer');
-    push(l.navihan[NAVIHAN.aFlot], 'navihan-pill--flot', 'bi-check-circle', 'Remise à flot');
+    push('bm', l.navihan[NAVIHAN.basseMer], 'navihan-pill--bm', 'bi-arrow-down', 'Basse mer');
+    push('flot', l.navihan[NAVIHAN.aFlot], 'navihan-pill--flot', 'bi-check-circle', 'Remise à flot');
   }
   for (const h of day.highs) {
-    push(h.navihan[NAVIHAN.pleineMer], 'navihan-pill--pm', 'bi-arrow-up', 'Pleine mer');
+    push('pm', h.navihan[NAVIHAN.pleineMer], 'navihan-pill--pm', 'bi-arrow-up', 'Pleine mer');
   }
   return entries.sort((a, b) => a.time.localeCompare(b.time));
 }
@@ -50,11 +62,21 @@ function navihanEntries(day: DayTides): NavihanEntry[] {
     Chaque marée : <span class="fw-semibold text-body">heure</span>
     · <i class="bi bi-water text-primary"></i> <span class="text-body">hauteur d'eau (m)</span>
   </div>
-  <div class="small text-muted px-3 pb-1 navihan-legend">
-    Navihan (dérivé de Port-Tudy) :
-    <span class="badge rounded-pill navihan-pill navihan-pill--bm"><i class="bi bi-arrow-down"></i></span> Basse mer
-    · <span class="badge rounded-pill navihan-pill navihan-pill--flot"><i class="bi bi-check-circle"></i></span> Remise à flot
-    · <span class="badge rounded-pill navihan-pill navihan-pill--pm"><i class="bi bi-arrow-up"></i></span> Pleine mer
+  <div class="small text-muted px-3 pb-1 navihan-legend d-flex flex-wrap align-items-center gap-2">
+    <span>Navihan (dérivé de Port-Tudy) :</span>
+    <button
+      v-for="t in NAVIHAN_TYPES"
+      :key="t.key"
+      type="button"
+      class="btn btn-sm p-0 navihan-toggle"
+      :class="{ 'navihan-toggle--off': !visible[t.key] }"
+      :aria-pressed="visible[t.key] ? 'true' : 'false'"
+      :title="(visible[t.key] ? 'Masquer' : 'Afficher') + ' : ' + t.label"
+      @click="toggle(t.key)"
+    >
+      <span class="badge rounded-pill navihan-pill" :class="t.pillClass"><i class="bi" :class="t.icon"></i></span>
+      <span class="navihan-toggle-label">{{ t.label }}</span>
+    </button>
   </div>
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0 tide-day-table">
@@ -186,6 +208,30 @@ function navihanEntries(day: DayTides): NavihanEntry[] {
 
 .navihan-legend .navihan-pill {
   font-size: 0.7rem;
+}
+
+/* Légende cliquable : chaque type est un bouton bascule (affiché / masqué). */
+.navihan-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 0;
+  color: var(--bs-secondary-color);
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+.navihan-toggle:hover .navihan-toggle-label {
+  text-decoration: underline;
+}
+
+/* Type masqué : atténué + libellé barré (l'icône/couleur restent pour se repérer). */
+.navihan-toggle--off {
+  opacity: 0.5;
+}
+
+.navihan-toggle--off .navihan-toggle-label {
+  text-decoration: line-through;
 }
 
 /* Regroupe les horaires d'une cellule (2 marées) ; sur mobile ils s'alignent à droite. */

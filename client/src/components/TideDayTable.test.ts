@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { mount } from '@vue/test-utils';
 import TideDayTable from './TideDayTable.vue';
+import { useNavihanDisplay } from '../composables/useNavihanDisplay';
 import type { FlatTide } from '../types';
 
 const tides: FlatTide[] = [
@@ -31,6 +32,14 @@ const tides: FlatTide[] = [
 ];
 
 describe('TideDayTable', () => {
+  // Le choix d'affichage Navihan est un singleton : on repart de « tout visible » à chaque cas.
+  beforeEach(() => {
+    const { visible } = useNavihanDisplay();
+    visible.bm = true;
+    visible.flot = true;
+    visible.pm = true;
+  });
+
   it('renders one row per day with inline height and coef', () => {
     const wrapper = mount(TideDayTable, { props: { tides, siteLabel: 'Port-Tudy' } });
     const rows = wrapper.findAll('tbody tr');
@@ -104,5 +113,31 @@ describe('TideDayTable', () => {
   it('shows an empty state when there are no tides', () => {
     const wrapper = mount(TideDayTable, { props: { tides: [] } });
     expect(wrapper.text()).toContain('Aucune marée');
+  });
+
+  it('renders the legend as three toggle buttons (aria-pressed)', () => {
+    const wrapper = mount(TideDayTable, { props: { tides } });
+    const buttons = wrapper.findAll('.navihan-legend button');
+    expect(buttons).toHaveLength(3);
+    expect(buttons.every(b => b.attributes('aria-pressed') === 'true')).toBe(true);
+  });
+
+  it('hides a Navihan type when it is toggled off', () => {
+    useNavihanDisplay().visible.pm = false;
+    const wrapper = mount(TideDayTable, { props: { tides } });
+    const firstRow = wrapper.findAll('tbody tr')[0].text();
+    expect(firstRow).not.toContain('08:25'); // pleine mer Navihan masquée
+    expect(firstRow).not.toContain('20:33');
+    expect(firstRow).toContain('02:54'); // basse mer toujours visible
+    expect(firstRow).toContain('04:19'); // à flot toujours visible
+  });
+
+  it('toggles a type off when its legend button is clicked', async () => {
+    const wrapper = mount(TideDayTable, { props: { tides } });
+    const pmButton = wrapper.findAll('.navihan-legend button').find(b => b.text().includes('Pleine mer'));
+    expect(pmButton).toBeTruthy();
+    await pmButton!.trigger('click');
+    expect(wrapper.findAll('tbody tr')[0].text()).not.toContain('08:25');
+    expect(useNavihanDisplay().visible.pm).toBe(false);
   });
 });
