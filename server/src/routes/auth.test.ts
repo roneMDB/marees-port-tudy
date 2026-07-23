@@ -24,9 +24,9 @@ async function login(user: string, password: string) {
 }
 
 beforeAll(async () => {
-  const { ensureDataDir } = await import('../config/dataDir');
+  const { initStorage } = await import('../db/bootstrap');
   const { createApp } = await import('../app');
-  ensureDataDir();
+  initStorage();
   app = createApp(fakeLogger);
   viewerCookie = (await login('marees', 's3cret')).headers['set-cookie'][0];
   adminCookie = (await login('admin', 'adm1n')).headers['set-cookie'][0];

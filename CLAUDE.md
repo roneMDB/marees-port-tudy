@@ -36,7 +36,7 @@ proche dans le temps** (appariement par proximité, gère le décalage horaire /
 
 ### Serveur (`server/`)
 
-Flux : `src/index.ts` (pino + `ensureDataDir`/`ensureSettingsFile` + `createApp`) → `src/app.ts`
+Flux : `src/index.ts` (pino + `initStorage` (base SQLite, cf. Persistance) + `createApp`) → `src/app.ts`
 (Express : `trust proxy`, **helmet** (CSP off), **rate-limit** global + météo + login, routeur
 public `auth` (login/logout/status), **garde d'authentification optionnel** (`middleware/auth.ts`,
 monté sur `/api`), `express.json`, routers `/api`, statique `client/dist` en prod, error handler
@@ -88,8 +88,9 @@ Routes auth (`src/routes/auth.ts`, publiques) :
 Routes accès/stats (`src/routes/stats.ts` + `src/middleware/accessLog.ts`) :
 - `GET /api/stats` → agrégats d'accès (`lib/stats.ts` `aggregateAccess`), **réservé au rôle `admin`**
   (403 sinon). Le middleware `accessLog` journalise chaque **ouverture de page** (requête de document
-  HTML, hors `/api`/assets) dans `DATA_DIR/access-log.jsonl` — anonymisé : IP **tronquée**
-  (`net.truncateIp`), pays via **`geoip-lite`** (hors-ligne), User-Agent. Rotation ~1 Mo (`.1`).
+  HTML, hors `/api`/assets) dans la table **`access_log`** de la base — anonymisé : IP **tronquée**
+  (`net.truncateIp`), pays via **`geoip-lite`** (hors-ligne), User-Agent. `readAccessEntries(db)` lit
+  la table ; `aggregateAccess` reste une fonction pure.
 
 Service `src/service/Maree.ts` (données uniquement, aucun rendu) :
 - `getTidesRange(from?, to?)` — filtre `[from, to]` **inclusif** ; sans bornes → tout le fichier.
@@ -100,29 +101,36 @@ Service `src/service/Maree.ts` (données uniquement, aucun rendu) :
   gère le wrap autour de minuit. `mapDay()` filtre/mappe/trie les entrées d'un jour.
 - Types exportés (contrat REST) : `Extreme`, `TideOutput`, `TidesMeta`.
 
-**Répertoire de données** (`src/config/dataDir.ts`) : `DATA_DIR` (env, défaut `<cwd>/data`)
-contient `settings.json`, **un fichier d'horaires par site** (`horaires_marees_port-tudy.json`,
-`horaires_marees_etel.json`) et le journal d'accès `access-log.jsonl` (anonymisé, cf. Routes
-accès/stats), isolés pour un volume Docker. `ensureDataDir()` crée le dossier et,
-**pour chaque site de `SITES`**, copie le fichier depuis la graine (`dist/resources/`, via
-`__dirname`) s'il est absent (volume vide au 1er run). `tidesFileForSite(id)` résout le chemin
-runtime d'un site. `ensureSettingsFile()` écrit les défauts si `settings.json` manque. Les deux
-sites disposent de données (graines `horaires_marees_port-tudy.json` et `horaires_marees_etel.json`
-renseignées).
+**Persistance : base SQLite** (`better-sqlite3`, issue #8 Phase 1). Tout est stocké dans **une base
+unique `DATA_DIR/marees.db`** (`src/config/dataDir.ts` : `DATA_DIR`, env, défaut `<cwd>/data`),
+isolée pour un volume Docker. La couche DB est dans `src/db/` : `index.ts` (`openDb(file)` =
+ouverture + `PRAGMA journal_mode=WAL` + migrations via `PRAGMA user_version` ; `getDb()` singleton
+sur `DATA_DIR/marees.db` ; `openDb` crée le dossier parent ; `openDb(':memory:')` pour les tests),
+`tidesRepository.ts` (`getSiteData`/`replaceSiteData`/`countTides`), `bootstrap.ts`
+(`initStorage(logger?, db?)`). Schéma v1 : tables `tides` (par site), `settings` (document JSON,
+ligne unique `id=1`), `access_log`.
+
+**Amorçage/migration** : `initStorage()` (appelé au boot par `src/index.ts`, remplace les anciens
+`ensureDataDir`/`ensureSettingsFile`) crée `DATA_DIR`, ouvre la base et l'amorce **si vide** — par
+site sans données : import depuis le fichier **legacy** `DATA_DIR/<site>.json` s'il existe
+(déploiements antérieurs), sinon depuis la **graine** embarquée (`dist/resources/`,
+`src/resources/`) via `readTides` ; réglages : import de `settings.json` legacy s'il existe, sinon
+défauts. Idempotent.
 
 **Config** (`src/service/SettingsStore.ts`) : type `Settings` (`startMode`/`startDate`/`rangeDays`,
 `navihan` en minutes, `aFlotDays`, `coefDays` = durée du graphe coef (défaut 20, 1–90),
 `weatherLinks` = liens météo éditables `{ label, url }`, défauts
 `DEFAULT_WEATHER_LINKS`), `DEFAULT_SETTINGS`, `sanitizeSettings` (validation/bornage ; les
 `weatherLinks` invalides — libellé vide ou URL non http(s) — sont écartés, liste plafonnée à 12 ;
-tableau absent → défauts, tableau vide explicite conservé), `readSettings`/`writeSettings`
-(paramètre `file` pour la testabilité, comme `readTides`).
+tableau absent → défauts, tableau vide explicite conservé), `readSettings`/`writeSettings`/
+`ensureSettings` (lignes `settings` de la base ; paramètre `db` injectable pour la testabilité).
 
-Source des horaires : lue par `src/lib/readTides.ts` (**pas de scraping, pas d'API distante**) ;
-le fichier contient déjà les **extrêmes** et `readTides()` **normalise** deux formes (clés date
-directes et sections groupées par mois) vers `{ date: entries }` (entrées sans `heure` ignorées).
-`Maree` accepte une option `dataFile` : les routes passent `TIDES_FILE` (dans `DATA_DIR`) ; sans
-option (tests), `readTides` retombe sur la graine `src/resources/` — **tests inchangés**.
+Source des horaires : `Maree` lit via une source injectable `load` — les routes passent
+`() => getSiteData(getDb(), siteId)` (lecture DB à chaque appel → une édition runtime, Phase 2,
+sera prise en compte sans redémarrage) ; sans option (tests `Maree`), retombe sur `readTides`.
+`src/lib/readTides.ts` (**pas de scraping, pas d'API distante**) sert désormais de **parseur des
+graines** (import initial) : il **normalise** deux formes (clés date directes et sections groupées
+par mois) vers `{ date: entries }`.
 
 ### Client (`client/`)
 
@@ -230,7 +238,8 @@ racine reste pour le local.
 
 - `server/src/service/Maree.ts` — service données (Navihan, `getTidesRange`, `getMeta`).
 - `server/src/routes/tides.ts`, `server/src/app.ts`, `server/src/index.ts` — API REST.
-- `server/src/lib/readTides.ts`, `server/src/resources/horaires_marees_port-tudy.json` — données.
+- `server/src/db/` (`index.ts`, `tidesRepository.ts`, `bootstrap.ts`) — persistance SQLite.
+- `server/src/lib/readTides.ts`, `server/src/resources/horaires_marees_port-tudy.json` — graines (import initial).
 - `client/src/composables/useTides.ts`, `client/src/lib/tides.ts` — état + filtrage.
 - `client/src/views/Dashboard.vue` + `client/src/components/*.vue` — dashboard.
 - Tests : `server/src/**/*.test.ts` (Vitest + supertest), `client/src/**/*.test.ts`
@@ -240,13 +249,14 @@ racine reste pour le local.
 
 - Serveur : CommonJS (`module: commonjs`), TypeScript `strict`. Client : ESM, `strict`.
 - Ne pas éditer les `dist/` (générés, gitignorés). Modifier les sources.
-- `DATA_DIR` (défaut `server/data` en dev) est **gitignoré** ; c'est le fichier runtime. Pour
-  changer les marées durablement, éditer la **graine** `server/src/resources/horaires_marees_port-tudy.json`
-  (embarquée dans l'image) puis recréer le `DATA_DIR`/volume, ou éditer directement le fichier
-  dans `DATA_DIR`.
+- `DATA_DIR` (défaut `server/data` en dev) est **gitignoré** ; il contient la base runtime
+  `marees.db`. Pour changer les marées durablement **par défaut** (fresh boot), éditer la **graine**
+  `server/src/resources/horaires_marees_port-tudy.json` (embarquée dans l'image) puis supprimer
+  `marees.db` (ré-amorçage), ou re-seeder. L'édition runtime des horaires via l'app arrive en
+  **Phase 2** de l'issue #8.
 - Les tests du service figent l'horloge (`vi.useFakeTimers`) pour `getTides` (part de
   `new Date()`) ; `getTidesRange` à bornes explicites en est indépendant.
 - Couverture actuelle des données : Port-Tudy 2026-06-01 → 2026-10-31, Étel 2026-07-01 → 2026-10-31.
   Pour mettre à jour un site, éditer sa graine `server/src/resources/horaires_marees_<site>.json`
-  (embarquée dans l'image) puis recréer le `DATA_DIR`/volume, ou éditer directement le fichier dans
-  `DATA_DIR`.
+  (embarquée dans l'image) puis supprimer `marees.db` du `DATA_DIR`/volume (ré-amorçage au prochain
+  démarrage).

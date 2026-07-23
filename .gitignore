@@ -149,10 +149,14 @@ vite.config.ts.timestamp-*
 .env
 rest-client.env.json
 
-# runtime data (config + horaires) — monté comme volume ; la graine reste dans server/src/resources
+# runtime data (base SQLite + horaires legacy) — monté comme volume ; graines dans server/src/resources
 data/
 server/data/
 client/data/
+# base SQLite runtime (+ fichiers WAL)
+*.db
+*.db-wal
+*.db-shm
 
 # Playwright (tests e2e)
 playwright-report/

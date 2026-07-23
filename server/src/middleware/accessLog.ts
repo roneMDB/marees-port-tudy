@@ -1,20 +1,16 @@
-import fs from 'fs';
 import { NextFunction, Request, Response } from 'express';
-import { ACCESS_LOG_FILE } from '../config/dataDir';
+import { getDb, type DB } from '../db';
 import { isPrivateIp, truncateIp } from '../lib/net';
 import type { AccessEntry } from '../lib/stats';
 
 // Base géoIP locale (hors-ligne, aucun appel réseau). `require` idiomatique (serveur CommonJS).
 const geoip = require('geoip-lite') as { lookup(ip: string): { country?: string } | null };
 
-const MAX_BYTES = 1_000_000; // ~1 Mo → rotation (1 génération conservée en .1)
-const ROTATED = `${ACCESS_LOG_FILE}.1`;
-
 /**
- * Enregistre un accès (anonymisé) dans `access-log.jsonl` : horodatage, LAN/externe,
- * IP tronquée, pays (géoIP pour les accès externes) et User-Agent. Écriture best-effort.
+ * Enregistre un accès (anonymisé) en base : horodatage, LAN/externe, IP tronquée, pays (géoIP
+ * pour les accès externes) et User-Agent. Écriture best-effort (n'échoue jamais la requête).
  */
-export function recordAccess(req: Request): void {
+export function recordAccess(req: Request, db: DB = getDb()): void {
   const ip = req.ip || '';
   const scope: AccessEntry['scope'] = isPrivateIp(ip) ? 'lan' : 'external';
   const entry: AccessEntry = {
@@ -25,10 +21,13 @@ export function recordAccess(req: Request): void {
     ua: String(req.headers['user-agent'] || '').slice(0, 300)
   };
   try {
-    if (fs.existsSync(ACCESS_LOG_FILE) && fs.statSync(ACCESS_LOG_FILE).size > MAX_BYTES) {
-      fs.renameSync(ACCESS_LOG_FILE, ROTATED);
-    }
-    fs.appendFileSync(ACCESS_LOG_FILE, JSON.stringify(entry) + '\n');
+    db.prepare('INSERT INTO access_log (ts, scope, ip, country, ua) VALUES (?, ?, ?, ?, ?)').run(
+      entry.ts,
+      entry.scope,
+      entry.ip,
+      entry.country,
+      entry.ua
+    );
   } catch {
     /* journalisation best-effort : on n'échoue jamais la requête */
   }
@@ -49,25 +48,9 @@ export function accessLog() {
   };
 }
 
-/** Lit toutes les entrées du journal (génération courante + `.1`), dans l'ordre chronologique. */
-export function readAccessEntries(): AccessEntry[] {
-  const entries: AccessEntry[] = [];
-  for (const file of [ROTATED, ACCESS_LOG_FILE]) {
-    let content: string;
-    try {
-      content = fs.readFileSync(file, 'utf-8');
-    } catch {
-      continue;
-    }
-    for (const line of content.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      try {
-        entries.push(JSON.parse(trimmed) as AccessEntry);
-      } catch {
-        /* ligne corrompue ignorée */
-      }
-    }
-  }
-  return entries;
+/** Lit toutes les entrées du journal (ordre chronologique). */
+export function readAccessEntries(db: DB = getDb()): AccessEntry[] {
+  return db
+    .prepare('SELECT ts, scope, ip, country, ua FROM access_log ORDER BY ts')
+    .all() as AccessEntry[];
 }

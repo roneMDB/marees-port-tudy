@@ -43,6 +43,7 @@
     "typescript-eslint": "^8.11.0"
   },
   "allowScripts": {
-    "esbuild": true
+    "esbuild": true,
+    "better-sqlite3@11.10.0": true
   }
 }

@@ -1,31 +1,12 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
+import { describe, expect, it } from 'vitest';
+import { openDb } from '../db';
 import {
   DEFAULT_SETTINGS,
-  ensureSettingsFile,
+  ensureSettings,
   readSettings,
   sanitizeSettings,
   writeSettings
 } from './SettingsStore';
-
-const tmpFiles: string[] = [];
-function tmpFile(): string {
-  const f = path.join(os.tmpdir(), `settings-test-${tmpFiles.length}-${process.pid}.json`);
-  tmpFiles.push(f);
-  return f;
-}
-
-afterEach(() => {
-  while (tmpFiles.length) {
-    try {
-      fs.unlinkSync(tmpFiles.pop()!);
-    } catch {
-      /* ignore */
-    }
-  }
-});
 
 describe('sanitizeSettings', () => {
   it('falls back to defaults on an empty/invalid object', () => {
@@ -84,26 +65,29 @@ describe('sanitizeSettings', () => {
   });
 });
 
-describe('read/write/ensure', () => {
-  it('reads defaults when the file is missing', () => {
-    expect(readSettings(path.join(os.tmpdir(), 'does-not-exist-xyz.json'))).toEqual(DEFAULT_SETTINGS);
+describe('read/write/ensure (base)', () => {
+  it('reads defaults when no settings row exists', () => {
+    const db = openDb(':memory:');
+    expect(readSettings(db)).toEqual(DEFAULT_SETTINGS);
+    db.close();
   });
 
   it('round-trips a written config', () => {
-    const file = tmpFile();
-    const saved = writeSettings({ startMode: 'date', startDate: '2026-09-10', rangeDays: 7 }, file);
+    const db = openDb(':memory:');
+    const saved = writeSettings({ startMode: 'date', startDate: '2026-09-10', rangeDays: 7 }, db);
     expect(saved.rangeDays).toBe(7);
-    expect(readSettings(file)).toEqual(saved);
+    expect(readSettings(db)).toEqual(saved);
+    db.close();
   });
 
-  it('ensureSettingsFile creates the file with defaults only if missing', () => {
-    const file = tmpFile();
-    ensureSettingsFile(file);
-    expect(fs.existsSync(file)).toBe(true);
-    expect(readSettings(file)).toEqual(DEFAULT_SETTINGS);
+  it('ensureSettings creates the row with defaults only if missing', () => {
+    const db = openDb(':memory:');
+    ensureSettings(db);
+    expect(readSettings(db)).toEqual(DEFAULT_SETTINGS);
 
-    writeSettings({ rangeDays: 5 }, file);
-    ensureSettingsFile(file); // ne doit pas écraser
-    expect(readSettings(file).rangeDays).toBe(5);
+    writeSettings({ rangeDays: 5 }, db);
+    ensureSettings(db); // ne doit pas écraser
+    expect(readSettings(db).rangeDays).toBe(5);
+    db.close();
   });
 });

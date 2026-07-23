@@ -4,11 +4,16 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
+# Outils de compilation pour les modules natifs (better-sqlite3 : node-gyp).
+RUN apk add --no-cache python3 make g++
+
 # Manifest d'abord (cache des dépendances).
 COPY package.json package-lock.json ./
 COPY server/package.json server/
 COPY client/package.json client/
 RUN npm ci
+# Garantit la compilation du binaire natif better-sqlite3 (même base alpine/musl que le runtime).
+RUN npm rebuild better-sqlite3
 
 # Sources + build (server → dist + dist/resources ; client → dist).
 COPY . .
@@ -35,7 +40,7 @@ COPY --from=build /app/client/dist ./client/dist
 RUN mkdir -p /data && chown -R node:node /data
 
 EXPOSE 3000
-# Volume des données runtime : settings.json + horaires (auto-seed au 1er démarrage).
+# Volume des données runtime : base SQLite marees.db (auto-amorcée au 1er démarrage).
 VOLUME ["/data"]
 
 # Sonde de vie (fetch natif Node 22, pas de binaire supplémentaire).

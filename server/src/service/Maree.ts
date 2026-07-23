@@ -1,5 +1,5 @@
 import { Logger } from 'pino';
-import { readTides, RawTideEntry } from '../lib/readTides';
+import { readTides, RawTideData, RawTideEntry } from '../lib/readTides';
 
 const NAVIHAN_BASSE_MER_OFFSET_HOURS = 1 + 15 / 60;
 const NAVIHAN_A_FLOT_OFFSET_HOURS = 2 + 40 / 60;
@@ -46,6 +46,11 @@ export interface MareeOptions {
   timezone?: string;
   /** Chemin du fichier d'horaires ; par défaut la graine embarquée (`readTides`). */
   dataFile?: string;
+  /**
+   * Source des horaires. Si fournie, elle prime sur `dataFile` (ex. lecture depuis la base
+   * SQLite via le repository). Sans elle, on retombe sur `readTides(dataFile)` (graine/tests).
+   */
+  load?: () => RawTideData;
 }
 
 export default class Maree {
@@ -53,14 +58,21 @@ export default class Maree {
   private siteId: string;
   private timezone: string;
   private dataFile?: string;
+  private load?: () => RawTideData;
 
   constructor(logger: Logger, options: MareeOptions = {}) {
     this.logger = logger;
     this.siteId = options.siteId || 'ile-de-groix-port-tudy';
     this.timezone = options.timezone || 'Europe/Paris';
     this.dataFile = options.dataFile;
+    this.load = options.load;
 
     this.logger.info(`Maree service initialized with siteId: ${this.siteId}`);
+  }
+
+  /** Charge les horaires bruts depuis la source configurée (repo DB) ou la graine (`readTides`). */
+  private loadData(): RawTideData {
+    return this.load ? this.load() : readTides(this.dataFile);
   }
 
   /**
@@ -78,7 +90,7 @@ export default class Maree {
     const from = this.toDateKey(fromDate);
     const to = this.toDateKey(toDate);
 
-    const rawData = readTides(this.dataFile);
+    const rawData = this.loadData();
     const output: TideOutput = { siteId: this.siteId, timezone: this.timezone, from, to, days: {} };
 
     // `to` est exclusif ici (fenêtre glissante depuis aujourd'hui).
@@ -102,7 +114,7 @@ export default class Maree {
    * manquante est remplacée par la date min/max disponible.
    */
   async getTidesRange(from?: string, to?: string): Promise<TideOutput> {
-    const rawData = readTides(this.dataFile);
+    const rawData = this.loadData();
     const allDates = Object.keys(rawData).sort();
     const minDate = allDates[0] ?? '';
     const maxDate = allDates[allDates.length - 1] ?? '';
@@ -138,7 +150,7 @@ export default class Maree {
    * libellés des décalages Navihan.
    */
   getMeta(): TidesMeta {
-    const rawData = readTides(this.dataFile);
+    const rawData = this.loadData();
     const dates = Object.keys(rawData).sort();
     return {
       siteId: this.siteId,

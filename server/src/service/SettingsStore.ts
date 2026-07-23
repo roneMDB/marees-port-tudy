@@ -1,6 +1,4 @@
-import fs from 'fs';
-import path from 'path';
-import { SETTINGS_FILE } from '../config/dataDir';
+import { getDb, type DB } from '../db';
 
 export interface NavihanOffsets {
   basseMer: number;
@@ -94,28 +92,30 @@ export function sanitizeSettings(input: unknown): Settings {
   };
 }
 
-/** Lit la config (défauts si le fichier est absent ou illisible). */
-export function readSettings(file: string = SETTINGS_FILE): Settings {
+/** Lit la config depuis la base (document JSON unique). Défauts si absente ou illisible. */
+export function readSettings(db: DB = getDb()): Settings {
   try {
-    return sanitizeSettings(JSON.parse(fs.readFileSync(file, 'utf-8')));
+    const row = db.prepare('SELECT data FROM settings WHERE id = 1').get() as { data: string } | undefined;
+    if (!row) return sanitizeSettings(DEFAULT_SETTINGS);
+    return sanitizeSettings(JSON.parse(row.data));
   } catch {
     return sanitizeSettings(DEFAULT_SETTINGS);
   }
 }
 
-/** Écrit la config (normalisée) de façon atomique (fichier temporaire + rename). */
-export function writeSettings(input: unknown, file: string = SETTINGS_FILE): Settings {
+/** Écrit la config (normalisée) dans la base (upsert de la ligne unique `id = 1`). */
+export function writeSettings(input: unknown, db: DB = getDb()): Settings {
   const settings = sanitizeSettings(input);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = `${file}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(settings, null, 2), 'utf-8');
-  fs.renameSync(tmp, file);
+  db.prepare(
+    'INSERT INTO settings (id, data) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data'
+  ).run(JSON.stringify(settings));
   return settings;
 }
 
-/** Crée `settings.json` avec les défauts s'il n'existe pas (init d'un volume vide). */
-export function ensureSettingsFile(file: string = SETTINGS_FILE): void {
-  if (!fs.existsSync(file)) {
-    writeSettings(DEFAULT_SETTINGS, file);
+/** Initialise la ligne de config avec les défauts si elle n'existe pas (volume vide). */
+export function ensureSettings(db: DB = getDb()): void {
+  const row = db.prepare('SELECT 1 FROM settings WHERE id = 1').get();
+  if (!row) {
+    writeSettings(DEFAULT_SETTINGS, db);
   }
 }

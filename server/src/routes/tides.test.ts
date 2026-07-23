@@ -14,9 +14,9 @@ const fakeLogger = { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn(
 let app: Application;
 
 beforeAll(async () => {
-  const { ensureDataDir } = await import('../config/dataDir');
+  const { initStorage } = await import('../db/bootstrap');
   const { createApp } = await import('../app');
-  ensureDataDir(); // copie les horaires depuis la graine dans dataDir
+  initStorage(); // amorce la base (horaires depuis la graine) dans dataDir
   app = createApp(fakeLogger);
 });
 

@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { Logger } from 'pino';
 import Maree from '../service/Maree';
-import { tidesFileForSite } from '../config/dataDir';
+import { getDb } from '../db';
+import { getSiteData } from '../db/tidesRepository';
 import { SITES, DEFAULT_SITE_ID, getSite } from '../config/sites';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -17,7 +18,8 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export function createTidesRouter(logger: Logger): Router {
   const router = Router();
 
-  // Une instance `Maree` par site (mémoïsée : `readTides` relit le fichier à chaque appel).
+  // Une instance `Maree` par site (mémoïsée). Les horaires sont lus depuis la base à chaque appel
+  // via le repository, donc une édition runtime (Phase 2) est prise en compte sans redémarrage.
   const mareeBySite = new Map<string, Maree>();
   function mareeForSite(siteId: string): Maree {
     let maree = mareeBySite.get(siteId);
@@ -26,7 +28,7 @@ export function createTidesRouter(logger: Logger): Router {
       maree = new Maree(logger, {
         siteId: site.id,
         timezone: site.timezone,
-        dataFile: tidesFileForSite(site.id)
+        load: () => getSiteData(getDb(), site.id)
       });
       mareeBySite.set(siteId, maree);
     }

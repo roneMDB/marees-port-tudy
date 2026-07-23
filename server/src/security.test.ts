@@ -21,9 +21,9 @@ const adminCreds = Buffer.from('admin:adm1n').toString('base64');
 let app: Application;
 
 beforeAll(async () => {
-  const { ensureDataDir } = await import('./config/dataDir');
+  const { initStorage } = await import('./db/bootstrap');
   const { createApp } = await import('./app');
-  ensureDataDir();
+  initStorage();
   app = createApp(fakeLogger);
 });
 

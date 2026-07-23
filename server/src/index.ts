@@ -1,7 +1,6 @@
 import pino from 'pino';
 import { createApp } from './app';
-import { ensureDataDir } from './config/dataDir';
-import { ensureSettingsFile } from './service/SettingsStore';
+import { initStorage } from './db/bootstrap';
 
 const logger = pino({
   level: (process.env.LOG_LEVEL || 'info') as pino.Level,
@@ -15,9 +14,8 @@ const logger = pino({
   }
 });
 
-// Initialise le répertoire de données (config + horaires) : seed d'un volume vide.
-ensureDataDir(logger);
-ensureSettingsFile();
+// Initialise le stockage (base SQLite dans DATA_DIR) : amorçage/migration d'un volume vide.
+initStorage(logger);
 
 const port = Number(process.env.PORT) || 3000;
 const app = createApp(logger);
