@@ -26,8 +26,9 @@ ENV NODE_ENV=production \
     DATA_DIR=/data \
     PORT=3000
 
-# node_modules élagué (prod) hoisté à la racine du workspace.
+# node_modules de prod : racine (hoisté) + server/ (deps non hoistées, ex. better-sqlite3 natif).
 COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/server/node_modules ./server/node_modules
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/server/package.json ./server/package.json
 # Serveur compilé (+ graine dist/resources) et client buildé (servi en statique).
