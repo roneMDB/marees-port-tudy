@@ -2,9 +2,11 @@
 import { useTides } from '../composables/useTides';
 import { useSite } from '../composables/useSite';
 import { useAuth } from '../composables/useAuth';
+import { useMotDuJour } from '../composables/useMotDuJour';
 import { formatDate } from '../lib/format';
 import SettingsPanel from '../components/SettingsPanel.vue';
 import StatCards from '../components/StatCards.vue';
+import MotDuJourCard from '../components/MotDuJourCard.vue';
 import WeatherCard from '../components/WeatherCard.vue';
 import ResourcesCard from '../components/ResourcesCard.vue';
 import TideDayTable from '../components/TideDayTable.vue';
@@ -18,6 +20,8 @@ const {
 const { current, isReference } = useSite();
 // Édition des réglages réservée au rôle admin.
 const { isAdmin: canEditSettings } = useAuth();
+// Affichage du mot du jour : quand il est masqué, la météo passe en pleine largeur.
+const { visible: motDuJourVisible } = useMotDuJour();
 
 function resetFilters(): void {
   filters.type = 'all';
@@ -55,7 +59,17 @@ function resetFilters(): void {
 
       <StatCards :all-tides="allTides" />
 
-      <WeatherCard />
+      <div class="row g-3 mb-3">
+        <div :class="motDuJourVisible ? 'col-12 col-lg-9' : 'col-12'">
+          <WeatherCard />
+        </div>
+        <div v-if="motDuJourVisible" class="col-12 col-lg-3">
+          <MotDuJourCard :all-tides="allTides" />
+        </div>
+      </div>
+
+      <!-- Masqué : le lien de rétablissement s'affiche seul, la météo occupe toute la largeur. -->
+      <MotDuJourCard v-if="!motDuJourVisible" :all-tides="allTides" />
 
       <div class="row g-3 mb-3">
         <div class="col-12 col-xl-6">
