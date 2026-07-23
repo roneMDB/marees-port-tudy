@@ -57,6 +57,13 @@ export default tseslint.config(
     }
   },
   {
+    // Tests e2e Playwright + config : Node (process) + navigateur (callbacks `page.evaluate`).
+    files: ['e2e/**/*.ts', 'playwright.config.ts'],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser }
+    }
+  },
+  {
     // Assouplissements pragmatiques adaptés au projet (0 erreur sur le code existant).
     rules: {
       'vue/multi-word-component-names': 'off',

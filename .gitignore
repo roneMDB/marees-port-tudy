@@ -154,5 +154,10 @@ data/
 server/data/
 client/data/
 
+# Playwright (tests e2e)
+playwright-report/
+test-results/
+/e2e/.auth/
+
 # Generated HTML output (`-f html > marees.html`)
 marees.html
