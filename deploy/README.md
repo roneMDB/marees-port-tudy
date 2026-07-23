@@ -8,8 +8,9 @@ DSM 7.2+.
 | Fichier | Rôle |
 | --- | --- |
 | [`INSTALLATION-NAS.md`](INSTALLATION-NAS.md) | **Guide d'installation complet** (prérequis, chargement de l'image, Container Manager, reverse proxy, mises à jour, sauvegarde, dépannage). |
+| [`MIGRATION-SQLITE.md`](MIGRATION-SQLITE.md) | **Migration vers SQLite** (#8) : passage des fichiers plats à `marees.db`. Migration auto au 1er démarrage, procédure NAS, exploitation, rollback. |
 | [`push-to-nas.sh`](push-to-nas.sh) | **Côté PC** : build + export de l'image, puis transfert (`scp`) de l'image, du compose et du script de mise à jour vers le NAS. Ne redémarre pas le conteneur. |
-| [`update-on-nas.sh`](update-on-nas.sh) | **Côté NAS** : recharge l'image transférée et recrée le conteneur (`docker load` + `docker-compose up -d` + prune). Données `data/` conservées. |
+| [`update-on-nas.sh`](update-on-nas.sh) | **Côté NAS** : recharge l'image transférée et recrée le conteneur (`docker load` + `docker-compose up -d` + prune). Volume `data/` conservé (base `marees.db`). |
 | [`save-image.sh`](save-image.sh) | Build + export de l'image → `marees-image.tar.gz` (appelé par `push-to-nas.sh`, ou utilisable seul pour un transfert manuel). |
 | [`docker-compose.nas.yml`](docker-compose.nas.yml) | Compose pour le NAS (image chargée, volume `/volume1/docker/marees/data`). À copier en `docker-compose.yml` sur le NAS. |
 

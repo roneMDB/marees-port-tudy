@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # À exécuter SUR le NAS Synology (DS218+ / DSM 7.1), depuis /volume1/docker/marees.
 # Recharge l'image transférée puis recrée le conteneur sur cette nouvelle image.
-# Les données de data/ (settings.json + horaires) sont conservées (volume).
+# Les données de data/ (base SQLite marees.db) sont conservées (volume).
+# 1re bascule depuis les fichiers plats → SQLite : migration auto au 1er démarrage,
+# cf. deploy/MIGRATION-SQLITE.md.
 #
 # Usage : sudo bash update-on-nas.sh
 set -euo pipefail

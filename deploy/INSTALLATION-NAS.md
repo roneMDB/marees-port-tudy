@@ -74,7 +74,7 @@ Dans **File Station**, sous le dossier partagé `docker` (le créer s'il n'exist
 
 ```
 /volume1/docker/marees/
-/volume1/docker/marees/data/     ← config (settings.json) + horaires (auto-remplis au 1er démarrage)
+/volume1/docker/marees/data/     ← base SQLite marees.db (config + horaires + accès, auto-amorcée)
 ```
 
 Le dossier `data` sera monté comme **volume** ; c'est lui qui persiste. Le laisser **vide** au
@@ -173,7 +173,7 @@ Vérifier :
 ```bash
 sudo docker-compose ps           # marees-port-tudy doit être "Up"
 sudo docker-compose logs --tail=30
-ls -la data/                     # settings.json + horaires_marees_port-tudy.json (auto-créés)
+ls -la data/                     # marees.db (+ -wal / -shm) auto-créée
 ```
 
 ### Option B — Container Manager (uniquement si NAS en DSM 7.2+)
@@ -205,8 +205,10 @@ curl -sf http://localhost:3000/api/health && echo OK
 `https://tonnas.synology.me`. (Si tu préfères d'abord tester depuis le LAN, remplace temporairement
 le mapping par `"3000:3000"`, puis reviens à `"127.0.0.1:3000:3000"` une fois le proxy en place.)
 
-Au premier démarrage, `data/` se remplit tout seul : `settings.json` (configuration par défaut)
-et `horaires_marees_port-tudy.json` (horaires embarqués dans l'image).
+Au premier démarrage, `data/` se remplit tout seul : la base **`marees.db`** est créée et amorcée
+(configuration par défaut + horaires embarqués dans l'image). Sur un volume issu d'une version
+antérieure, les anciens fichiers `settings.json` / `horaires_marees_*.json` sont migrés
+automatiquement (cf. [MIGRATION-SQLITE.md](MIGRATION-SQLITE.md)).
 
 ---
 
@@ -286,7 +288,7 @@ Durcissement déjà **intégré à l'image** : en-têtes de sécurité (helmet),
 
 ### 8.4 Statistiques d'accès (rôle admin)
 
-L'app enregistre chaque ouverture dans `data/access-log.jsonl` — **anonymisé** (IP tronquée, pays
+L'app enregistre chaque ouverture dans la base (`marees.db`, table `access_log`) — **anonymisé** (IP tronquée, pays
 via une base géoIP hors-ligne, navigateur/appareil). Un bouton **« Statistiques »** (icône graphique
 dans la navbar) ouvre un tableau de bord (visites/jour, LAN vs externe, pays…). Il n'apparaît et ne
 répond **que pour le rôle `admin`** (connexion avec `ADMIN_PASSWORD`) ; sinon l'endpoint renvoie 403.
@@ -324,16 +326,21 @@ Les données du dossier `data/` sont **conservées** (volume).
 
 ## 10. Sauvegarde & restauration des données
 
-Tout l'état persistant tient dans **`/volume1/docker/marees/data/`** :
+Depuis l'issue #8, tout l'état persistant tient dans **une base SQLite** :
+**`/volume1/docker/marees/data/marees.db`** (config, horaires, journal d'accès), accompagnée de
+ses fichiers WAL `marees.db-wal` / `marees.db-shm`.
 
-- `settings.json` — la configuration (période, décalages Navihan, jours à flot) ;
-- `horaires_marees_port-tudy.json` — les horaires.
+> **Première bascule depuis les fichiers plats** (`settings.json`, `horaires_marees_*.json`) :
+> la migration est **automatique au 1er démarrage** de la nouvelle image. Procédure détaillée,
+> vérification et rollback : **[MIGRATION-SQLITE.md](MIGRATION-SQLITE.md)**.
 
-**Sauvegarde** : copier ce dossier (ou l'inclure dans *Hyper Backup*).
-**Restauration** : remettre les fichiers dans `data/` puis redémarrer le conteneur.
+**Sauvegarde** : copier le dossier `data/` (ou l'inclure dans *Hyper Backup*) ; idéalement
+conteneur arrêté, sinon copier les trois fichiers `marees.db`, `marees.db-wal`, `marees.db-shm`.
+**Restauration** : remettre ces fichiers dans `data/` puis redémarrer le conteneur.
 
-**Mettre à jour les horaires** : remplacer `horaires_marees_port-tudy.json` dans `data/` par un
-fichier au même format, puis redémarrer le conteneur (`sudo docker-compose restart` en SSH).
+**Mettre à jour les horaires** : via le panneau **« Import des horaires »** de l'app (rôle admin) —
+coller/téléverser un JSON, pris en compte immédiatement (plus besoin de redémarrer). Pour repartir
+des graines embarquées, arrêter le conteneur, supprimer `marees.db*` du volume, puis redémarrer.
 
 ---
 
