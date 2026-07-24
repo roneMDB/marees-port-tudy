@@ -7,6 +7,14 @@ import { verifyPassword } from '../lib/password';
 /** Chemins accessibles sans authentification (relatifs au montage `/api`). */
 const PUBLIC_API = new Set(['/health', '/login', '/logout', '/auth/status']);
 
+/**
+ * Hash argon2id **factice** (valeur arbitraire), vérifié quand le login n'existe pas afin
+ * d'égaliser le temps de réponse du login et d'empêcher l'énumération d'utilisateurs par canal
+ * temporel. Mêmes paramètres que les hash réels → coût comparable.
+ */
+const DUMMY_PASSWORD_HASH =
+  '$argon2id$v=19$m=19456,t=2,p=1$8Vz9rOki5zvQJfC01aSNJQ$hWBEruFCqQq0ju2/lIqPFhYEsTs7GKqC3EIYyTvAy6o';
+
 /** Utilisateur effectif d'une requête (identité minimale portée par la session). */
 export interface SessionUser {
   id: number;
@@ -29,7 +37,11 @@ export function authEnabled(): boolean {
  */
 export async function resolveUser(login: string, password: string, db: DB = getDb()): Promise<SessionUser | null> {
   const user = getUserByLogin(db, login);
-  if (!user) return null;
+  if (!user) {
+    // Vérification factice : coût argon2 identique à un login existant → pas de fuite temporelle.
+    await verifyPassword(DUMMY_PASSWORD_HASH, password);
+    return null;
+  }
   if (!(await verifyPassword(user.passwordHash, password))) return null;
   return { id: user.id, login: user.login, role: user.role, mustChangePassword: user.mustChangePassword };
 }
@@ -64,7 +76,18 @@ export function requestRole(req: Request): Role | null {
 export function basicAuth() {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (PUBLIC_API.has(req.path)) return next();
-    if (requestUser(req) !== null) return next();
-    res.status(401).json({ error: 'Authentification requise.' });
+    const user = requestUser(req);
+    if (user === null) {
+      res.status(401).json({ error: 'Authentification requise.' });
+      return;
+    }
+    // Changement de mot de passe forcé (ex. compte `admin`/`admin` amorcé) : tant qu'il n'est pas
+    // fait, on ne laisse passer QUE le changement de son propre mot de passe (verrou serveur, pas
+    // seulement l'écran client). Défense en profondeur contre l'usage d'un identifiant par défaut.
+    if (user.mustChangePassword && !(req.method === 'PUT' && req.path === '/users/me/password')) {
+      res.status(403).json({ error: 'Changement de mot de passe requis.', code: 'PASSWORD_CHANGE_REQUIRED' });
+      return;
+    }
+    next();
   };
 }

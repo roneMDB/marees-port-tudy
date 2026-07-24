@@ -59,10 +59,15 @@ est généré et persisté (`app_secret`), sauf override `SESSION_SECRET`. Le ga
 hors `/health`, `/login`, `/logout`, `/auth/status`) accepte le **cookie de session** (l'en-tête Basic
 n'est plus supporté), pas de `WWW-Authenticate`. **`PUT /api/settings`, `GET /api/stats` et les écritures
 `/api/users` exigent le rôle `admin`** (`requestRole(req)`) ; le changement de son **propre** mot de
-passe (`PUT /api/users/me/password`) est ouvert à tout utilisateur authentifié. `COOKIE_SECURE=true`
+passe (`PUT /api/users/me/password`) est ouvert à tout utilisateur authentifié. **Changement de mot
+de passe forcé appliqué côté serveur** : tant que `mustChangePassword` est vrai (ex. `admin`/`admin`
+amorcé), le garde renvoie **403 `PASSWORD_CHANGE_REQUIRED`** sur tout `/api` sauf `PUT /users/me/password`
+(l'écran client `ForcePasswordChange.vue` n'est donc pas la seule barrière). `resolveUser` effectue une
+vérification argon2 **factice** sur login inconnu (temps constant → anti-énumération). `COOKIE_SECURE=true`
 force le flag `Secure` du cookie. Conteneur non-root (`USER node`) + `HEALTHCHECK` sur `/api/health`.
-Tests : `src/security.test.ts`, `src/routes/auth.test.ts`, `src/routes/users.test.ts`,
-`src/service/UsersStore.test.ts`, `src/db/usersRepository.test.ts`, `src/lib/{session,password}.test.ts`.
+Tests : `src/security.test.ts`, `src/routes/auth.test.ts`, `src/middleware/auth.test.ts`,
+`src/routes/users.test.ts`, `src/routes/passwordChangeRequired.test.ts`, `src/service/UsersStore.test.ts`,
+`src/db/usersRepository.test.ts`, `src/lib/{session,password}.test.ts`.
 
 Routes tides (`src/routes/tides.ts`) :
 - `GET /api/health` → `{ status: 'ok' }`.
