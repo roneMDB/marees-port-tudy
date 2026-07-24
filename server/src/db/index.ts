@@ -70,7 +70,12 @@ export function migrate(db: DB): void {
   }
   if (version < 3) {
     // `access_log` existe depuis v1 → ALTER pour les bases déjà déployées (login nullable).
-    db.exec(`ALTER TABLE access_log ADD COLUMN login TEXT;`);
+    // `ADD COLUMN` n'est pas idempotent en SQLite : on ne l'ajoute que s'il est absent (robuste
+    // à un rollback ayant remis `user_version` en arrière puis re-upgrade).
+    const cols = db.prepare('PRAGMA table_info(access_log)').all() as { name: string }[];
+    if (!cols.some(c => c.name === 'login')) {
+      db.exec('ALTER TABLE access_log ADD COLUMN login TEXT;');
+    }
   }
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

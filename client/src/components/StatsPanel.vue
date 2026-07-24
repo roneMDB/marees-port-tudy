@@ -130,10 +130,10 @@ const chartOptions = computed<ChartOptions<'bar'>>(() => {
           <!-- Connexions par utilisateur -->
           <h6 class="text-uppercase text-muted small fw-bold mb-2">Connexions par utilisateur</h6>
           <ul class="list-unstyled small mb-4">
-            <li v-for="u in stats.users" :key="u.name" class="d-flex justify-content-between">
+            <li v-for="u in (stats.users ?? [])" :key="u.name" class="d-flex justify-content-between">
               <span><i class="bi bi-person me-1"></i>{{ u.name }}</span><span class="text-muted">{{ u.count }}</span>
             </li>
-            <li v-if="!stats.users.length" class="text-muted fst-italic">Aucune connexion enregistrée.</li>
+            <li v-if="!(stats.users ?? []).length" class="text-muted fst-italic">Aucune connexion enregistrée.</li>
           </ul>
 
           <!-- Répartitions -->

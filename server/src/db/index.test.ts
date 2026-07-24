@@ -36,6 +36,17 @@ describe('db migrations', () => {
     db.close();
   });
 
+  it('migration v3 idempotente même si user_version a été remis à 1 (rollback puis re-upgrade)', () => {
+    const db = openDb(':memory:'); // déjà en v3, colonne login présente
+    // Simule un rollback (ancien binaire remet user_version=1) puis un re-upgrade.
+    db.pragma('user_version = 1');
+    expect(() => migrate(db)).not.toThrow();
+    expect(db.pragma('user_version', { simple: true })).toBe(3);
+    const cols = db.prepare('PRAGMA table_info(access_log)').all().map((c: any) => c.name);
+    expect(cols.filter((c: string) => c === 'login')).toHaveLength(1);
+    db.close();
+  });
+
   it('is idempotent (re-running migrate keeps the schema)', () => {
     const db = openDb(':memory:');
     migrate(db);
