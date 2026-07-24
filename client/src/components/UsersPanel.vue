@@ -15,6 +15,10 @@ const newLogin = ref('');
 const newPassword = ref('');
 const newRole = ref<Role>('viewer');
 
+// Réinitialisation de mot de passe : champ inline ouvert pour un seul utilisateur à la fois.
+const resetId = ref<number | null>(null);
+const resetPassword = ref('');
+
 async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
@@ -51,12 +55,24 @@ async function onChangeRole(u: User, role: Role): Promise<void> {
   }
 }
 
+/** Ouvre (ou referme) le champ de réinitialisation du mot de passe pour un utilisateur. */
+function toggleResetPassword(u: User): void {
+  error.value = null;
+  resetPassword.value = '';
+  resetId.value = resetId.value === u.id ? null : u.id;
+}
+
+function cancelResetPassword(): void {
+  resetId.value = null;
+  resetPassword.value = '';
+}
+
 async function onResetPassword(u: User): Promise<void> {
-  const password = window.prompt(`Nouveau mot de passe pour « ${u.login} » :`);
-  if (!password) return;
+  if (!resetPassword.value) return;
   error.value = null;
   try {
-    await updateUser(u.id, { password });
+    await updateUser(u.id, { password: resetPassword.value });
+    cancelResetPassword();
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e);
   }
@@ -122,10 +138,11 @@ onUnmounted(() => el?.removeEventListener('show.bs.offcanvas', load));
               </select>
               <button
                 type="button"
-                class="btn btn-outline-secondary btn-sm"
+                class="btn btn-sm"
+                :class="resetId === u.id ? 'btn-secondary' : 'btn-outline-secondary'"
                 :title="`Réinitialiser le mot de passe de ${u.login}`"
                 :aria-label="`Réinitialiser le mot de passe de ${u.login}`"
-                @click="onResetPassword(u)"
+                @click="toggleResetPassword(u)"
               >
                 <i class="bi bi-key"></i>
               </button>
@@ -141,6 +158,30 @@ onUnmounted(() => el?.removeEventListener('show.bs.offcanvas', load));
             </div>
           </div>
           <div class="text-muted small">{{ roleLabel(u.role) }}</div>
+
+          <!-- Champ inline de réinitialisation du mot de passe -->
+          <form v-if="resetId === u.id" class="reset-password-form mt-2" @submit.prevent="onResetPassword(u)">
+            <label :for="`resetPwd-${u.id}`" class="form-label small fw-semibold mb-1">
+              Nouveau mot de passe
+            </label>
+            <div class="input-group input-group-sm">
+              <input
+                :id="`resetPwd-${u.id}`"
+                name="resetPassword"
+                v-model="resetPassword"
+                type="text"
+                class="form-control"
+                autocomplete="new-password"
+                :aria-label="`Nouveau mot de passe de ${u.login}`"
+              />
+              <button type="submit" class="btn btn-primary" :disabled="!resetPassword">
+                <i class="bi bi-check-lg"></i>
+              </button>
+              <button type="button" class="btn btn-outline-secondary" aria-label="Annuler" @click="cancelResetPassword">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
+          </form>
         </li>
       </ul>
 

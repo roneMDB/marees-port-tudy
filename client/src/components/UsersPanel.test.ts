@@ -52,6 +52,28 @@ describe('UsersPanel', () => {
     expect(listUsersMock).toHaveBeenCalledTimes(2); // montage + après création
   });
 
+  it('réinitialise le mot de passe via un champ de saisie inline', async () => {
+    listUsersMock.mockResolvedValue(sampleUsers);
+    updateUserMock.mockResolvedValue({ ...sampleUsers[1] });
+    const wrapper = mount(UsersPanel);
+    await flushPromises();
+
+    // Le champ n'est pas affiché tant qu'on n'a pas cliqué sur « réinitialiser ».
+    expect(wrapper.find('input[name="resetPassword"]').exists()).toBe(false);
+
+    await wrapper.find('[aria-label="Réinitialiser le mot de passe de bob"]').trigger('click');
+    const field = wrapper.find('input[name="resetPassword"]');
+    expect(field.exists()).toBe(true);
+
+    await field.setValue('nouveaupass');
+    await wrapper.find('form.reset-password-form').trigger('submit.prevent');
+    await flushPromises();
+
+    expect(updateUserMock).toHaveBeenCalledWith(2, { password: 'nouveaupass' });
+    // Le champ se referme après succès.
+    expect(wrapper.find('input[name="resetPassword"]').exists()).toBe(false);
+  });
+
   it('affiche une erreur si le chargement échoue', async () => {
     listUsersMock.mockRejectedValue(new Error('403 interdit'));
     const wrapper = mount(UsersPanel);
