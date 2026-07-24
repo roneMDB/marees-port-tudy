@@ -171,8 +171,12 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
           >
             <i :class="isDark ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill'"></i>
           </button>
-          <span v-if="authRequired && user" class="navbar-text text-white-50 small d-none d-md-inline">
-            <i class="bi bi-person-circle me-1"></i>{{ user.login }}
+          <span
+            v-if="authRequired && user"
+            class="navbar-text text-white-50 small d-inline-flex align-items-center app-username"
+            :title="user.login"
+          >
+            <i class="bi bi-person-circle me-1"></i><span class="text-truncate">{{ user.login }}</span>
           </span>
           <button
             v-if="authRequired"
@@ -208,5 +212,15 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
 .app-site-select {
   width: auto;
   min-width: 7.5rem;
+}
+
+/* Nom d'utilisateur : visible sur toutes tailles, tronqué si trop long (évite de casser la navbar). */
+.app-username .text-truncate {
+  max-width: 7rem;
+}
+@media (min-width: 768px) {
+  .app-username .text-truncate {
+    max-width: 14rem;
+  }
 }
 </style>

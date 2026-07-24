@@ -19,19 +19,28 @@ services:
       - PORT=3000
       # Exposition externe : valeurs lues depuis un fichier `.env` placé À CÔTÉ de ce compose
       # sur le NAS (/volume1/docker/marees/.env). Ce `.env` n'est PAS transféré par
-      # push-to-nas.sh → il survit aux mises à jour et garde les mots de passe hors Git.
-      #   APP_USER=marees
-      #   APP_PASSWORD=mot-de-passe-consultation   # rôle « viewer » ; vide → auth désactivée
+      # push-to-nas.sh → il survit aux mises à jour et garde les secrets hors Git.
+      #
+      # Gestion d'utilisateurs (issue #9) : les comptes sont désormais en base, gérés dans l'app
+      # (panneau « Utilisateurs », rôle admin). Les variables ci-dessous ne servent plus qu'à :
+      #   - ACTIVER l'auth : dès qu'APP_PASSWORD **ou** ADMIN_PASSWORD est non vide (les deux vides
+      #     → accès libre) ;
+      #   - AMORCER le 1er admin (base vide) depuis ADMIN_USER/ADMIN_PASSWORD ; sans ADMIN_PASSWORD,
+      #     un compte admin/admin est créé avec changement de mot de passe forcé.
+      # APP_USER/APP_PASSWORD n'authentifient plus après l'amorçage (source = base). cf.
+      # deploy/MIGRATION-UTILISATEURS.md.
       #   ADMIN_USER=admin
-      #   ADMIN_PASSWORD=mot-de-passe-admin         # rôle « admin » (édition réglages + stats)
-      #   COOKIE_SECURE=true                        # force le flag Secure du cookie de session
-      # Deux rôles selon le mot de passe utilisé à la connexion : « viewer » (consultation) et
-      # « admin » (édition des réglages + statistiques), depuis n'importe où. Sans ADMIN_PASSWORD,
-      # personne n'édite. L'édition n'est plus liée au réseau local.
+      #   ADMIN_PASSWORD=mot-de-passe-admin-initial
+      #   SESSION_SECRET=chaine-aleatoire-longue    # `openssl rand -hex 32` (voir plus bas)
+      #   COOKIE_SECURE=true
       - APP_USER=${APP_USER:-marees}
       - APP_PASSWORD=${APP_PASSWORD:-}
       - ADMIN_USER=${ADMIN_USER:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      # Secret de signature des cookies de session. Si vide, l'app en génère un aléatoire persisté
+      # en base (`app_secret`). Le fixer ici (via .env) rend les sessions stables entre recréations
+      # du volume et permet de les révoquer toutes en le changeant. `openssl rand -hex 32`.
+      - SESSION_SECRET=${SESSION_SECRET:-}
       # Cookie de session en HTTPS : garantit le flag `Secure` même si le proxy DSM ne transmet
       # pas `X-Forwarded-Proto` (cf. revue sécurité INFO-003). L'accès étant désormais uniquement
       # via le proxy HTTPS, on peut le laisser à `true` par défaut ici.
