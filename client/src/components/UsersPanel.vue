@@ -19,6 +19,9 @@ const newRole = ref<Role>('viewer');
 const resetId = ref<number | null>(null);
 const resetPassword = ref('');
 
+// Suppression : confirmation inline par boutons pour un seul utilisateur à la fois.
+const confirmDeleteId = ref<number | null>(null);
+
 async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
@@ -78,11 +81,22 @@ async function onResetPassword(u: User): Promise<void> {
   }
 }
 
+/** Ouvre (ou referme) la confirmation de suppression pour un utilisateur. */
+function askDelete(u: User): void {
+  error.value = null;
+  resetId.value = null; // referme un éventuel champ de mot de passe ouvert
+  confirmDeleteId.value = confirmDeleteId.value === u.id ? null : u.id;
+}
+
+function cancelDelete(): void {
+  confirmDeleteId.value = null;
+}
+
 async function onDelete(u: User): Promise<void> {
-  if (!window.confirm(`Supprimer l'utilisateur « ${u.login} » ?`)) return;
   error.value = null;
   try {
     await deleteUser(u.id);
+    confirmDeleteId.value = null;
     await load();
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e);
@@ -148,10 +162,11 @@ onUnmounted(() => el?.removeEventListener('show.bs.offcanvas', load));
               </button>
               <button
                 type="button"
-                class="btn btn-outline-danger btn-sm"
+                class="btn btn-sm"
+                :class="confirmDeleteId === u.id ? 'btn-danger' : 'btn-outline-danger'"
                 :title="`Supprimer ${u.login}`"
                 :aria-label="`Supprimer ${u.login}`"
-                @click="onDelete(u)"
+                @click="askDelete(u)"
               >
                 <i class="bi bi-trash"></i>
               </button>
@@ -182,6 +197,27 @@ onUnmounted(() => el?.removeEventListener('show.bs.offcanvas', load));
               </button>
             </div>
           </form>
+
+          <!-- Confirmation inline de suppression -->
+          <div v-if="confirmDeleteId === u.id" class="alert alert-danger d-flex align-items-center gap-2 py-2 px-3 mt-2 mb-0">
+            <span class="small flex-grow-1">Supprimer « {{ u.login }} » ?</span>
+            <button
+              type="button"
+              class="btn btn-danger btn-sm"
+              :aria-label="`Confirmer la suppression de ${u.login}`"
+              @click="onDelete(u)"
+            >
+              Supprimer
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              :aria-label="`Annuler la suppression de ${u.login}`"
+              @click="cancelDelete"
+            >
+              Annuler
+            </button>
+          </div>
         </li>
       </ul>
 

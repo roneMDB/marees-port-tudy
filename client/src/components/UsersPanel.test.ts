@@ -74,6 +74,36 @@ describe('UsersPanel', () => {
     expect(wrapper.find('input[name="resetPassword"]').exists()).toBe(false);
   });
 
+  it('supprime après confirmation par boutons (pas de window.confirm)', async () => {
+    listUsersMock.mockResolvedValue(sampleUsers);
+    deleteUserMock.mockResolvedValue(undefined);
+    const wrapper = mount(UsersPanel);
+    await flushPromises();
+
+    // Aucune suppression tant qu'on n'a pas confirmé.
+    await wrapper.find('[aria-label="Supprimer bob"]').trigger('click');
+    expect(deleteUserMock).not.toHaveBeenCalled();
+
+    // Un bouton de confirmation apparaît.
+    const confirmBtn = wrapper.find('[aria-label="Confirmer la suppression de bob"]');
+    expect(confirmBtn.exists()).toBe(true);
+
+    await confirmBtn.trigger('click');
+    await flushPromises();
+    expect(deleteUserMock).toHaveBeenCalledWith(2);
+    expect(listUsersMock).toHaveBeenCalledTimes(2); // montage + après suppression
+  });
+
+  it('annule la suppression sans appeler deleteUser', async () => {
+    listUsersMock.mockResolvedValue(sampleUsers);
+    const wrapper = mount(UsersPanel);
+    await flushPromises();
+    await wrapper.find('[aria-label="Supprimer bob"]').trigger('click');
+    await wrapper.find('[aria-label="Annuler la suppression de bob"]').trigger('click');
+    expect(wrapper.find('[aria-label="Confirmer la suppression de bob"]').exists()).toBe(false);
+    expect(deleteUserMock).not.toHaveBeenCalled();
+  });
+
   it('affiche une erreur si le chargement échoue', async () => {
     listUsersMock.mockRejectedValue(new Error('403 interdit'));
     const wrapper = mount(UsersPanel);
