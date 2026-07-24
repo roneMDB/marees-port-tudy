@@ -232,45 +232,56 @@ automatiquement (cf. [MIGRATION-SQLITE.md](MIGRATION-SQLITE.md)).
 4. **Box/routeur** : rediriger **uniquement** le port **443** (et **80** temporairement pour
    l'émission/renouvellement du certificat Let's Encrypt) vers le NAS. **Pas** le `3000`.
 
-### 8.2 Mots de passe & rôles (mire de connexion)
+### 8.2 Comptes & rôles (mire de connexion)
 
 L'app protège **toute** l'interface dès qu'un mot de passe est défini : une **mire de connexion**
 (page dédiée) demande identifiant + mot de passe, puis pose un **cookie de session signé**
-(`HttpOnly`, `SameSite=Strict`, `Secure`) portant le **rôle** — « se souvenir de moi » le garde 30 j.
+(`HttpOnly`, `SameSite=Strict`, `Secure`) portant l'**identifiant utilisateur** — « se souvenir de
+moi » le garde 30 j. Le rôle est **relu en base à chaque requête** (supprimer/rétrograder un compte
+révoque ses sessions immédiatement).
 
-Deux rôles, selon le mot de passe utilisé à la connexion :
-- **`viewer`** (`APP_USER` / `APP_PASSWORD`) : **consultation** du dashboard, depuis n'importe où.
-- **`admin`** (`ADMIN_USER` / `ADMIN_PASSWORD`) : consultation **+ édition des réglages +
-  statistiques d'accès**, depuis n'importe où.
+**Les comptes sont gérés depuis l'app** (issue #9) : un **admin** ouvre le panneau **« Utilisateurs »**
+(icône dans la navbar) pour **créer / modifier le rôle / réinitialiser le mot de passe / supprimer**
+des comptes. Deux rôles : **`admin`** (gestion des utilisateurs + édition des réglages + statistiques)
+et **`lecteur`** (consultation ; rôle **par défaut** des nouveaux comptes). Les mots de passe sont
+**hachés (argon2id)** en base — jamais stockés en clair. Le garde-fou empêche de supprimer/rétrograder
+le **dernier administrateur**.
 
-Le compose du NAS lit ces variables depuis un fichier **`.env`** placé à côté de lui — ce fichier
-**n'est pas transféré** par `push-to-nas.sh`, il survit donc aux mises à jour et garde les mots de
-passe hors Git. En SSH sur le NAS :
+Les variables d'environnement ne servent plus qu'à **amorcer le premier administrateur** au tout
+premier démarrage (base vide) et à **activer** l'authentification. Le compose du NAS lit ces variables
+depuis un fichier **`.env`** placé à côté de lui — ce fichier **n'est pas transféré** par
+`push-to-nas.sh`, il survit donc aux mises à jour et garde les secrets hors Git. En SSH sur le NAS :
 
 ```bash
 cd /volume1/docker/marees
 cat > .env <<'EOF'
-APP_USER=marees
-APP_PASSWORD=mot-de-passe-consultation   # rôle viewer — à partager au cercle restreint
 ADMIN_USER=admin
-ADMIN_PASSWORD=mot-de-passe-admin         # rôle admin — gardé pour toi (édition réglages + stats)
-COOKIE_SECURE=true                        # force le flag Secure du cookie (accès HTTPS via proxy)
+ADMIN_PASSWORD=mot-de-passe-admin-initial  # amorce le 1er admin (base vide) ; ensuite l'auth se fait en base
+SESSION_SECRET=chaine-aleatoire-longue     # (recommandé) secret de signature stable des cookies
+COOKIE_SECURE=true                         # force le flag Secure du cookie (accès HTTPS via proxy)
 EOF
 chmod 600 .env
-sudo docker-compose up -d                 # recrée le conteneur avec les nouvelles variables
+sudo docker-compose up -d                  # recrée le conteneur avec les nouvelles variables
 ```
 
+- **Activation** : l'auth est active dès qu'`APP_PASSWORD` **ou** `ADMIN_PASSWORD` est défini. Les
+  deux vides → **accès libre** (ne pas exposer dans ce cas).
+- **Amorçage** : à base vide, un admin est créé depuis `ADMIN_USER`/`ADMIN_PASSWORD`. Si `ADMIN_PASSWORD`
+  n'est pas fourni, un compte **`admin`/`admin`** est créé avec **changement de mot de passe forcé** à
+  la première connexion. Une fois des comptes en base, `APP_*`/`ADMIN_*` **n'authentifient plus** —
+  gérez les comptes via le panneau « Utilisateurs ».
+- **`SESSION_SECRET`** : si absent, un secret aléatoire est généré et **persisté** en base
+  (`app_secret`). Le définir explicitement permet de garder des sessions valides même après recréation
+  du volume, et de tourner le secret à la demande.
+
 La mire s'affiche une fois, puis la session est mémorisée. `GET /api/health` reste public (sonde).
-**Sans mot de passe (`APP_PASSWORD` et `ADMIN_PASSWORD` vides), l'accès est libre** — ne pas exposer
-dans ce cas.
 
 > `COOKIE_SECURE=true` garantit le flag `Secure` du cookie même si le reverse proxy ne transmet
 > pas `X-Forwarded-Proto`. À laisser à `true` puisque l'accès externe est en HTTPS.
 
-**Édition des réglages & statistiques :** réservées au **rôle admin**, quel que soit le réseau
-(le contrôle se fait sur le rôle porté par le cookie, plus sur l'IP). Sans `ADMIN_PASSWORD`, personne
-n'édite : tout le monde est `viewer`. Les réglages sont des préférences d'affichage (Navihan, liens
-météo, période) — enjeu faible.
+**Édition des réglages, statistiques & gestion des utilisateurs :** réservées au **rôle admin**, quel
+que soit le réseau (contrôle sur le rôle courant en base, plus sur l'IP). Les réglages sont des
+préférences d'affichage (Navihan, liens météo, période) — enjeu faible.
 
 Durcissement déjà **intégré à l'image** : en-têtes de sécurité (helmet), limitation de débit
 (anti-abus, dont la météo), conteneur **non-root** (`node`, uid 1000). Le dossier `data/` doit donc
@@ -291,7 +302,7 @@ Durcissement déjà **intégré à l'image** : en-têtes de sécurité (helmet),
 L'app enregistre chaque ouverture dans la base (`marees.db`, table `access_log`) — **anonymisé** (IP tronquée, pays
 via une base géoIP hors-ligne, navigateur/appareil). Un bouton **« Statistiques »** (icône graphique
 dans la navbar) ouvre un tableau de bord (visites/jour, LAN vs externe, pays…). Il n'apparaît et ne
-répond **que pour le rôle `admin`** (connexion avec `ADMIN_PASSWORD`) ; sinon l'endpoint renvoie 403.
+répond **que pour le rôle `admin`** ; sinon l'endpoint renvoie 403.
 Le journal tourne automatiquement (~1 Mo, une génération conservée) — rien à gérer.
 
 ---

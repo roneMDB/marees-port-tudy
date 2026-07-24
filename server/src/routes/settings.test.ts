@@ -15,7 +15,7 @@ let app: Application;
 beforeAll(async () => {
   const { initStorage } = await import('../db/bootstrap');
   const { createApp } = await import('../app');
-  initStorage();
+  await initStorage();
   app = createApp(fakeLogger);
 });
 

@@ -45,16 +45,24 @@ qui renvoie **400** sur erreur client — ex. JSON invalide — sinon 500). Serv
 
 **Authentification & rôles / exposition externe** (variables d'env, cf. `deploy/INSTALLATION-NAS.md`
 §8) : la connexion se fait via une **mire** (`client` `LoginScreen.vue`) qui pose un **cookie de
-session signé HMAC** portant un **rôle** (`lib/session.ts`). Deux rôles selon le mot de passe :
-**`viewer`** (`APP_USER`/`APP_PASSWORD`, défaut user `marees`) = consultation ; **`admin`**
-(`ADMIN_USER`/`ADMIN_PASSWORD`, défaut user `admin`) = **édition des réglages + statistiques**,
-depuis n'importe où. Auth active dès qu'`APP_PASSWORD` **ou** `ADMIN_PASSWORD` est défini (les deux
-vides → désactivée, dev/tests intacts → rôle `admin` ouvert). Le garde (monté sur `/api`, hors
-`/health`, `/login`, `/logout`, `/auth/status`) accepte **cookie OU en-tête Basic**, pas de
-`WWW-Authenticate`. **`PUT /api/settings` et `GET /api/stats` exigent le rôle `admin`**
-(`requestRole(req)`), **plus de verrou LAN ni de `READ_ONLY`**. `COOKIE_SECURE=true` force le flag
-`Secure` du cookie. Conteneur non-root (`USER node`) + `HEALTHCHECK` sur `/api/health`. Tests :
-`src/security.test.ts`, `src/routes/auth.test.ts`, `src/lib/session.test.ts`.
+session signé HMAC** portant l'**identifiant utilisateur** (`lib/session.ts` ; le rôle n'est **pas**
+dans le jeton, il est **relu en base à chaque requête** → révocation immédiate d'une session dont le
+compte est supprimé/rétrogradé). **Les utilisateurs sont persistés en base** (table `users`, issue #9,
+CRUD via `/api/users`, mots de passe hachés **argon2id** — `lib/password.ts`, `@node-rs/argon2`). Deux
+rôles : **`viewer`** (« Lecteur », défaut des nouveaux comptes) = consultation ; **`admin`** =
+**gestion des utilisateurs + édition des réglages + statistiques**. Auth active dès qu'`APP_PASSWORD`
+**ou** `ADMIN_PASSWORD` est défini (les deux vides → désactivée, dev/tests intacts → rôle `admin`
+ouvert). **Amorçage** : au 1er démarrage avec auth active, `bootstrap` crée l'admin initial depuis
+`ADMIN_USER`/`ADMIN_PASSWORD` (défaut `admin`/`admin` **avec changement de mot de passe forcé**) ; les
+variables d'env **n'authentifient plus** ensuite (source = base). Un **secret de session** aléatoire
+est généré et persisté (`app_secret`), sauf override `SESSION_SECRET`. Le garde (monté sur `/api`,
+hors `/health`, `/login`, `/logout`, `/auth/status`) accepte le **cookie de session** (l'en-tête Basic
+n'est plus supporté), pas de `WWW-Authenticate`. **`PUT /api/settings`, `GET /api/stats` et les écritures
+`/api/users` exigent le rôle `admin`** (`requestRole(req)`) ; le changement de son **propre** mot de
+passe (`PUT /api/users/me/password`) est ouvert à tout utilisateur authentifié. `COOKIE_SECURE=true`
+force le flag `Secure` du cookie. Conteneur non-root (`USER node`) + `HEALTHCHECK` sur `/api/health`.
+Tests : `src/security.test.ts`, `src/routes/auth.test.ts`, `src/routes/users.test.ts`,
+`src/service/UsersStore.test.ts`, `src/db/usersRepository.test.ts`, `src/lib/{session,password}.test.ts`.
 
 Routes tides (`src/routes/tides.ts`) :
 - `GET /api/health` → `{ status: 'ok' }`.
@@ -83,11 +91,22 @@ Route météo (`src/routes/weather.ts` + `src/service/weather.ts`) :
   (`settings.weatherLinks`, cf. Config) avec placeholders `{lat}`/`{lon}` (`lib/weather.resolveLinkUrl`).
 
 Routes auth (`src/routes/auth.ts`, publiques) :
-- `POST /api/login` `{ user, password, remember }` → `resolveRole` (admin puis viewer) ; pose le
-  cookie de session signé portant le rôle ; renvoie `{ ok, role }` ; 401 si aucun rôle.
+- `POST /api/login` `{ user, password, remember }` → `resolveUser` (recherche en base + vérification
+  argon2id) ; pose le cookie de session signé portant l'`userId` ; renvoie
+  `{ ok, role, mustChangePassword }` ; 401 si invalide.
 - `POST /api/logout` → efface le cookie.
-- `GET /api/auth/status` → `{ authRequired, authenticated, role }`. Le client (`useAuth`) en déduit
-  `isAdmin` et n'affiche les boutons/panneaux **Réglages** et **Stats** que si `admin`.
+- `GET /api/auth/status` → `{ authRequired, authenticated, role, user }` (`user` = `{ id, login,
+  mustChangePassword } | null`). Le client (`useAuth`) en déduit `isAdmin` (boutons/panneaux
+  **Réglages**, **Stats**, **Utilisateurs** réservés à `admin`) et `mustChangePassword` (écran de
+  changement forcé `ForcePasswordChange.vue`).
+
+Routes users (`src/routes/users.ts`, issue #9) :
+- `GET/POST /api/users`, `PUT/DELETE /api/users/:id` → **rôle `admin`** (403 sinon). Service
+  `service/UsersStore.ts` (validation, hachage, gardes) + repository `db/usersRepository.ts`. Création
+  = rôle `viewer` par défaut ; garde-fou : impossible de rétrograder/supprimer le **dernier admin**
+  (409) ; login dupliqué → 409 ; validation → 400.
+- `PUT /api/users/me/password` `{ currentPassword, newPassword }` → **tout utilisateur authentifié**
+  (403 si l'actuel est faux) ; efface l'indicateur `must_change_password`.
 
 Routes accès/stats (`src/routes/stats.ts` + `src/middleware/accessLog.ts`) :
 - `GET /api/stats` → agrégats d'accès (`lib/stats.ts` `aggregateAccess`), **réservé au rôle `admin`**
@@ -110,16 +129,21 @@ unique `DATA_DIR/marees.db`** (`src/config/dataDir.ts` : `DATA_DIR`, env, défau
 isolée pour un volume Docker. La couche DB est dans `src/db/` : `index.ts` (`openDb(file)` =
 ouverture + `PRAGMA journal_mode=WAL` + migrations via `PRAGMA user_version` ; `getDb()` singleton
 sur `DATA_DIR/marees.db` ; `openDb` crée le dossier parent ; `openDb(':memory:')` pour les tests),
-`tidesRepository.ts` (`getSiteData`/`replaceSiteData`/`countTides`), `bootstrap.ts`
-(`initStorage(logger?, db?)`). Schéma v1 : tables `tides` (par site), `settings` (document JSON,
-ligne unique `id=1`), `access_log`.
+`tidesRepository.ts` (`getSiteData`/`replaceSiteData`/`countTides`), `usersRepository.ts`
+(CRUD `users` + `getOrCreateSessionSecret`), `bootstrap.ts` (`initStorage(logger?, db?)`,
+**async** : le seed admin hache un mot de passe). Schéma **v2** : tables `tides` (par site),
+`settings` (document JSON, ligne unique `id=1`), `access_log`, **`users`** (login unique
+`COLLATE NOCASE`, `password_hash` argon2id, `role`, `must_change_password`, timestamps) et
+**`app_secret`** (secret de session persisté, ligne unique). Migration additive par palier
+`if (version < N)`.
 
 **Amorçage/migration** : `initStorage()` (appelé au boot par `src/index.ts`, remplace les anciens
 `ensureDataDir`/`ensureSettingsFile`) crée `DATA_DIR`, ouvre la base et l'amorce **si vide** — par
 site sans données : import depuis le fichier **legacy** `DATA_DIR/<site>.json` s'il existe
 (déploiements antérieurs), sinon depuis la **graine** embarquée (`dist/resources/`,
 `src/resources/`) via `readTides` ; réglages : import de `settings.json` legacy s'il existe, sinon
-défauts. Idempotent.
+défauts ; **utilisateurs** (si auth active) : génère le secret de session et amorce l'admin initial
+(`ensureAdminUser`) si la table `users` est vide. Idempotent.
 
 **Config** (`src/service/SettingsStore.ts`) : type `Settings` (`startMode`/`startDate`/`rangeDays`,
 `navihan` en minutes, `aFlotDays`, `coefDays` = durée du graphe coef (défaut 20, 1–90),
@@ -198,6 +222,15 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   #8 Phase 2) : import en lot pour le port sélectionné (zone JSON + fichier, mode fusionner/remplacer)
   via `api/tidesAdmin.importTides` → `POST /api/tides/import`. Succès → `useDataRefresh().bump()`
   (singleton `token` observé par `useTides` → rechargement du dashboard). Bouton navbar admin-only.
+- `components/UsersPanel.vue` — **panneau « Utilisateurs »** (offcanvas, **admin-only**, issue #9) :
+  liste des comptes (login, rôle, actions), ajout (login + mot de passe + rôle défaut « Lecteur »),
+  changement de rôle inline, réinitialisation de mot de passe, suppression (confirmation). Via
+  `api/users.ts` (`listUsers`/`createUser`/`updateUser`/`deleteUser`/`changeMyPassword`, sur
+  `fetchJson`). Bouton navbar admin-only (menu ⋮ mobile + desktop). Le login courant s'affiche dans
+  la navbar (`useAuth().user`).
+- `components/ForcePasswordChange.vue` — écran **bloquant** de changement de mot de passe, affiché par
+  `App.vue` quand `useAuth().mustChangePassword` (ex. compte `admin`/`admin` amorcé) : appelle
+  `changeMyPassword` puis réhydrate le statut. `useAuth` expose désormais `user` et `mustChangePassword`.
 - `Dashboard.vue` affiche un encart explicatif : heures **Port-Tudy** = référence, le but est
   d'en déduire les heures **Navihan** (basse mer, pleine mer, « remise à flot »).
 - `src/composables/useTheme.ts` — thème clair/sombre (singleton). Applique `data-bs-theme`

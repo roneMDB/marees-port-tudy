@@ -6,7 +6,7 @@ import { DATA_DIR } from '../config/dataDir';
 export type DB = Database.Database;
 
 /** Version courante du schéma (incrémentée à chaque migration). */
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 /** Chemin du fichier SQLite runtime (dans le volume `DATA_DIR`). */
 export function dbPath(): string {
@@ -16,6 +16,7 @@ export function dbPath(): string {
 /**
  * Applique les migrations manquantes (idempotent, via `PRAGMA user_version`).
  * v1 : tables `tides`, `settings`, `access_log`.
+ * v2 : gestion d'utilisateurs (`users`) + secret de session persisté (`app_secret`).
  */
 export function migrate(db: DB): void {
   const version = db.pragma('user_version', { simple: true }) as number;
@@ -46,6 +47,24 @@ export function migrate(db: DB): void {
         ua TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_access_ts ON access_log(ts);
+    `);
+  }
+  if (version < 2) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        login TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'viewer',
+        must_change_password INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS app_secret (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        value TEXT NOT NULL
+      );
     `);
   }
   db.pragma(`user_version = ${SCHEMA_VERSION}`);

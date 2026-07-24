@@ -16,7 +16,7 @@ let app: Application;
 beforeAll(async () => {
   const { initStorage } = await import('../db/bootstrap');
   const { createApp } = await import('../app');
-  initStorage(); // amorce la base (horaires depuis la graine) dans dataDir
+  await initStorage(); // amorce la base (horaires depuis la graine) dans dataDir
   app = createApp(fakeLogger);
 });
 
