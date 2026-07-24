@@ -7,10 +7,11 @@ import type { AccessEntry } from '../lib/stats';
 const geoip = require('geoip-lite') as { lookup(ip: string): { country?: string } | null };
 
 /**
- * Enregistre un accès (anonymisé) en base : horodatage, LAN/externe, IP tronquée, pays (géoIP
- * pour les accès externes) et User-Agent. Écriture best-effort (n'échoue jamais la requête).
+ * Enregistre un accès en base : horodatage, LAN/externe, IP tronquée, pays (géoIP pour les accès
+ * externes), User-Agent et, le cas échéant, le **login** de l'utilisateur (`null` pour une ouverture
+ * de page anonyme ; renseigné lors d'une connexion). Écriture best-effort (n'échoue jamais la requête).
  */
-export function recordAccess(req: Request, db: DB = getDb()): void {
+export function recordAccess(req: Request, db: DB = getDb(), login: string | null = null): void {
   const ip = req.ip || '';
   const scope: AccessEntry['scope'] = isPrivateIp(ip) ? 'lan' : 'external';
   const entry: AccessEntry = {
@@ -18,15 +19,17 @@ export function recordAccess(req: Request, db: DB = getDb()): void {
     scope,
     ip: truncateIp(ip),
     country: scope === 'external' ? geoip.lookup(ip)?.country ?? null : null,
-    ua: String(req.headers['user-agent'] || '').slice(0, 300)
+    ua: String(req.headers['user-agent'] || '').slice(0, 300),
+    login
   };
   try {
-    db.prepare('INSERT INTO access_log (ts, scope, ip, country, ua) VALUES (?, ?, ?, ?, ?)').run(
+    db.prepare('INSERT INTO access_log (ts, scope, ip, country, ua, login) VALUES (?, ?, ?, ?, ?, ?)').run(
       entry.ts,
       entry.scope,
       entry.ip,
       entry.country,
-      entry.ua
+      entry.ua,
+      entry.login ?? null
     );
   } catch {
     /* journalisation best-effort : on n'échoue jamais la requête */
@@ -51,6 +54,6 @@ export function accessLog() {
 /** Lit toutes les entrées du journal (ordre chronologique). */
 export function readAccessEntries(db: DB = getDb()): AccessEntry[] {
   return db
-    .prepare('SELECT ts, scope, ip, country, ua FROM access_log ORDER BY ts')
+    .prepare('SELECT ts, scope, ip, country, ua, login FROM access_log ORDER BY ts')
     .all() as AccessEntry[];
 }

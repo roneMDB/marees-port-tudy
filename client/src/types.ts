@@ -63,6 +63,7 @@ export interface AccessStats {
   countries: AccessCount[];
   browsers: AccessCount[];
   devices: AccessCount[];
+  users: AccessCount[]; // connexions par utilisateur (login)
 }
 
 /** Décalages Navihan (en minutes) appliqués aux heures de Port-Tudy. */

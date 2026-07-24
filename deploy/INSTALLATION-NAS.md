@@ -299,9 +299,11 @@ Durcissement déjà **intégré à l'image** : en-têtes de sécurité (helmet),
 
 ### 8.4 Statistiques d'accès (rôle admin)
 
-L'app enregistre chaque ouverture dans la base (`marees.db`, table `access_log`) — **anonymisé** (IP tronquée, pays
-via une base géoIP hors-ligne, navigateur/appareil). Un bouton **« Statistiques »** (icône graphique
-dans la navbar) ouvre un tableau de bord (visites/jour, LAN vs externe, pays…). Il n'apparaît et ne
+L'app enregistre chaque ouverture de page dans la base (`marees.db`, table `access_log`) —
+**anonymisée** (IP tronquée, pays via une base géoIP hors-ligne, navigateur/appareil). En plus, chaque
+**connexion** est journalisée avec le **login** de l'utilisateur, ce qui alimente une répartition
+**« Connexions par utilisateur »**. Un bouton **« Statistiques »** (icône graphique dans la navbar)
+ouvre un tableau de bord (visites/jour, LAN vs externe, pays, utilisateurs…). Il n'apparaît et ne
 répond **que pour le rôle `admin`** ; sinon l'endpoint renvoie 403.
 Le journal tourne automatiquement (~1 Mo, une génération conservée) — rien à gérer.
 

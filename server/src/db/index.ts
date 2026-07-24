@@ -6,7 +6,7 @@ import { DATA_DIR } from '../config/dataDir';
 export type DB = Database.Database;
 
 /** Version courante du schéma (incrémentée à chaque migration). */
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 /** Chemin du fichier SQLite runtime (dans le volume `DATA_DIR`). */
 export function dbPath(): string {
@@ -17,6 +17,7 @@ export function dbPath(): string {
  * Applique les migrations manquantes (idempotent, via `PRAGMA user_version`).
  * v1 : tables `tides`, `settings`, `access_log`.
  * v2 : gestion d'utilisateurs (`users`) + secret de session persisté (`app_secret`).
+ * v3 : colonne `login` sur `access_log` (attribution des connexions à un utilisateur).
  */
 export function migrate(db: DB): void {
   const version = db.pragma('user_version', { simple: true }) as number;
@@ -66,6 +67,10 @@ export function migrate(db: DB): void {
         value TEXT NOT NULL
       );
     `);
+  }
+  if (version < 3) {
+    // `access_log` existe depuis v1 → ALTER pour les bases déjà déployées (login nullable).
+    db.exec(`ALTER TABLE access_log ADD COLUMN login TEXT;`);
   }
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

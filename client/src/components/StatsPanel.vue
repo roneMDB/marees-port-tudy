@@ -95,7 +95,7 @@ const chartOptions = computed<ChartOptions<'bar'>>(() => {
       </div>
 
       <template v-else-if="stats">
-        <p class="text-muted small mb-2">Réseau local uniquement · anonymisé (IP tronquée).</p>
+        <p class="text-muted small mb-2">Ouvertures de page anonymisées (IP tronquée) ; connexions attribuées à l'utilisateur.</p>
         <p v-if="period" class="text-muted small mb-3">Période : {{ period }}</p>
 
         <!-- KPIs -->
@@ -126,6 +126,15 @@ const chartOptions = computed<ChartOptions<'bar'>>(() => {
           <div style="height: 200px" class="mb-4">
             <Bar :data="chartData" :options="chartOptions" />
           </div>
+
+          <!-- Connexions par utilisateur -->
+          <h6 class="text-uppercase text-muted small fw-bold mb-2">Connexions par utilisateur</h6>
+          <ul class="list-unstyled small mb-4">
+            <li v-for="u in stats.users" :key="u.name" class="d-flex justify-content-between">
+              <span><i class="bi bi-person me-1"></i>{{ u.name }}</span><span class="text-muted">{{ u.count }}</span>
+            </li>
+            <li v-if="!stats.users.length" class="text-muted fst-italic">Aucune connexion enregistrée.</li>
+          </ul>
 
           <!-- Répartitions -->
           <div class="row g-3">

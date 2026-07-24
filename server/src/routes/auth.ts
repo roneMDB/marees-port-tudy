@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { Role, SESSION_COOKIE, signSession } from '../lib/session';
 import { authEnabled, requestUser, resolveUser } from '../middleware/auth';
+import { recordAccess } from '../middleware/accessLog';
 
 /** Durée du cookie « se souvenir de moi » : 30 jours. */
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -50,6 +51,8 @@ export function createAuthRouter(): Router {
         path: '/',
         ...(remember ? { maxAge: SESSION_TTL_MS } : {}) // sinon cookie de session
       });
+      // Journalise la connexion (attribuée à l'utilisateur) pour les statistiques d'accès.
+      recordAccess(req, undefined, resolved.login);
       res.json({ ok: true, role: resolved.role, mustChangePassword: resolved.mustChangePassword });
     } catch (err) {
       next(err);

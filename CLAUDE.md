@@ -112,8 +112,10 @@ Routes accès/stats (`src/routes/stats.ts` + `src/middleware/accessLog.ts`) :
 - `GET /api/stats` → agrégats d'accès (`lib/stats.ts` `aggregateAccess`), **réservé au rôle `admin`**
   (403 sinon). Le middleware `accessLog` journalise chaque **ouverture de page** (requête de document
   HTML, hors `/api`/assets) dans la table **`access_log`** de la base — anonymisé : IP **tronquée**
-  (`net.truncateIp`), pays via **`geoip-lite`** (hors-ligne), User-Agent. `readAccessEntries(db)` lit
-  la table ; `aggregateAccess` reste une fonction pure.
+  (`net.truncateIp`), pays via **`geoip-lite`** (hors-ligne), User-Agent, `login` **null**. En plus,
+  la route `POST /login` enregistre une entrée par **connexion réussie** avec le `login` de
+  l'utilisateur (`recordAccess(req, db, login)`) → `aggregateAccess` expose `users` (connexions **par
+  utilisateur**). `readAccessEntries(db)` lit la table ; `aggregateAccess` reste une fonction pure.
 
 Service `src/service/Maree.ts` (données uniquement, aucun rendu) :
 - `getTidesRange(from?, to?)` — filtre `[from, to]` **inclusif** ; sans bornes → tout le fichier.
@@ -131,8 +133,9 @@ ouverture + `PRAGMA journal_mode=WAL` + migrations via `PRAGMA user_version` ; `
 sur `DATA_DIR/marees.db` ; `openDb` crée le dossier parent ; `openDb(':memory:')` pour les tests),
 `tidesRepository.ts` (`getSiteData`/`replaceSiteData`/`countTides`), `usersRepository.ts`
 (CRUD `users` + `getOrCreateSessionSecret`), `bootstrap.ts` (`initStorage(logger?, db?)`,
-**async** : le seed admin hache un mot de passe). Schéma **v2** : tables `tides` (par site),
-`settings` (document JSON, ligne unique `id=1`), `access_log`, **`users`** (login unique
+**async** : le seed admin hache un mot de passe). Schéma **v3** : tables `tides` (par site),
+`settings` (document JSON, ligne unique `id=1`), `access_log` (dont colonne **`login`** nullable,
+v3), **`users`** (login unique
 `COLLATE NOCASE`, `password_hash` argon2id, `role`, `must_change_password`, timestamps) et
 **`app_secret`** (secret de session persisté, ligne unique). Migration additive par palier
 `if (version < N)`.

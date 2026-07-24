@@ -122,4 +122,12 @@ describe('routes auth — droits par rôle', () => {
     const ra = await request(app).get('/api/stats').set('Cookie', adminCookie);
     expect(ra.status).toBe(200);
   });
+
+  it('les connexions sont attribuées à l’utilisateur dans /api/stats', async () => {
+    const res = await request(app).get('/api/stats').set('Cookie', adminCookie);
+    const names = (res.body.users ?? []).map((u: { name: string }) => u.name);
+    // admin et marees se sont connectés (beforeAll + tests) → présents dans la répartition.
+    expect(names).toContain('admin');
+    expect(names).toContain('marees');
+  });
 });

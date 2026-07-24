@@ -5,7 +5,7 @@ describe('db migrations', () => {
   it('creates the schema and sets user_version to the current version', () => {
     const db = openDb(':memory:');
     const version = db.pragma('user_version', { simple: true });
-    expect(version).toBe(2);
+    expect(version).toBe(3);
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -17,6 +17,9 @@ describe('db migrations', () => {
     // v2 : gestion d'utilisateurs + secret de session persisté.
     expect(tables).toContain('users');
     expect(tables).toContain('app_secret');
+    // v3 : colonne `login` sur access_log (attribution des connexions).
+    const cols = db.prepare('PRAGMA table_info(access_log)').all().map((c: any) => c.name);
+    expect(cols).toContain('login');
     db.close();
   });
 
@@ -37,7 +40,7 @@ describe('db migrations', () => {
     const db = openDb(':memory:');
     migrate(db);
     migrate(db);
-    expect(db.pragma('user_version', { simple: true })).toBe(2);
+    expect(db.pragma('user_version', { simple: true })).toBe(3);
     // La table settings impose une ligne unique (id = 1).
     db.prepare("INSERT INTO settings (id, data) VALUES (1, '{}')").run();
     expect(() => db.prepare("INSERT INTO settings (id, data) VALUES (2, '{}')").run()).toThrow();
