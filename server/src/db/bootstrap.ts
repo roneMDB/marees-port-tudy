@@ -6,7 +6,10 @@ import { SITES } from '../config/sites';
 import { readTides } from '../lib/readTides';
 import { getDb, type DB } from './index';
 import { countTides, replaceSiteData } from './tidesRepository';
+import { getOrCreateSessionSecret } from './usersRepository';
 import { writeSettings, ensureSettings } from '../service/SettingsStore';
+import { ensureAdminUser } from '../service/UsersStore';
+import { authEnabled } from '../middleware/auth';
 
 /**
  * Prépare le stockage au démarrage : crée `DATA_DIR`, ouvre la base et l'amorce si vide.
@@ -15,10 +18,12 @@ import { writeSettings, ensureSettings } from '../service/SettingsStore';
  *   `DATA_DIR/<site>.json` s'il existe (déploiements antérieurs), sinon depuis la graine embarquée.
  * - **Réglages** : si la ligne de config est absente, importe `settings.json` legacy s'il existe,
  *   sinon écrit les défauts.
+ * - **Utilisateurs** : si l'authentification est active, génère le secret de session persisté et
+ *   amorce le premier administrateur (`ensureAdminUser`) si la table `users` est vide.
  *
  * Idempotent : ne réimporte rien si la base contient déjà les données.
  */
-export function initStorage(logger?: Logger, db: DB = getDb()): void {
+export async function initStorage(logger?: Logger, db: DB = getDb()): Promise<void> {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 
   for (const site of SITES) {
@@ -32,15 +37,22 @@ export function initStorage(logger?: Logger, db: DB = getDb()): void {
   const hasSettings = db.prepare('SELECT 1 FROM settings WHERE id = 1').get();
   if (!hasSettings) {
     const legacySettings = path.join(DATA_DIR, 'settings.json');
+    let imported = false;
     if (fs.existsSync(legacySettings)) {
       try {
         writeSettings(JSON.parse(fs.readFileSync(legacySettings, 'utf-8')), db);
         logger?.info('Réglages importés depuis settings.json (legacy)');
-        return;
+        imported = true;
       } catch {
         /* fichier illisible → défauts */
       }
     }
-    ensureSettings(db);
+    if (!imported) ensureSettings(db);
+  }
+
+  if (authEnabled()) {
+    getOrCreateSessionSecret(db); // secret stable, indépendant des mots de passe utilisateurs
+    await ensureAdminUser(db, new Date().toISOString());
+    logger?.info('Administrateur initial vérifié/amorcé');
   }
 }

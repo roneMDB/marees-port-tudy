@@ -3,7 +3,9 @@ import { computed, onMounted, watch } from 'vue';
 import Dashboard from './views/Dashboard.vue';
 import StatsPanel from './components/StatsPanel.vue';
 import TidesImportPanel from './components/TidesImportPanel.vue';
+import UsersPanel from './components/UsersPanel.vue';
 import LoginScreen from './components/LoginScreen.vue';
+import ForcePasswordChange from './components/ForcePasswordChange.vue';
 import { useTheme } from './composables/useTheme';
 import { useClock } from './composables/useClock';
 import { useSite } from './composables/useSite';
@@ -15,8 +17,11 @@ const { sites, siteId, load: loadSites } = useSite();
 
 // Authentification + rôle : la mire s'affiche tant qu'une connexion est requise et non satisfaite ;
 // les fonctions Réglages et Stats sont réservées au rôle admin (verrou serveur réel).
-const { authRequired, authenticated, isAdmin, checking, checkStatus, logout } = useAuth();
+const { authRequired, authenticated, isAdmin, user, mustChangePassword, checking, checkStatus, logout } = useAuth();
 const showApp = computed(() => !authRequired.value || authenticated.value);
+// Un compte marqué « doit changer son mot de passe » (ex. admin/admin amorcé) est bloqué sur
+// l'écran dédié tant qu'il ne l'a pas fait.
+const needsPasswordChange = computed(() => showApp.value && mustChangePassword.value);
 
 let appDataLoaded = false;
 function ensureAppData() {
@@ -44,6 +49,9 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
 
   <!-- Mire de connexion -->
   <LoginScreen v-else-if="!showApp" />
+
+  <!-- Changement de mot de passe obligatoire (ex. compte admin/admin amorcé) -->
+  <ForcePasswordChange v-else-if="needsPasswordChange" />
 
   <!-- Application -->
   <template v-else>
@@ -94,6 +102,11 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
                 </button>
               </li>
               <li>
+                <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#usersOffcanvas">
+                  <i class="bi bi-people me-2"></i>Utilisateurs
+                </button>
+              </li>
+              <li>
                 <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#settingsOffcanvas">
                   <i class="bi bi-sliders me-2"></i>Réglages &amp; filtres
                 </button>
@@ -130,6 +143,18 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
             type="button"
             class="btn btn-outline-light btn-sm d-none d-sm-inline-flex align-items-center"
             data-bs-toggle="offcanvas"
+            data-bs-target="#usersOffcanvas"
+            aria-controls="usersOffcanvas"
+            title="Utilisateurs"
+            aria-label="Utilisateurs"
+          >
+            <i class="bi bi-people"></i>
+          </button>
+          <button
+            v-if="isAdmin"
+            type="button"
+            class="btn btn-outline-light btn-sm d-none d-sm-inline-flex align-items-center"
+            data-bs-toggle="offcanvas"
             data-bs-target="#settingsOffcanvas"
             aria-controls="settingsOffcanvas"
             title="Réglages & filtres"
@@ -146,6 +171,9 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
           >
             <i :class="isDark ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill'"></i>
           </button>
+          <span v-if="authRequired && user" class="navbar-text text-white-50 small d-none d-md-inline">
+            <i class="bi bi-person-circle me-1"></i>{{ user.login }}
+          </span>
           <button
             v-if="authRequired"
             type="button"
@@ -166,6 +194,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
 
     <StatsPanel v-if="isAdmin" />
     <TidesImportPanel v-if="isAdmin" />
+    <UsersPanel v-if="isAdmin" />
   </template>
 </template>
 

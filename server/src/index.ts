@@ -14,12 +14,18 @@ const logger = pino({
   }
 });
 
-// Initialise le stockage (base SQLite dans DATA_DIR) : amorçage/migration d'un volume vide.
-initStorage(logger);
-
 const port = Number(process.env.PORT) || 3000;
-const app = createApp(logger);
 
-app.listen(port, () => {
-  logger.info(`API marées Port-Tudy à l'écoute sur http://localhost:${port}`);
-});
+// Initialise le stockage (base SQLite dans DATA_DIR) : amorçage/migration d'un volume vide,
+// secret de session et administrateur initial, avant de démarrer le serveur.
+initStorage(logger)
+  .then(() => {
+    const app = createApp(logger);
+    app.listen(port, () => {
+      logger.info(`API marées Port-Tudy à l'écoute sur http://localhost:${port}`);
+    });
+  })
+  .catch((err) => {
+    logger.error({ err }, 'Échec de l’initialisation du stockage');
+    process.exit(1);
+  });

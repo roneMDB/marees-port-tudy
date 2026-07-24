@@ -50,5 +50,20 @@ describe('aggregateAccess', () => {
     const s = aggregateAccess([]);
     expect(s).toMatchObject({ total: 0, lan: 0, external: 0, firstTs: null, lastTs: null });
     expect(s.perDay).toEqual([]);
+    expect(s.users).toEqual([]);
+  });
+
+  it('regroupe les connexions par utilisateur (login non nul ignoré si absent)', () => {
+    const withUsers: AccessEntry[] = [
+      { ts: '2026-07-20T08:00:00.000Z', scope: 'lan', ip: '', country: null, ua: CHROME, login: 'admin' },
+      { ts: '2026-07-20T09:00:00.000Z', scope: 'lan', ip: '', country: null, ua: CHROME, login: 'admin' },
+      { ts: '2026-07-20T10:00:00.000Z', scope: 'external', ip: '', country: 'FR', ua: IPHONE, login: 'bob' },
+      { ts: '2026-07-20T11:00:00.000Z', scope: 'lan', ip: '', country: null, ua: CHROME } // ouverture de page, sans login
+    ];
+    const s = aggregateAccess(withUsers);
+    expect(s.users).toEqual([
+      { name: 'admin', count: 2 },
+      { name: 'bob', count: 1 }
+    ]);
   });
 });

@@ -5,6 +5,7 @@ export interface AccessEntry {
   ip: string; // tronquée (anonymisée)
   country: string | null; // code pays (géoIP), null si local/inconnu
   ua: string; // User-Agent brut
+  login?: string | null; // utilisateur (connexions) ; null pour une ouverture de page anonyme
 }
 
 export interface Count {
@@ -23,6 +24,7 @@ export interface AccessStats {
   countries: Count[]; // décroissant
   browsers: Count[];
   devices: Count[];
+  users: Count[]; // connexions par utilisateur (login), décroissant
 }
 
 /** Classe un User-Agent en navigateur + type d'appareil (heuristique légère). */
@@ -76,6 +78,7 @@ export function aggregateAccess(entries: AccessEntry[]): AccessStats {
       .sort((a, b) => a.date.localeCompare(b.date)),
     countries: topCounts(sorted.map(e => e.country).filter((c): c is string => !!c)),
     browsers: topCounts(sorted.map(e => classifyUa(e.ua).browser)),
-    devices: topCounts(sorted.map(e => classifyUa(e.ua).device))
+    devices: topCounts(sorted.map(e => classifyUa(e.ua).device)),
+    users: topCounts(sorted.map(e => e.login).filter((l): l is string => !!l))
   };
 }

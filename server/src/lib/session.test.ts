@@ -13,37 +13,32 @@ describe('lib/session', () => {
     expect(SESSION_COOKIE).toBe('marees_session');
   });
 
-  it('porte et relit le rôle admin', () => {
-    const token = signSession('admin', 60_000, now);
-    expect(verifySession(token, now + 30_000)).toBe('admin');
-  });
-
-  it('porte et relit le rôle viewer', () => {
-    const token = signSession('viewer', 60_000, now);
-    expect(verifySession(token, now + 30_000)).toBe('viewer');
+  it('porte et relit l’identifiant utilisateur', () => {
+    const token = signSession(42, 60_000, now);
+    expect(verifySession(token, now + 30_000)).toBe(42);
   });
 
   it('refuse un jeton expiré', () => {
-    const token = signSession('admin', 60_000, now);
+    const token = signSession(1, 60_000, now);
     expect(verifySession(token, now + 60_001)).toBe(null);
   });
 
   it('refuse un jeton à la signature altérée', () => {
-    const token = signSession('admin', 60_000, now);
-    const [role, expiry] = token.split('.');
-    expect(verifySession(`${role}.${expiry}.deadbeef`, now)).toBe(null);
+    const token = signSession(1, 60_000, now);
+    const [id, expiry] = token.split('.');
+    expect(verifySession(`${id}.${expiry}.deadbeef`, now)).toBe(null);
   });
 
-  it('refuse un jeton dont le rôle a été modifié (viewer → admin) sans re-signature', () => {
-    const token = signSession('viewer', 60_000, now);
+  it('refuse un jeton dont l’identifiant a été modifié sans re-signature', () => {
+    const token = signSession(1, 60_000, now);
     const [, expiry, sig] = token.split('.');
-    expect(verifySession(`admin.${expiry}.${sig}`, now)).toBe(null);
+    expect(verifySession(`2.${expiry}.${sig}`, now)).toBe(null);
   });
 
-  it('refuse un rôle inconnu même correctement signé', () => {
+  it('refuse un identifiant non numérique même correctement signé', () => {
     const expiry = String(now + 60_000);
-    const sig = createHmac('sha256', 'test-secret').update(`root.${expiry}`).digest('base64url');
-    expect(verifySession(`root.${expiry}.${sig}`, now)).toBe(null);
+    const sig = createHmac('sha256', 'test-secret').update(`abc.${expiry}`).digest('base64url');
+    expect(verifySession(`abc.${expiry}.${sig}`, now)).toBe(null);
   });
 
   it('refuse un jeton malformé, absent ou à l’ancien format', () => {

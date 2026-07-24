@@ -22,7 +22,7 @@ describe('initStorage', () => {
     const { readSettings, DEFAULT_SETTINGS } = await import('../service/SettingsStore');
 
     const db = openDb(':memory:');
-    initStorage(undefined, db);
+    await initStorage(undefined, db);
     expect(countTides(db, 'port-tudy')).toBeGreaterThan(0);
     expect(countTides(db, 'etel')).toBeGreaterThan(0);
     expect(readSettings(db)).toEqual(DEFAULT_SETTINGS);
@@ -36,7 +36,7 @@ describe('initStorage', () => {
 
     fs.writeFileSync(path.join(dataDir, 'settings.json'), JSON.stringify({ rangeDays: 12 }));
     const db = openDb(':memory:');
-    initStorage(undefined, db);
+    await initStorage(undefined, db);
     expect(readSettings(db).rangeDays).toBe(12);
     db.close();
   });
@@ -47,9 +47,9 @@ describe('initStorage', () => {
     const { countTides } = await import('./tidesRepository');
 
     const db = openDb(':memory:');
-    initStorage(undefined, db);
+    await initStorage(undefined, db);
     const before = countTides(db);
-    initStorage(undefined, db);
+    await initStorage(undefined, db);
     expect(countTides(db)).toBe(before);
     db.close();
   });

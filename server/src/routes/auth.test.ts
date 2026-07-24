@@ -5,10 +5,9 @@ import os from 'os';
 import path from 'path';
 import type { Application } from 'express';
 
+// Auth activée via ADMIN_* : l'admin initial est amorcé par initStorage. Un lecteur est créé via l'API.
 const dataDir = path.join(os.tmpdir(), `marees-auth-test-${process.pid}`);
 process.env.DATA_DIR = dataDir;
-process.env.APP_USER = 'marees';
-process.env.APP_PASSWORD = 's3cret';
 process.env.ADMIN_USER = 'admin';
 process.env.ADMIN_PASSWORD = 'adm1n';
 
@@ -19,32 +18,32 @@ let app: Application;
 let viewerCookie: string;
 let adminCookie: string;
 
-async function login(user: string, password: string) {
-  return request(app).post('/api/login').send({ user, password });
+async function login(user: string, password: string, remember?: boolean) {
+  return request(app).post('/api/login').send({ user, password, remember });
 }
 
 beforeAll(async () => {
   const { initStorage } = await import('../db/bootstrap');
   const { createApp } = await import('../app');
-  initStorage();
+  await initStorage();
   app = createApp(fakeLogger);
-  viewerCookie = (await login('marees', 's3cret')).headers['set-cookie'][0];
   adminCookie = (await login('admin', 'adm1n')).headers['set-cookie'][0];
+  await request(app).post('/api/users').set('Cookie', adminCookie)
+    .send({ login: 'marees', password: 'lecteurpass' });
+  viewerCookie = (await login('marees', 'lecteurpass')).headers['set-cookie'][0];
 });
 
 afterAll(() => {
   fs.rmSync(dataDir, { recursive: true, force: true });
-  delete process.env.APP_USER;
-  delete process.env.APP_PASSWORD;
   delete process.env.ADMIN_USER;
   delete process.env.ADMIN_PASSWORD;
 });
 
 describe('routes auth — connexion & rôle', () => {
-  it('GET /api/auth/status : authRequired, non authentifié, rôle null sans cookie', async () => {
+  it('GET /api/auth/status : authRequired, non authentifié, sans cookie', async () => {
     const res = await request(app).get('/api/auth/status');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ authRequired: true, authenticated: false, role: null });
+    expect(res.body).toEqual({ authRequired: true, authenticated: false, role: null, user: null });
   });
 
   it('POST /api/login refuse de mauvais identifiants (401, pas de cookie)', async () => {
@@ -53,16 +52,10 @@ describe('routes auth — connexion & rôle', () => {
     expect(res.headers['set-cookie']).toBeUndefined();
   });
 
-  it('login viewer → rôle viewer + cookie de session (déjà obtenu en beforeAll)', () => {
+  it('login lecteur → cookie de session (déjà obtenu en beforeAll)', () => {
     expect(viewerCookie).toMatch(/marees_session=/);
     expect(viewerCookie).toMatch(/HttpOnly/i);
     expect(viewerCookie).not.toMatch(/Max-Age|Expires/i); // pas de « se souvenir » → cookie de session
-  });
-
-  it('login viewer renvoie le rôle viewer dans le corps', async () => {
-    const res = await login('marees', 's3cret');
-    expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ ok: true, role: 'viewer' });
   });
 
   it('login admin renvoie le rôle admin', async () => {
@@ -72,7 +65,7 @@ describe('routes auth — connexion & rôle', () => {
   });
 
   it('login avec remember pose un cookie persistant (Max-Age)', async () => {
-    const res = await request(app).post('/api/login').send({ user: 'marees', password: 's3cret', remember: true });
+    const res = await login('marees', 'lecteurpass', true);
     const cookie = (res.headers['set-cookie'] || [])[0] || '';
     expect(cookie).toMatch(/Max-Age=\d+/i);
   });
@@ -80,7 +73,7 @@ describe('routes auth — connexion & rôle', () => {
   it('force le flag Secure quand COOKIE_SECURE=true (même en HTTP)', async () => {
     process.env.COOKIE_SECURE = 'true';
     try {
-      const res = await login('marees', 's3cret');
+      const res = await login('marees', 'lecteurpass');
       const cookie = (res.headers['set-cookie'] || [])[0] || '';
       expect(cookie).toMatch(/Secure/i);
     } finally {
@@ -88,17 +81,19 @@ describe('routes auth — connexion & rôle', () => {
     }
   });
 
-  it('le cookie viewer ouvre les routes de lecture', async () => {
+  it('le cookie lecteur ouvre les routes de lecture', async () => {
     const res = await request(app).get('/api/tides/meta').set('Cookie', viewerCookie);
     expect(res.status).toBe(200);
   });
 
-  it('GET /api/auth/status renvoie le rôle avec le cookie', async () => {
+  it('GET /api/auth/status renvoie le rôle et l’utilisateur avec le cookie', async () => {
     const rv = await request(app).get('/api/auth/status').set('Cookie', viewerCookie);
-    expect(rv.body).toEqual({ authRequired: true, authenticated: true, role: 'viewer' });
+    expect(rv.body).toMatchObject({ authRequired: true, authenticated: true, role: 'viewer' });
+    expect(rv.body.user).toMatchObject({ login: 'marees', mustChangePassword: false });
 
     const ra = await request(app).get('/api/auth/status').set('Cookie', adminCookie);
-    expect(ra.body).toEqual({ authRequired: true, authenticated: true, role: 'admin' });
+    expect(ra.body).toMatchObject({ authRequired: true, authenticated: true, role: 'admin' });
+    expect(ra.body.user).toMatchObject({ login: 'admin' });
   });
 
   it('POST /api/logout efface le cookie', async () => {
@@ -111,7 +106,7 @@ describe('routes auth — connexion & rôle', () => {
 });
 
 describe('routes auth — droits par rôle', () => {
-  it('PUT /api/settings : 403 en viewer, 200 en admin', async () => {
+  it('PUT /api/settings : 403 en lecteur, 200 en admin', async () => {
     const rv = await request(app).put('/api/settings').set('Cookie', viewerCookie).send({ rangeDays: 12 });
     expect(rv.status).toBe(403);
 
@@ -120,11 +115,19 @@ describe('routes auth — droits par rôle', () => {
     expect(ra.body).toMatchObject({ rangeDays: 12 });
   });
 
-  it('GET /api/stats : 403 en viewer, 200 en admin', async () => {
+  it('GET /api/stats : 403 en lecteur, 200 en admin', async () => {
     const rv = await request(app).get('/api/stats').set('Cookie', viewerCookie);
     expect(rv.status).toBe(403);
 
     const ra = await request(app).get('/api/stats').set('Cookie', adminCookie);
     expect(ra.status).toBe(200);
+  });
+
+  it('les connexions sont attribuées à l’utilisateur dans /api/stats', async () => {
+    const res = await request(app).get('/api/stats').set('Cookie', adminCookie);
+    const names = (res.body.users ?? []).map((u: { name: string }) => u.name);
+    // admin et marees se sont connectés (beforeAll + tests) → présents dans la répartition.
+    expect(names).toContain('admin');
+    expect(names).toContain('marees');
   });
 });

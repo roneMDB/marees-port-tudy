@@ -4,12 +4,15 @@ import { ref } from 'vue';
 
 // Rôle pilotable pour vérifier le gating des fonctions admin.
 const isAdmin = ref(false);
+const mustChangePassword = ref(false);
 
 vi.mock('./composables/useAuth', () => ({
   useAuth: () => ({
     authRequired: ref(true),
     authenticated: ref(true),
     isAdmin,
+    user: ref({ id: 1, login: 'admin', mustChangePassword: false }),
+    mustChangePassword,
     checking: ref(false),
     checkStatus: vi.fn().mockResolvedValue(undefined),
     logout: vi.fn()
@@ -25,32 +28,47 @@ import App from './App.vue';
 
 function mountApp() {
   return mount(App, {
-    global: { stubs: { Dashboard: true, StatsPanel: true, LoginScreen: true } }
+    global: { stubs: { Dashboard: true, StatsPanel: true, TidesImportPanel: true, UsersPanel: true, LoginScreen: true, ForcePasswordChange: true } }
   });
 }
 
 const SETTINGS_BTN = '[aria-label="Réglages & filtres"]';
 const STATS_BTN = '[aria-label="Statistiques d\'accès"]';
+const USERS_BTN = '[aria-label="Utilisateurs"]';
 
 describe('App — gating des fonctions admin', () => {
   afterEach(() => {
     isAdmin.value = false;
+    mustChangePassword.value = false;
   });
 
-  it('masque Réglages & Stats pour un viewer', async () => {
+  it('masque Réglages, Stats & Utilisateurs pour un lecteur', async () => {
     isAdmin.value = false;
     const wrapper = mountApp();
     await flushPromises();
     expect(wrapper.find(SETTINGS_BTN).exists()).toBe(false);
     expect(wrapper.find(STATS_BTN).exists()).toBe(false);
+    expect(wrapper.find(USERS_BTN).exists()).toBe(false);
     expect(wrapper.findComponent({ name: 'StatsPanel' }).exists()).toBe(false);
+    expect(wrapper.findComponent({ name: 'UsersPanel' }).exists()).toBe(false);
   });
 
-  it('affiche Réglages & Stats pour un admin', async () => {
+  it('affiche Réglages, Stats & Utilisateurs pour un admin', async () => {
     isAdmin.value = true;
     const wrapper = mountApp();
     await flushPromises();
     expect(wrapper.find(SETTINGS_BTN).exists()).toBe(true);
     expect(wrapper.find(STATS_BTN).exists()).toBe(true);
+    expect(wrapper.find(USERS_BTN).exists()).toBe(true);
+    expect(wrapper.findComponent({ name: 'UsersPanel' }).exists()).toBe(true);
+  });
+
+  it('affiche l’écran de changement de mot de passe forcé', async () => {
+    mustChangePassword.value = true;
+    const wrapper = mountApp();
+    await flushPromises();
+    expect(wrapper.findComponent({ name: 'ForcePasswordChange' }).exists()).toBe(true);
+    // Le dashboard n'est pas monté tant que le changement n'est pas fait.
+    expect(wrapper.findComponent({ name: 'Dashboard' }).exists()).toBe(false);
   });
 });

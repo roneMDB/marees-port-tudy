@@ -1,21 +1,40 @@
 /** Rôles applicatifs (miroir du contrat REST serveur). */
 export type Role = 'viewer' | 'admin';
 
+/** Identité minimale de l'utilisateur connecté (exposée par `/api/auth/status`). */
+export interface AuthUser {
+  id: number;
+  login: string;
+  mustChangePassword: boolean;
+}
+
 export interface AuthStatus {
   authRequired: boolean;
   authenticated: boolean;
   role: Role | null;
+  user: AuthUser | null;
 }
 
-/** GET /api/auth/status — l'app doit-elle afficher la mire ? déjà authentifié ? quel rôle ? */
+export interface LoginResult {
+  role: Role | null;
+  mustChangePassword: boolean;
+}
+
+/** GET /api/auth/status — l'app doit-elle afficher la mire ? déjà authentifié ? quel rôle/utilisateur ? */
 export async function getAuthStatus(): Promise<AuthStatus> {
   const res = await fetch('/api/auth/status', { credentials: 'same-origin' });
   if (!res.ok) throw new Error(`Erreur ${res.status}`);
-  return res.json() as Promise<AuthStatus>;
+  const body = (await res.json()) as Partial<AuthStatus>;
+  return {
+    authRequired: !!body.authRequired,
+    authenticated: !!body.authenticated,
+    role: body.role ?? null,
+    user: body.user ?? null
+  };
 }
 
-/** POST /api/login — pose le cookie de session ; renvoie le rôle obtenu (`viewer`/`admin`). */
-export async function postLogin(user: string, password: string, remember: boolean): Promise<Role | null> {
+/** POST /api/login — pose le cookie de session ; renvoie le rôle obtenu et le changement forcé. */
+export async function postLogin(user: string, password: string, remember: boolean): Promise<LoginResult> {
   const res = await fetch('/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -31,7 +50,7 @@ export async function postLogin(user: string, password: string, remember: boolea
     throw new Error(message);
   }
   const body = await res.json().catch(() => ({}));
-  return (body?.role as Role) ?? null;
+  return { role: (body?.role as Role) ?? null, mustChangePassword: !!body?.mustChangePassword };
 }
 
 /** POST /api/logout — efface le cookie de session. */
