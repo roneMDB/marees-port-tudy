@@ -1,4 +1,4 @@
-import { DEFAULT_OFFSETS } from '../lib/navihan';
+import { DEFAULT_AFLOT_THRESHOLD, DEFAULT_OFFSETS } from '../lib/navihan';
 import { useSettings } from './useSettings';
 
 /**
@@ -12,6 +12,7 @@ export function useNavihan() {
     settings.navihan.basseMer = DEFAULT_OFFSETS.basseMer;
     settings.navihan.pleineMer = DEFAULT_OFFSETS.pleineMer;
     settings.navihan.aFlot = DEFAULT_OFFSETS.aFlot;
+    settings.aFlotThreshold = DEFAULT_AFLOT_THRESHOLD;
   }
 
   return { offsets: settings.navihan, reset };

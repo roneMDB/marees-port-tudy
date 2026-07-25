@@ -113,6 +113,19 @@ Routes users (`src/routes/users.ts`, issue #9) :
 - `PUT /api/users/me/password` `{ currentPassword, newPassword }` → **tout utilisateur authentifié**
   (403 si l'actuel est faux) ; efface l'indicateur `must_change_password`.
 
+Routes remise à flot constatée (`src/routes/aflotObservations.ts`, issue #4) :
+- `GET /api/aflot-observations` → liste `{ date, time, observed }` (lecture, ouverte comme `/tides`).
+- `PUT /api/aflot-observations` `{ date, time, observed }` → upsert (**rôle `admin`**, 403 sinon ;
+  400 si `date`/`time`/`observed` invalides). `date`/`time` = basse mer **Port-Tudy** ; `observed` = HH:MM.
+- `DELETE /api/aflot-observations` `{ date, time }` → supprime (**admin**, 204). Repository
+  `db/aflotObservationsRepository.ts`.
+
+Routes lexique du « mot du jour » (`src/routes/lexicon.ts`, issue #4 suite) :
+- `GET /api/lexicon` → lexique ordonné `{ id, term, definition, type }` (lecture ouverte).
+- `POST /api/lexicon` `{ term, definition, type }` → ajoute (**admin**, 201 ; id slug généré ; 400 invalide).
+- `PUT /api/lexicon/:id` / `DELETE /api/lexicon/:id` → met à jour / supprime (**admin**, 404 si absent).
+- `POST /api/lexicon/reset` → rétablit les termes par défaut depuis `service/lexiconSeed.ts` (**admin**).
+
 Routes accès/stats (`src/routes/stats.ts` + `src/middleware/accessLog.ts`) :
 - `GET /api/stats` → agrégats d'accès (`lib/stats.ts` `aggregateAccess`), **réservé au rôle `admin`**
   (403 sinon). Le middleware `accessLog` journalise chaque **ouverture de page** (requête de document
@@ -137,13 +150,20 @@ isolée pour un volume Docker. La couche DB est dans `src/db/` : `index.ts` (`op
 ouverture + `PRAGMA journal_mode=WAL` + migrations via `PRAGMA user_version` ; `getDb()` singleton
 sur `DATA_DIR/marees.db` ; `openDb` crée le dossier parent ; `openDb(':memory:')` pour les tests),
 `tidesRepository.ts` (`getSiteData`/`replaceSiteData`/`countTides`), `usersRepository.ts`
-(CRUD `users` + `getOrCreateSessionSecret`), `bootstrap.ts` (`initStorage(logger?, db?)`,
-**async** : le seed admin hache un mot de passe). Schéma **v3** : tables `tides` (par site),
+(CRUD `users` + `getOrCreateSessionSecret`), `aflotObservationsRepository.ts`
+(`getObservations`/`upsertObservation`/`deleteObservation`), `lexiconRepository.ts`
+(`getLexicon`/`addEntry`/`updateEntry`/`deleteEntry`/`resetLexicon`/`seedLexiconIfEmpty`),
+`bootstrap.ts` (`initStorage(logger?, db?)`,
+**async** : le seed admin hache un mot de passe ; amorce aussi le lexique via `seedLexiconIfEmpty`).
+Schéma **v5** : tables `tides` (par site),
 `settings` (document JSON, ligne unique `id=1`), `access_log` (dont colonne **`login`** nullable,
 v3), **`users`** (login unique
-`COLLATE NOCASE`, `password_hash` argon2id, `role`, `must_change_password`, timestamps) et
-**`app_secret`** (secret de session persisté, ligne unique). Migration additive par palier
-`if (version < N)`.
+`COLLATE NOCASE`, `password_hash` argon2id, `role`, `must_change_password`, timestamps),
+**`app_secret`** (secret de session persisté, ligne unique), **`aflot_observations`** (v4, issue #4 :
+heures de remise à flot **constatées** — clé primaire `(date, time)` de la basse mer Port-Tudy,
+colonne `observed`) et **`lexicon`** (v5 : lexique éditable du « mot du jour » — `id`, `term`,
+`definition`, `type` marée/pêche, `sort_order` ; amorcé depuis `service/lexiconSeed.ts`). Migration
+additive par palier `if (version < N)`.
 
 **Amorçage/migration** : `initStorage()` (appelé au boot par `src/index.ts`, remplace les anciens
 `ensureDataDir`/`ensureSettingsFile`) crée `DATA_DIR`, ouvre la base et l'amorce **si vide** — par
@@ -154,9 +174,11 @@ défauts ; **utilisateurs** (si auth active) : génère le secret de session et 
 (`ensureAdminUser`) si la table `users` est vide. Idempotent.
 
 **Config** (`src/service/SettingsStore.ts`) : type `Settings` (`startMode`/`startDate`/`rangeDays`,
-`navihan` en minutes, `aFlotDays`, `coefDays` = durée du graphe coef (défaut 20, 1–90),
-`weatherLinks` = liens météo éditables `{ label, url }`, défauts
-`DEFAULT_WEATHER_LINKS`), `DEFAULT_SETTINGS`, `sanitizeSettings` (validation/bornage ; les
+`navihan` en minutes (basse/pleine mer ; `aFlot` déprécié), `aFlotThreshold` = **seuil de remise à
+flot** en m (défaut 2,8, 0–10, modèle issue #4), `aFlotDays`, `coefDays` = durée du graphe coef
+(défaut 20, 1–90), `weatherLinks` = liens météo éditables `{ label, url }`, défauts
+`DEFAULT_WEATHER_LINKS`), `DEFAULT_SETTINGS`, `sanitizeSettings` (validation/bornage — `clampFloat`
+pour le seuil, sans arrondi ; les
 `weatherLinks` invalides — libellé vide ou URL non http(s) — sont écartés, liste plafonnée à 12 ;
 tableau absent → défauts, tableau vide explicite conservé), `readSettings`/`writeSettings`/
 `ensureSettings` (lignes `settings` de la base ; paramètre `db` injectable pour la testabilité).
@@ -206,16 +228,27 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   depuis le début configuré ; `coefDaysView` est **éphémère** (init sur `settings.coefDays`, suit le
   réglage, modifiable en session via `setCoefDaysView` sans persister).
 - `src/composables/useNavihan.ts` + `src/lib/navihan.ts` — décalages Navihan **éditables** (basse
-  mer / pleine mer / à flot indépendants, en minutes) ; `useNavihan` est désormais **adossé à
+  mer / pleine mer indépendants, en minutes) ; `useNavihan` est désormais **adossé à
   `useSettings` (`settings.navihan`)** — persisté **côté serveur** (plus de localStorage).
   `useTides` (via `windowedTides`) **recalcule** `navihan` via `computeNavihan(t, settings.navihan)`,
-  donc tableau/cartes/graphiques se mettent à jour en direct. UI : `components/NavihanSettings.vue`
-  (panneau repliable, saisie h+min, + champ **`aFlotDays`**). Fonctions pures testées dans
-  `lib/navihan.test.ts`.
+  donc tableau/cartes/graphiques se mettent à jour en direct. La remise à flot d'une basse mer se
+  décline en **trois valeurs** (issue #4) : **« Remise à flot »** = décalage **fixe** historique
+  (`navihan['A flot']`, `settings.navihan.aFlot`, défaut 2h40) ; **« Estimation »** (`aflotEstimate`) =
+  **modèle de seuil de hauteur** — instant où la courbe montante (interpolation cosinus) atteint
+  `settings.aFlotThreshold` (m, défaut **2,8**, `DEFAULT_AFLOT_THRESHOLD`), donc délai qui **varie avec
+  le coefficient** (cf. `docs/superpowers/specs/2026-07-24-navihan-coefficient-design.md`) ;
+  **« Constaté »** (`aflotObserved`) = heure **réellement saisie** (persistée serveur, cf. table
+  `aflot_observations`). Fonctions pures testées : `inverseCosineRising`/`navihanAflotByThreshold`
+  (`lib/maregram.ts`), `aflotTimeByThreshold`/`aflotEvents`/`nextAflot` (`lib/navihan.ts`) — toujours
+  sur les hauteurs / basses mers **Port-Tudy** (`allTides`, `refDate`/`refTime`), même pour un port
+  secondaire. `src/composables/useAflotObservations.ts` (singleton : map `date+heure Port-Tudy →
+  constaté`, `load`/`get`/`save`/`remove` via `api/aflotObservations.ts`) alimente `aflotObserved` et
+  la saisie du tableau. `lib/navihan.test.ts`.
 - `components/SettingsPanel.vue` — **un seul panneau repliable « Réglages & filtres »** (props
   `filters` + `meta`, émet `reset`) regroupant 4 sections : **Période** (config : `startMode`
-  `today`/`date` + `startDate` + `rangeDays` + `coefDays`), **Décalages Navihan** (config : 3 offsets + `aFlotDays`,
-  bouton défauts), **Liens météo** (config : liste éditable `settings.weatherLinks` — libellé + URL,
+  `today`/`date` + `startDate` + `rangeDays` + `coefDays`), **Décalages Navihan** (config : basse/pleine
+  mer en minutes + **seuil de remise à flot** `aFlotThreshold` en m + `aFlotDays`, bouton défauts),
+  **Liens météo** (config : liste éditable `settings.weatherLinks` — libellé + URL,
   ajout/suppression, bouton défauts), **Filtres d'affichage** (éphémères : `Type`, `Coef min`, reset).
   Remplace les anciens `TideFilters.vue` / `NavihanSettings.vue`. **Bouton + panneau masqués si le
   rôle n'est pas `admin`** (`useAuth().isAdmin`) : on ne montre pas des réglages non modifiables.
@@ -236,6 +269,15 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   `api/users.ts` (`listUsers`/`createUser`/`updateUser`/`deleteUser`/`changeMyPassword`, sur
   `fetchJson`). Bouton navbar admin-only (menu ⋮ mobile + desktop). Le login courant s'affiche dans
   la navbar (`useAuth().user`).
+- **Mot du jour** (`components/MotDuJourCard.vue`, `lib/lexique.ts`, `composables/useLexicon.ts`,
+  issue #4 suite) — carte du Dashboard affichant un terme + définition. `noteOfTheDay(ctx, lexicon)`
+  (pure, testée) **privilégie un terme de marée quand la marée du jour est marquante** (bande de coef
+  grande-maree/vive-eau/morte-eau, ou tendance revif/déchet) ; sinon rotation déterministe **surtout
+  pêche**, 1 jour sur 3 un terme marée. Chaque entrée est typée **`maree`/`peche`** (badge + icône).
+  Le lexique est **persisté en base** (table `lexicon`, servie par `useLexicon` → `api/lexicon.ts`,
+  fallback embarqué `LEXIQUE` hors-ligne). `components/LexiconPanel.vue` — **panneau « Lexique du mot
+  du jour »** (offcanvas, **admin-only**) : ajout / édition inline / suppression + « Rétablir les
+  défauts » ; bouton navbar admin-only.
 - `components/ForcePasswordChange.vue` — écran **bloquant** de changement de mot de passe, affiché par
   `App.vue` quand `useAuth().mustChangePassword` (ex. compte `admin`/`admin` amorcé) : appelle
   `changeMyPassword` puis réhydrate le statut. `useAuth` expose désormais `user` et `mustChangePassword`.
@@ -257,12 +299,16 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   Labels x sur deux lignes (date + heure). Données du Dashboard (`HeightChart` = `allTides` ;
   `CoefChart` = `coefTides`).
 - Tableau `TideDayTable.vue` — **une ligne par jour** (`lib/tides.groupByDay`, pure/testée).
-  Colonnes = **Jour · Coef · Pleines mers · Basses mers · Remise à flot**. Chaque cellule
+  Colonnes = **Jour · Coef · Pleines mers · Basses mers · Navihan · Constaté**. Chaque cellule
   Pleines/Basses mers liste les marées du **port sélectionné** en `HH:MM · 🌊 h,hh m` (heure +
   hauteur d'eau inline, icône `bi-water` + légende) ; le **Coef** du jour = max des coef des pleines
-  mers (Port-Tudy) ; **« Remise à flot »** = heures Navihan (dérivées Port-Tudy) des basses mers,
-  en **pastilles teal** (`info-subtle`, thèmes clair/sombre). Explication de « Remise à flot » en
-  **infobulle** sur l'en-tête de colonne. Responsive : pile de cartes sur mobile (`.tide-day-table`
+  mers (Port-Tudy). La colonne **Navihan** (dérivée Port-Tudy) affiche des **pastilles triées par
+  heure**, une par **type affichable** (`useNavihanDisplay`, 5 types masquables via la légende
+  cliquable, persistés localStorage) : basse mer (↓), **Remise à flot** fixe (✓ vert),
+  **Estimation** seuil (↗ cyan), **Constaté** (violet) et pleine mer (↑). La colonne **Constaté**
+  (masquable via le type `flotObs`) porte la **saisie** de l'heure réelle par basse mer :
+  `<input type="time">` **si `useAuth().isAdmin`** (→ `useAflotObservations.save`/`remove`), sinon
+  pastille/lecture. Responsive : pile de cartes sur mobile (`.tide-day-table`
   + `data-label`, cf. `assets/app.css`). Repère « aujourd'hui »,
   `table-responsive` (défilement horizontal mobile). Purement présentationnel : il rend la période
   qu'on lui passe (`tableTides`) ; la **navigation Précédent/Suivant/Début** (par période, cf.

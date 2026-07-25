@@ -4,6 +4,7 @@ import Dashboard from './views/Dashboard.vue';
 import StatsPanel from './components/StatsPanel.vue';
 import TidesImportPanel from './components/TidesImportPanel.vue';
 import UsersPanel from './components/UsersPanel.vue';
+import LexiconPanel from './components/LexiconPanel.vue';
 import LoginScreen from './components/LoginScreen.vue';
 import ForcePasswordChange from './components/ForcePasswordChange.vue';
 import { useTheme } from './composables/useTheme';
@@ -107,6 +108,11 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
                 </button>
               </li>
               <li>
+                <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#lexiconOffcanvas">
+                  <i class="bi bi-book me-2"></i>Lexique du mot du jour
+                </button>
+              </li>
+              <li>
                 <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#settingsOffcanvas">
                   <i class="bi bi-sliders me-2"></i>Réglages &amp; filtres
                 </button>
@@ -149,6 +155,18 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
             aria-label="Utilisateurs"
           >
             <i class="bi bi-people"></i>
+          </button>
+          <button
+            v-if="isAdmin"
+            type="button"
+            class="btn btn-outline-light btn-sm d-none d-sm-inline-flex align-items-center"
+            data-bs-toggle="offcanvas"
+            data-bs-target="#lexiconOffcanvas"
+            aria-controls="lexiconOffcanvas"
+            title="Lexique du mot du jour"
+            aria-label="Lexique du mot du jour"
+          >
+            <i class="bi bi-book"></i>
           </button>
           <button
             v-if="isAdmin"
@@ -199,6 +217,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
     <StatsPanel v-if="isAdmin" />
     <TidesImportPanel v-if="isAdmin" />
     <UsersPanel v-if="isAdmin" />
+    <LexiconPanel v-if="isAdmin" />
   </template>
 </template>
 

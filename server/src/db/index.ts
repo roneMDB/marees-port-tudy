@@ -6,7 +6,7 @@ import { DATA_DIR } from '../config/dataDir';
 export type DB = Database.Database;
 
 /** Version courante du schéma (incrémentée à chaque migration). */
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 5;
 
 /** Chemin du fichier SQLite runtime (dans le volume `DATA_DIR`). */
 export function dbPath(): string {
@@ -18,6 +18,8 @@ export function dbPath(): string {
  * v1 : tables `tides`, `settings`, `access_log`.
  * v2 : gestion d'utilisateurs (`users`) + secret de session persisté (`app_secret`).
  * v3 : colonne `login` sur `access_log` (attribution des connexions à un utilisateur).
+ * v4 : table `aflot_observations` (heures de remise à flot réellement constatées, issue #4).
+ * v5 : table `lexicon` (mot du jour éditable en base, issue #4 suite).
  */
 export function migrate(db: DB): void {
   const version = db.pragma('user_version', { simple: true }) as number;
@@ -76,6 +78,30 @@ export function migrate(db: DB): void {
     if (!cols.some(c => c.name === 'login')) {
       db.exec('ALTER TABLE access_log ADD COLUMN login TEXT;');
     }
+  }
+  if (version < 4) {
+    // Heures de remise à flot **constatées** (issue #4) : une par basse mer Port-Tudy (date + heure).
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS aflot_observations (
+        date TEXT NOT NULL,
+        time TEXT NOT NULL,
+        observed TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (date, time)
+      );
+    `);
+  }
+  if (version < 5) {
+    // Lexique éditable du « mot du jour » (issue #4 suite). `sort_order` = ordre d'affichage/rotation.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS lexicon (
+        id TEXT PRIMARY KEY,
+        term TEXT NOT NULL,
+        definition TEXT NOT NULL,
+        type TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0
+      );
+    `);
   }
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

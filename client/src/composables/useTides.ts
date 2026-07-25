@@ -2,10 +2,11 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { getMeta, getTides } from '../api/tides';
 import { filterTides, flatten, matchNavihanReference, periodWindow, resolveWindow } from '../lib/tides';
 import { addDays } from '../lib/format';
-import { computeNavihan } from '../lib/navihan';
+import { aflotTimeByThreshold, computeNavihan } from '../lib/navihan';
 import { useSettings } from './useSettings';
 import { useSite } from './useSite';
 import { useDataRefresh } from './useDataRefresh';
+import { useAflotObservations } from './useAflotObservations';
 import type { FlatTide, TideDisplayFilters, TidesMeta } from '../types';
 
 /**
@@ -27,6 +28,7 @@ export function useTides() {
   const { settings, load: loadSettings } = useSettings();
   const { siteId, isReference, load: loadSites } = useSite();
   const { token: refreshToken } = useDataRefresh();
+  const { get: observedFor, load: loadObservations } = useAflotObservations();
 
   // Filtres éphémères (non persistés).
   const filters = reactive<TideDisplayFilters>({ type: 'all', minCoef: null });
@@ -43,16 +45,45 @@ export function useTides() {
   // (`refTime`) pour le Navihan. Pour le port de référence, `refTime` = sa propre heure.
   const rows = computed<FlatTide[]>(() =>
     isReference.value
-      ? allTides.value.map(t => ({ ...t, refTime: t.time }))
+      ? allTides.value.map(t => ({ ...t, refTime: t.time, refDate: t.date }))
       : matchNavihanReference(siteTides.value, allTides.value)
   );
 
-  // Filtrage (fenêtre + filtres éphémères) + calcul Navihan depuis l'heure Port-Tudy appariée.
+  // Retrouve la basse mer **Port-Tudy** correspondant à une heure de référence (`refTime`), la plus
+  // proche en date — nécessaire pour dériver la remise à flot d'un port secondaire sur les hauteurs
+  // de Port-Tudy (jamais celles du port sélectionné).
+  function resolvePortTudyLow(date: string, refTime: string): FlatTide | undefined {
+    const target = new Date(`${date}T${refTime}:00`).getTime();
+    return allTides.value
+      .filter(e => e.type === 'low' && e.time === refTime)
+      .map(e => ({ e, d: Math.abs(new Date(`${e.date}T${e.time}:00`).getTime() - target) }))
+      .sort((a, b) => a.d - b.d)[0]?.e;
+  }
+
+  // Remise à flot (« A flot ») d'une basse mer par **modèle seuil de hauteur** (issue #4), toujours
+  // calculée sur la courbe **Port-Tudy** (`allTides`). Pour la référence, la ligne est déjà la basse
+  // Port-Tudy ; sinon on retrouve la basse Port-Tudy appariée via `refTime`.
+  function aflotFor(t: FlatTide): string | null {
+    if (!t.refTime) return null;
+    const low = isReference.value ? t : resolvePortTudyLow(t.date, t.refTime);
+    return low ? aflotTimeByThreshold(allTides.value, low, settings.navihan, settings.aFlotThreshold) : null;
+  }
+
+  // Filtrage (fenêtre + filtres éphémères) + Navihan. Par basse mer, on expose trois heures de remise
+  // à flot : `A flot` = décalage fixe (historique, `computeNavihan`) ; `aflotEstimate` = modèle seuil
+  // (issue #4) ; `aflotObserved` = heure réellement constatée (saisie). Estimation et constaté sont
+  // toujours dérivés des hauteurs / de la basse mer **Port-Tudy** (`refDate`/`refTime`).
   function windowedTides(from: string, to: string): FlatTide[] {
-    return filterTides(rows.value, { from, to, type: filters.type, minCoef: filters.minCoef }).map(t => ({
-      ...t,
-      navihan: t.refTime ? computeNavihan({ time: t.refTime, type: t.type }, settings.navihan) : {}
-    }));
+    return filterTides(rows.value, { from, to, type: filters.type, minCoef: filters.minCoef }).map(t => {
+      const navihan = t.refTime ? computeNavihan({ time: t.refTime, type: t.type }, settings.navihan) : {};
+      if (t.type !== 'low') return { ...t, navihan };
+      return {
+        ...t,
+        navihan,
+        aflotEstimate: aflotFor(t),
+        aflotObserved: observedFor(t.refDate, t.refTime)
+      };
+    });
   }
 
   // Graphe des coefficients : durée **éphémère** (session), initialisée sur le réglage `coefDays`
@@ -119,7 +150,7 @@ export function useTides() {
     error.value = null;
     try {
       await loadSites(); // hydrate la liste des ports + réconcilie un id stocké obsolète
-      const [, m, data] = await Promise.all([loadSettings(), getMeta(), getTides()]);
+      const [, m, data] = await Promise.all([loadSettings(), getMeta(), getTides(), loadObservations()]);
       meta.value = m;
       allTides.value = flatten(data);
       await loadSiteTides();

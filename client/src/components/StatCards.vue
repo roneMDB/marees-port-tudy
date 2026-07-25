@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import type { FlatTide } from '../types';
 import { formatDate, formatHeight, todayKey, coefBand } from '../lib/format';
-import { nextAflot } from '../lib/navihan';
+import { aflotEvents, nextAflot } from '../lib/navihan';
 import { useNavihan } from '../composables/useNavihan';
 import { useSettings } from '../composables/useSettings';
 
@@ -35,22 +35,15 @@ const todayBand = computed(() =>
   todayCoefs.value.length ? coefBand(Math.max(...todayCoefs.value)) : null
 );
 
-// Prochaines heures « à flot » : événements à venir (basse mer + décalage à flot),
+// Prochaines heures « à flot » : événements à venir (**modèle seuil de hauteur**, issue #4),
 // groupés par leur date réelle, sur les `aFlotDays` premiers jours à partir de maintenant.
 const upcomingAflot = computed(() => {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
   const byDate = new Map<string, string[]>();
-  props.allTides
-    .filter(t => t.type === 'low')
-    .map(t => {
-      const dt = new Date(`${t.date}T${t.time}:00`);
-      dt.setMinutes(dt.getMinutes() + offsets.aFlot);
-      return dt;
-    })
-    .filter(dt => dt >= now)
-    .sort((a, b) => a.getTime() - b.getTime())
-    .forEach(dt => {
+  aflotEvents(props.allTides, offsets, settings.aFlotThreshold)
+    .filter(e => e.dt >= now)
+    .forEach(({ dt }) => {
       const date = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
       const time = `${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
       const times = byDate.get(date) ?? [];
@@ -62,9 +55,9 @@ const upcomingAflot = computed(() => {
     .map(([date, times]) => ({ date, times }));
 });
 
-// Prochain « à flot » à venir (dérivé de la prochaine basse mer dont l'heure à-flot ≥ maintenant),
-// même si la toute prochaine marée chronologique est une pleine mer. Basé sur `allTides` (hors filtre).
-const nextAflotEvent = computed(() => nextAflot(props.allTides, offsets.aFlot, new Date()));
+// Prochain « à flot » à venir (dérivé de la prochaine basse mer dont l'instant de remise à flot ≥
+// maintenant), même si la toute prochaine marée chronologique est une pleine mer. Sur `allTides`.
+const nextAflotEvent = computed(() => nextAflot(props.allTides, offsets, settings.aFlotThreshold, new Date()));
 </script>
 
 <template>
@@ -135,20 +128,20 @@ const nextAflotEvent = computed(() => nextAflot(props.allTides, offsets.aFlot, n
             <div class="flex-grow-1" style="min-width: 0">
               <div class="text-uppercase small text-muted mb-1">Prochaines remises à flot</div>
               <div v-if="!upcomingAflot.length" class="small text-muted">—</div>
-              <dl v-else class="aflot-list small mb-0">
-                <template v-for="d in upcomingAflot" :key="d.date">
-                  <dt class="text-muted text-capitalize">
+              <div v-else class="aflot-list small mb-0">
+                <div v-for="d in upcomingAflot" :key="d.date" class="aflot-day">
+                  <span class="aflot-date text-muted text-capitalize">
                     {{ formatDate(d.date, { weekday: 'short', day: '2-digit', month: '2-digit' }) }}
-                  </dt>
-                  <dd>
+                  </span>
+                  <span class="aflot-times">
                     <span
                       v-for="t in d.times"
                       :key="t"
                       class="badge rounded-pill bg-success-subtle text-success-emphasis fw-semibold"
                     >{{ t }}</span>
-                  </dd>
-                </template>
-              </dl>
+                  </span>
+                </div>
+              </div>
             </div>
             <i class="bi bi-life-preserver fs-3 text-success opacity-75 ms-2"></i>
           </div>
@@ -159,32 +152,28 @@ const nextAflotEvent = computed(() => nextAflot(props.allTides, offsets.aFlot, n
 </template>
 
 <style scoped>
-/* Grille alignée : dates en colonne 1, horaires (puces) en colonne 2. */
+/* Blocs-jours qui s'enroulent : on remplit d'abord la largeur, puis on passe à la ligne (hauteur). */
 .aflot-list {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 0.5rem;
-  row-gap: 0.25rem;
-  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.85rem;
 }
 
-.aflot-list dt {
+/* Un jour = sa date au-dessus de ses horaires (puces), en colonne compacte. */
+.aflot-day {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.aflot-date {
   font-weight: 400;
   white-space: nowrap;
 }
 
-.aflot-list dd {
-  margin: 0;
+.aflot-times {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-start;
   gap: 0.25rem;
-}
-
-/* Sur grand écran (cartes larges), on étale les horaires vers la droite. */
-@media (min-width: 992px) {
-  .aflot-list dd {
-    justify-content: flex-end;
-  }
 }
 </style>

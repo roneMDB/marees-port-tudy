@@ -7,6 +7,8 @@ import { readTides } from '../lib/readTides';
 import { getDb, type DB } from './index';
 import { countTides, replaceSiteData } from './tidesRepository';
 import { getOrCreateSessionSecret } from './usersRepository';
+import { seedLexiconIfEmpty } from './lexiconRepository';
+import { LEXICON_SEED } from '../service/lexiconSeed';
 import { writeSettings, ensureSettings } from '../service/SettingsStore';
 import { ensureAdminUser } from '../service/UsersStore';
 import { authEnabled } from '../middleware/auth';
@@ -49,6 +51,9 @@ export async function initStorage(logger?: Logger, db: DB = getDb()): Promise<vo
     }
     if (!imported) ensureSettings(db);
   }
+
+  // Lexique du « mot du jour » : amorce la table depuis la graine si elle est vide.
+  seedLexiconIfEmpty(db, LEXICON_SEED);
 
   if (authEnabled()) {
     getOrCreateSessionSecret(db); // secret stable, indépendant des mots de passe utilisateurs

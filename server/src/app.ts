@@ -9,6 +9,8 @@ import { createSettingsRouter } from './routes/settings';
 import { createWeatherRouter } from './routes/weather';
 import { createStatsRouter } from './routes/stats';
 import { createUsersRouter } from './routes/users';
+import { createAflotObservationsRouter } from './routes/aflotObservations';
+import { createLexiconRouter } from './routes/lexicon';
 import { createAuthRouter } from './routes/auth';
 import { basicAuth } from './middleware/auth';
 import { accessLog } from './middleware/accessLog';
@@ -80,6 +82,8 @@ export function createApp(logger: Logger): Application {
   app.use('/api', createWeatherRouter(logger));
   app.use('/api', createStatsRouter(logger));
   app.use('/api', createUsersRouter(logger));
+  app.use('/api', createAflotObservationsRouter(logger));
+  app.use('/api', createLexiconRouter(logger));
 
   // En production, sert le client Vue buildé (client/dist) sur la même origine.
   const clientDist = path.resolve(__dirname, '..', '..', 'client', 'dist');

@@ -6,6 +6,8 @@ import { NAVIHAN } from '../types';
 import { groupByDay } from '../lib/tides';
 import { formatDate, formatHeight, todayKey, coefBand } from '../lib/format';
 import { useNavihanDisplay, type NavihanKey } from '../composables/useNavihanDisplay';
+import { useAuth } from '../composables/useAuth';
+import { useAflotObservations } from '../composables/useAflotObservations';
 
 const props = withDefaults(defineProps<{ tides: FlatTide[]; siteLabel?: string }>(), {
   siteLabel: 'Port-Tudy'
@@ -15,6 +17,26 @@ const today = todayKey();
 
 // Choix d'affichage des types Navihan (persisté localStorage, préférence par navigateur).
 const { visible, toggle } = useNavihanDisplay();
+// Saisie des remises à flot constatées : réservée à l'admin (le verrou réel est côté serveur).
+const { isAdmin } = useAuth();
+const { save, remove, load: reloadObservations } = useAflotObservations();
+
+/** Basses mers d'un jour, triées par heure **estimée** de remise à flot (colonne Constaté). */
+function constateLows(day: DayTides): FlatTide[] {
+  return [...day.lows].sort((a, b) => (a.aflotEstimate ?? a.time).localeCompare(b.aflotEstimate ?? b.time));
+}
+
+/** Saisie/effacement de l'heure constatée d'une basse mer (clé = basse mer Port-Tudy). */
+async function onObserved(low: FlatTide, event: Event): Promise<void> {
+  if (!low.refDate || !low.refTime) return;
+  const value = (event.target as HTMLInputElement).value; // '' (effacé) ou 'HH:MM'
+  try {
+    if (value) await save(low.refDate, low.refTime, value);
+    else await remove(low.refDate, low.refTime);
+  } catch {
+    await reloadObservations(); // échec (réseau / 403) → resynchronise l'affichage avec le serveur
+  }
+}
 
 // Une ligne par jour (la période à afficher est fournie déjà bornée par le parent).
 const rows = computed(() => groupByDay(props.tides).map(day => ({ day, band: coefBand(day.coefficient) })));
@@ -32,6 +54,8 @@ interface NavihanEntry {
 const NAVIHAN_TYPES: { key: NavihanKey; pillClass: string; icon: string; label: string }[] = [
   { key: 'bm', pillClass: 'navihan-pill--bm', icon: 'bi-arrow-down', label: 'Basse mer' },
   { key: 'flot', pillClass: 'navihan-pill--flot', icon: 'bi-check-circle', label: 'Remise à flot' },
+  { key: 'flotEst', pillClass: 'navihan-pill--flot-est', icon: 'bi-graph-up-arrow', label: 'Estimation' },
+  { key: 'flotObs', pillClass: 'navihan-pill--obs', icon: 'bi-clipboard-check', label: 'Constaté' },
   { key: 'pm', pillClass: 'navihan-pill--pm', icon: 'bi-arrow-up', label: 'Pleine mer' }
 ];
 
@@ -48,7 +72,8 @@ function navihanEntries(day: DayTides): NavihanEntry[] {
   };
   for (const l of day.lows) {
     push('bm', l.navihan[NAVIHAN.basseMer], 'navihan-pill--bm', 'bi-arrow-down', 'Basse mer');
-    push('flot', l.navihan[NAVIHAN.aFlot], 'navihan-pill--flot', 'bi-check-circle', 'Remise à flot');
+    push('flot', l.navihan[NAVIHAN.aFlot], 'navihan-pill--flot', 'bi-check-circle', 'Remise à flot (décalage fixe)');
+    push('flotEst', l.aflotEstimate ?? undefined, 'navihan-pill--flot-est', 'bi-graph-up-arrow', 'Estimation remise à flot (seuil de hauteur)');
   }
   for (const h of day.highs) {
     push('pm', h.navihan[NAVIHAN.pleineMer], 'navihan-pill--pm', 'bi-arrow-up', 'Pleine mer');
@@ -90,14 +115,21 @@ function navihanEntries(day: DayTides): NavihanEntry[] {
             Navihan
             <i
               class="bi bi-info-circle small text-muted"
-              title="Heures Navihan dérivées de Port-Tudy, par ordre croissant : basse mer (↓), remise à flot (✓, quand le bateau se remet à flotter) et pleine mer (↑)"
+              title="Heures Navihan dérivées de Port-Tudy, par ordre croissant : basse mer (↓), remise à flot fixe (✓), estimation par seuil (↗) et pleine mer (↑)"
+            ></i>
+          </th>
+          <th v-if="visible.flotObs" class="fw-bold">
+            Constaté
+            <i
+              class="bi bi-info-circle small text-muted"
+              title="Heure de remise à flot réellement constatée, par basse mer (saisie réservée à l'admin)"
             ></i>
           </th>
         </tr>
       </thead>
       <tbody>
         <tr v-if="rows.length === 0">
-          <td colspan="5" class="text-center text-muted py-4">Aucune marée pour ces filtres.</td>
+          <td :colspan="visible.flotObs ? 6 : 5" class="text-center text-muted py-4">Aucune marée pour ces filtres.</td>
         </tr>
         <tr
           v-for="{ day, band } in rows"
@@ -158,6 +190,32 @@ function navihanEntries(day: DayTides): NavihanEntry[] {
               ><i class="bi" :class="e.icon"></i> {{ e.time }}</span>
             </span>
           </td>
+          <td v-if="visible.flotObs" data-label="Constaté">
+            <span v-if="!day.lows.length" class="text-muted">—</span>
+            <div v-else class="constate-cell">
+              <div v-for="l in constateLows(day)" :key="l.time" class="constate-row">
+                <span class="text-muted small constate-est" title="Estimation (rappel)">
+                  <i class="bi bi-graph-up-arrow"></i> {{ l.aflotEstimate ?? '—' }}
+                </span>
+                <template v-if="l.refTime">
+                  <input
+                    v-if="isAdmin"
+                    type="time"
+                    class="form-control form-control-sm constate-input"
+                    :value="l.aflotObserved ?? ''"
+                    :title="`Remise à flot constatée (basse mer ${l.time})`"
+                    @change="onObserved(l, $event)"
+                  />
+                  <span
+                    v-else-if="l.aflotObserved"
+                    class="badge rounded-pill navihan-pill navihan-pill--obs text-nowrap"
+                  ><i class="bi bi-clipboard-check"></i> {{ l.aflotObserved }}</span>
+                  <span v-else class="text-muted small">—</span>
+                </template>
+                <span v-else class="text-muted small">—</span>
+              </div>
+            </div>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -195,6 +253,48 @@ function navihanEntries(day: DayTides): NavihanEntry[] {
   background-color: var(--bs-primary-bg-subtle);
   color: var(--bs-primary-text-emphasis);
   border: 1px solid var(--bs-primary-border-subtle);
+}
+
+/* Estimation (modèle seuil, issue #4) : cyan/info, proche du « flot » mais distinct. */
+.navihan-pill--flot-est {
+  background-color: var(--bs-info-bg-subtle);
+  color: var(--bs-info-text-emphasis);
+  border: 1px solid var(--bs-info-border-subtle);
+}
+
+/* Constaté (heure réelle saisie) : violet, se démarque comme donnée « autorité ». */
+.navihan-pill--obs {
+  background-color: color-mix(in srgb, var(--bs-purple, #6f42c1) 16%, transparent);
+  color: var(--bs-purple, #6f42c1);
+  border: 1px solid color-mix(in srgb, var(--bs-purple, #6f42c1) 38%, transparent);
+}
+
+:root[data-bs-theme='dark'] .navihan-pill--obs {
+  color: #c9a3ff;
+  background-color: color-mix(in srgb, #c9a3ff 16%, transparent);
+  border-color: color-mix(in srgb, #c9a3ff 45%, transparent);
+}
+
+/* Colonne « Constaté » : une entrée par basse mer (heure de la basse + saisie / valeur). */
+.constate-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.constate-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.constate-est {
+  min-width: 3.2rem;
+  white-space: nowrap;
+}
+
+.constate-input {
+  max-width: 7.5rem;
 }
 
 /* Colonne Navihan : une seule ligne de pastilles triées par heure (icône + couleur = type,

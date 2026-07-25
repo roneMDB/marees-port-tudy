@@ -11,7 +11,7 @@ export interface MarkerPoint {
   type: 'high' | 'low';
 }
 
-interface OffsetPoint {
+export interface OffsetPoint {
   offset: number;
   height: number;
 }
@@ -31,6 +31,22 @@ function toOffsetPoints(extremes: FlatTide[], dateKey: string, shift?: (e: FlatT
     // Fenêtre autour du jour cible (extrêmes de la veille au surlendemain).
     .filter(p => p.offset >= -1440 && p.offset <= 2880)
     .sort((a, b) => a.offset - b.offset);
+}
+
+/**
+ * Inverse de l'interpolation cosinus sur un segment **montant** basse mer `a` → pleine mer `b` :
+ * instant (même unité que `offset`) où la courbe atteint la hauteur `threshold`.
+ * - `b.height ≤ a.height` (segment non montant) → `null`.
+ * - `threshold ≤ a.height` (déjà atteint à la basse mer) → `a.offset` (délai nul).
+ * - `threshold ≥ b.height` (seuil non atteint avant la pleine mer) → `null`.
+ */
+export function inverseCosineRising(a: OffsetPoint, b: OffsetPoint, threshold: number): number | null {
+  if (b.height <= a.height) return null;
+  if (threshold <= a.height) return a.offset;
+  if (threshold >= b.height) return null;
+  const x = (threshold - a.height) / (b.height - a.height); // ∈ (0,1)
+  const ratio = Math.acos(1 - 2 * x) / Math.PI;
+  return a.offset + ratio * (b.offset - a.offset);
 }
 
 /** Interpolation cosinus de la hauteur à l'instant `t` (min), ou null si non encadré. */
@@ -110,15 +126,34 @@ export function navihanExtremes(extremes: FlatTide[], dateKey: string, offsets: 
     .filter(p => p.minutes >= 0 && p.minutes <= 1440);
 }
 
-/** Points « à flot » du jour (basse mer + `offsets.aFlot`), sur la courbe Navihan. */
-export function navihanAflot(extremes: FlatTide[], dateKey: string, offsets: NavihanOffsets): MaregramPoint[] {
+/**
+ * Points « remise à flot » du jour, **modèle seuil de hauteur** (issue #4) : pour chaque basse mer,
+ * instant où la courbe Navihan montante atteint `thresholdHeight` (hauteur constante = seuil). Le
+ * délai après la basse mer varie donc naturellement avec le coefficient. Une basse mer dont la
+ * pleine mer suivante n'atteint pas le seuil (morte-eau extrême) est omise.
+ */
+export function navihanAflotByThreshold(
+  extremes: FlatTide[],
+  dateKey: string,
+  offsets: NavihanOffsets,
+  thresholdHeight: number
+): MaregramPoint[] {
   const dayStart = new Date(`${dateKey}T00:00:00`).getTime();
-  const pts = toOffsetPoints(extremes, dateKey, navihanShift(offsets));
-  return extremes
-    .filter(e => e.type === 'low' && Number.isFinite(e.height))
-    .map(e => {
-      const minutes = (new Date(`${e.date}T${e.time}:00`).getTime() - dayStart) / 60000 + offsets.aFlot;
-      return { minutes, height: interpolate(pts, minutes) };
-    })
-    .filter((p): p is MaregramPoint => p.height != null && p.minutes >= 0 && p.minutes <= 1440);
+  const minuteOf = (e: FlatTide) => (new Date(`${e.date}T${e.time}:00`).getTime() - dayStart) / 60000;
+  const highs = extremes
+    .filter(e => e.type === 'high' && Number.isFinite(e.height))
+    .map(e => ({ e, m: minuteOf(e) }))
+    .sort((p, q) => p.m - q.m);
+  const out: MaregramPoint[] = [];
+  for (const low of extremes.filter(e => e.type === 'low' && Number.isFinite(e.height))) {
+    const lowMinute = minuteOf(low);
+    const nextHigh = highs.find(h => h.m > lowMinute);
+    if (!nextHigh) continue;
+    const a: OffsetPoint = { offset: lowMinute + offsets.basseMer, height: low.height };
+    const b: OffsetPoint = { offset: nextHigh.m + offsets.pleineMer, height: nextHigh.e.height };
+    const minutes = inverseCosineRising(a, b, thresholdHeight);
+    if (minutes == null || minutes < 0 || minutes > 1440) continue;
+    out.push({ minutes, height: thresholdHeight });
+  }
+  return out;
 }

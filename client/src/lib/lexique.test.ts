@@ -13,6 +13,17 @@ describe('LEXIQUE', () => {
     const ids = LEXIQUE.map(e => e.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it('type chaque entrée en maree ou peche', () => {
+    for (const entry of LEXIQUE) {
+      expect(['maree', 'peche']).toContain(entry.type);
+    }
+    // Termes de pêche bien typés, termes de marée aussi.
+    expect(LEXIQUE.find(e => e.id === 'casier')?.type).toBe('peche');
+    expect(LEXIQUE.find(e => e.id === 'bar')?.type).toBe('peche');
+    expect(LEXIQUE.find(e => e.id === 'marnage')?.type).toBe('maree');
+    expect(LEXIQUE.find(e => e.id === 'grande-maree')?.type).toBe('maree');
+  });
 });
 
 describe('noteOfTheDay — sélection contextuelle', () => {
@@ -61,6 +72,21 @@ describe('noteOfTheDay — rotation', () => {
       ids.add(noteOfTheDay({ dateKey, coef: null, prevCoef: null }).id);
     }
     expect(ids.size).toBeGreaterThan(1);
+  });
+
+  it('privilégie un terme de marée quand la marée du jour est marquante', () => {
+    expect(noteOfTheDay({ dateKey: '2026-07-10', coef: 102, prevCoef: 95 }).type).toBe('maree');
+    expect(noteOfTheDay({ dateKey: '2026-07-10', coef: 38, prevCoef: 40 }).type).toBe('maree');
+  });
+
+  it('fait tourner des termes de pêche et de marée les jours peu marquants', () => {
+    const types = new Set<string>();
+    for (let day = 1; day <= 28; day++) {
+      const dateKey = `2026-06-${String(day).padStart(2, '0')}`;
+      types.add(noteOfTheDay({ dateKey, coef: null, prevCoef: null }).type);
+    }
+    expect(types.has('peche')).toBe(true);
+    expect(types.has('maree')).toBe(true);
   });
 
   it('renvoie toujours un id présent dans le lexique', () => {

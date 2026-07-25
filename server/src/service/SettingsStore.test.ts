@@ -19,12 +19,20 @@ describe('sanitizeSettings', () => {
       rangeDays: 9999,
       aFlotDays: 0,
       coefDays: 999,
+      aFlotThreshold: 99,
       navihan: { basseMer: -10, pleineMer: 5000, aFlot: 99 }
     });
     expect(s.rangeDays).toBe(365);
     expect(s.aFlotDays).toBe(1);
     expect(s.coefDays).toBe(90);
+    expect(s.aFlotThreshold).toBe(10); // borné à [0, 10] m
     expect(s.navihan).toEqual({ basseMer: 0, pleineMer: 1439, aFlot: 99 });
+  });
+
+  it('keeps a fractional aFlotThreshold (height in metres, not rounded)', () => {
+    expect(sanitizeSettings({ aFlotThreshold: 2.85 }).aFlotThreshold).toBe(2.85);
+    expect(sanitizeSettings({ aFlotThreshold: -1 }).aFlotThreshold).toBe(0);
+    expect(sanitizeSettings({}).aFlotThreshold).toBe(DEFAULT_SETTINGS.aFlotThreshold);
   });
 
   it('normalises the start fields', () => {

@@ -1,10 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { computeNavihan, DEFAULT_OFFSETS, formatOffset, nextAflot, shiftTime } from './navihan';
-import type { FlatTide } from '../types';
+import {
+  aflotEvents,
+  aflotTimeByThreshold,
+  computeNavihan,
+  DEFAULT_OFFSETS,
+  formatOffset,
+  nextAflot,
+  shiftTime
+} from './navihan';
+import type { FlatTide, NavihanOffsets } from '../types';
 
 // Fabrique une marée aplatie minimale pour les tests (navihan recalculé ailleurs).
-function tide(date: string, time: string, type: 'high' | 'low'): FlatTide {
-  return { date, time, type, height: 0, coefficient: null, navihan: {} };
+function tide(date: string, time: string, type: 'high' | 'low', height = 0): FlatTide {
+  return { date, time, type, height, coefficient: null, navihan: {} };
 }
 
 describe('shiftTime', () => {
@@ -20,7 +28,7 @@ describe('shiftTime', () => {
 });
 
 describe('computeNavihan', () => {
-  it('gives basse mer + à flot for a low tide', () => {
+  it('gives basse mer + remise à flot (décalage fixe) for a low tide', () => {
     const nav = computeNavihan({ time: '14:29', type: 'low' }, DEFAULT_OFFSETS);
     expect(nav).toEqual({ 'Basse mer': '15:44', 'A flot': '17:09' });
   });
@@ -36,43 +44,69 @@ describe('computeNavihan', () => {
   });
 });
 
+describe('aflotTimeByThreshold', () => {
+  const offsets: NavihanOffsets = { basseMer: 75, pleineMer: 75, aFlot: 160 };
+
+  it('returns the HH:MM where the rising Navihan curve reaches the threshold', () => {
+    const low = tide('2026-07-18', '02:00', 'low', 1);
+    const high = tide('2026-07-18', '08:00', 'high', 5);
+    // Navihan : basse 03:15 (h1) → pleine 09:15 (h5). Seuil 3 = mi-hauteur → 06:15 (mi-temps).
+    expect(aflotTimeByThreshold([low, high], low, offsets, 3)).toBe('06:15');
+  });
+
+  it('returns null when the next high never reaches the threshold', () => {
+    const low = tide('2026-07-18', '02:00', 'low', 1);
+    const high = tide('2026-07-18', '08:00', 'high', 5);
+    expect(aflotTimeByThreshold([low, high], low, offsets, 5.5)).toBeNull();
+  });
+
+  it('wraps past midnight when the crossing falls on the next day', () => {
+    const low = tide('2026-07-19', '23:00', 'low', 1);
+    const high = tide('2026-07-20', '05:00', 'high', 5);
+    // Navihan : basse 00:15 (J+1) → pleine 06:15. Seuil 3 → +255 min après 23:00 = 03:15.
+    expect(aflotTimeByThreshold([low, high], low, offsets, 3)).toBe('03:15');
+  });
+});
+
 describe('nextAflot', () => {
-  // Un jour : basse 03:07 & 15:29 (à-flot +160 → 05:47 & 18:09), pleines 08:58 & 21:18.
+  const offsets: NavihanOffsets = { basseMer: 75, pleineMer: 75, aFlot: 160 };
+  // Basses 03:07 (h1.2) & 15:29 (h1.5), pleines 08:58 (h5.0) & 21:18 (h4.8), + J+1 basse 03:52 → pleine 09:30.
   const day = [
-    tide('2026-07-19', '08:58', 'high'),
-    tide('2026-07-19', '21:18', 'high'),
-    tide('2026-07-19', '03:07', 'low'),
-    tide('2026-07-19', '15:29', 'low'),
-    tide('2026-07-20', '03:52', 'low')
+    tide('2026-07-19', '08:58', 'high', 5.0),
+    tide('2026-07-19', '21:18', 'high', 4.8),
+    tide('2026-07-19', '03:07', 'low', 1.2),
+    tide('2026-07-19', '15:29', 'low', 1.5),
+    tide('2026-07-20', '03:52', 'low', 1.0),
+    tide('2026-07-20', '09:30', 'high', 5.1)
   ];
 
-  it('returns the next à-flot even when the next tide is a pleine mer', () => {
-    // 15:48 : la basse de 15:29 est passée mais son à-flot (18:09) est à venir ;
-    // la prochaine marée chronologique est la pleine mer de 21:18.
-    const r = nextAflot(day, 160, new Date('2026-07-19T15:48:00'));
+  it('returns the next à-flot, derived from the afternoon low, even before the evening high', () => {
+    const r = nextAflot(day, offsets, 2.8, new Date('2026-07-19T15:48:00'));
     expect(r).not.toBeNull();
-    expect(r!.time).toBe('18:09');
     expect(r!.date).toBe('2026-07-19');
     expect(r!.basse.time).toBe('15:29');
+    // Cohérence : même heure que le calcul direct par seuil pour cette basse.
+    expect(r!.time).toBe(aflotTimeByThreshold(day, r!.basse, offsets, 2.8));
   });
 
   it('skips à-flots already passed and moves to the next day', () => {
-    const r = nextAflot(day, 160, new Date('2026-07-19T18:30:00'));
+    const r = nextAflot(day, offsets, 2.8, new Date('2026-07-19T22:00:00'));
     expect(r!.basse.date).toBe('2026-07-20');
     expect(r!.basse.time).toBe('03:52');
-    expect(r!.time).toBe('06:32');
-  });
-
-  it('rolls the date forward when the offset crosses midnight', () => {
-    const late = [tide('2026-07-19', '23:15', 'low')];
-    const r = nextAflot(late, 160, new Date('2026-07-19T22:00:00'));
-    expect(r!.date).toBe('2026-07-20');
-    expect(r!.time).toBe('01:55');
+    expect(r!.time).toBe(aflotTimeByThreshold(day, r!.basse, offsets, 2.8));
   });
 
   it('returns null when no upcoming à-flot exists', () => {
-    expect(nextAflot(day, 160, new Date('2026-07-21T00:00:00'))).toBeNull();
-    expect(nextAflot([tide('2026-07-19', '08:58', 'high')], 160, new Date('2026-07-19T00:00:00'))).toBeNull();
+    expect(nextAflot(day, offsets, 2.8, new Date('2026-07-21T00:00:00'))).toBeNull();
+    expect(nextAflot([tide('2026-07-19', '08:58', 'high', 5)], offsets, 2.8, new Date('2026-07-19T00:00:00'))).toBeNull();
+  });
+
+  it('aflotEvents lists every low with a following high, sorted chronologically', () => {
+    const events = aflotEvents(day, offsets, 2.8);
+    expect(events.map(e => e.basse.time)).toEqual(['03:07', '15:29', '03:52']);
+    for (let i = 1; i < events.length; i++) {
+      expect(events[i].dt.getTime()).toBeGreaterThan(events[i - 1].dt.getTime());
+    }
   });
 });
 

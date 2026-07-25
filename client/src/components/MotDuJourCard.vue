@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import type { FlatTide } from '../types';
 import { addDays, todayKey } from '../lib/format';
 import { groupByDay } from '../lib/tides';
 import { noteOfTheDay } from '../lib/lexique';
 import { useMotDuJour } from '../composables/useMotDuJour';
+import { useLexicon } from '../composables/useLexicon';
 
 const props = defineProps<{ allTides: FlatTide[] }>();
 
 const { visible, hide, show } = useMotDuJour();
+const { entries: lexicon, load: loadLexicon } = useLexicon();
+onMounted(loadLexicon);
 
 // Repli (transitoire, non persisté) — cf. ResourcesCard.
 const open = ref(true);
@@ -21,7 +24,7 @@ const note = computed(() => {
   const yesterday = addDays(today, -1);
   const coef = days.find(d => d.date === today)?.coefficient ?? null;
   const prevCoef = days.find(d => d.date === yesterday)?.coefficient ?? null;
-  return noteOfTheDay({ dateKey: today, coef, prevCoef });
+  return noteOfTheDay({ dateKey: today, coef, prevCoef }, lexicon.value);
 });
 </script>
 
@@ -50,11 +53,17 @@ const note = computed(() => {
 
     <div v-show="open" class="card-body py-3 px-3">
       <div class="d-flex align-items-start">
-        <span class="motdujour-icon flex-shrink-0 me-3">
-          <i class="bi bi-water"></i>
+        <span class="motdujour-icon flex-shrink-0 me-3" :class="`motdujour-icon--${note.type}`">
+          <i :class="note.type === 'peche' ? 'bi bi-bucket' : 'bi bi-water'"></i>
         </span>
         <div>
-          <div class="fw-semibold fs-5 mb-1">{{ note.term }}</div>
+          <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+            <span class="fw-semibold fs-5">{{ note.term }}</span>
+            <span
+              class="badge rounded-pill"
+              :class="note.type === 'peche' ? 'text-bg-success' : 'text-bg-info'"
+            >{{ note.type === 'peche' ? 'Pêche' : 'Marée' }}</span>
+          </div>
           <p class="text-body-secondary mb-0">{{ note.definition }}</p>
         </div>
       </div>
@@ -81,5 +90,11 @@ const note = computed(() => {
   background-color: var(--bs-info-bg-subtle);
   color: var(--bs-info-text-emphasis);
   font-size: 1.15rem;
+}
+
+/* Pêche : pastille verte pour distinguer d'un coup d'œil des termes de marée (bleu). */
+.motdujour-icon--peche {
+  background-color: var(--bs-success-bg-subtle);
+  color: var(--bs-success-text-emphasis);
 }
 </style>
