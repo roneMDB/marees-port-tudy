@@ -79,46 +79,6 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
               <option v-for="s in sites" :key="s.id" :value="s.id">{{ s.label }}</option>
             </select>
           </div>
-          <!-- Mobile (< sm) : les actions admin regroupées dans un menu ⋮ pour désencombrer. -->
-          <div v-if="isAdmin" class="dropdown d-sm-none">
-            <button
-              type="button"
-              class="btn btn-outline-light btn-sm"
-              data-bs-toggle="dropdown"
-              aria-expanded="false"
-              title="Actions"
-              aria-label="Actions"
-            >
-              <i class="bi bi-three-dots-vertical"></i>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-              <li>
-                <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#statsOffcanvas">
-                  <i class="bi bi-bar-chart-line me-2"></i>Statistiques d'accès
-                </button>
-              </li>
-              <li>
-                <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#importOffcanvas">
-                  <i class="bi bi-upload me-2"></i>Import des horaires
-                </button>
-              </li>
-              <li>
-                <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#usersOffcanvas">
-                  <i class="bi bi-people me-2"></i>Utilisateurs
-                </button>
-              </li>
-              <li>
-                <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#lexiconOffcanvas">
-                  <i class="bi bi-book me-2"></i>Lexique du mot du jour
-                </button>
-              </li>
-              <li>
-                <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#settingsOffcanvas">
-                  <i class="bi bi-sliders me-2"></i>Réglages &amp; filtres
-                </button>
-              </li>
-            </ul>
-          </div>
           <!-- ≥ sm : actions admin en ligne dans la navbar. -->
           <button
             v-if="isAdmin"
@@ -206,6 +166,46 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
           >
             <i class="bi bi-box-arrow-right"></i>
           </button>
+          <!-- Mobile (< sm) : actions admin regroupées dans un menu ⋮ (placé à droite → déroulé aligné). -->
+          <div v-if="isAdmin" class="dropdown d-sm-none">
+            <button
+              type="button"
+              class="btn btn-outline-light btn-sm"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+              title="Actions"
+              aria-label="Actions"
+            >
+              <i class="bi bi-three-dots-vertical"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li>
+                <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#statsOffcanvas">
+                  <i class="bi bi-bar-chart-line me-2"></i>Statistiques d'accès
+                </button>
+              </li>
+              <li>
+                <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#importOffcanvas">
+                  <i class="bi bi-upload me-2"></i>Import des horaires
+                </button>
+              </li>
+              <li>
+                <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#usersOffcanvas">
+                  <i class="bi bi-people me-2"></i>Utilisateurs
+                </button>
+              </li>
+              <li>
+                <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#lexiconOffcanvas">
+                  <i class="bi bi-book me-2"></i>Lexique du mot du jour
+                </button>
+              </li>
+              <li>
+                <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#settingsOffcanvas">
+                  <i class="bi bi-sliders me-2"></i>Réglages &amp; filtres
+                </button>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     </nav>
