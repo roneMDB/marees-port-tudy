@@ -1,8 +1,27 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import TideDayTable from './TideDayTable.vue';
 import { useNavihanDisplay } from '../composables/useNavihanDisplay';
 import type { FlatTide } from '../types';
+
+// Contrôle de l'admin (saisie) et espions sur l'enregistrement des observations.
+const authState = vi.hoisted(() => ({ admin: false }));
+const obs = vi.hoisted(() => ({ save: vi.fn(), remove: vi.fn() }));
+
+vi.mock('../composables/useAuth', async () => {
+  const { computed } = await import('vue');
+  return { useAuth: () => ({ isAdmin: computed(() => authState.admin) }) };
+});
+
+vi.mock('../composables/useAflotObservations', () => ({
+  useAflotObservations: () => ({
+    save: obs.save,
+    remove: obs.remove,
+    load: vi.fn().mockResolvedValue(undefined),
+    get: () => null,
+    map: {}
+  })
+}));
 
 const tides: FlatTide[] = [
   {
@@ -37,8 +56,26 @@ describe('TideDayTable', () => {
     const { visible } = useNavihanDisplay();
     visible.bm = true;
     visible.flot = true;
+    visible.flotEst = true;
+    visible.flotObs = true;
     visible.pm = true;
+    authState.admin = false;
+    obs.save.mockClear();
+    obs.remove.mockClear();
   });
+
+  // Une basse mer « éditable » : appariée à Port-Tudy (refDate/refTime) avec estimation.
+  const editable: FlatTide[] = [
+    {
+      date: '2026-07-25', time: '08:22', height: 1.6, type: 'low', coefficient: null,
+      navihan: { 'Basse mer': '09:37', 'A flot': '11:02' },
+      refDate: '2026-07-25', refTime: '08:22', aflotEstimate: '11:13', aflotObserved: null
+    },
+    {
+      date: '2026-07-25', time: '14:30', height: 4.9, type: 'high', coefficient: 60,
+      navihan: { 'Pleine mer': '15:45' }
+    }
+  ];
 
   it('renders one row per day with inline height and coef', () => {
     const wrapper = mount(TideDayTable, { props: { tides, siteLabel: 'Port-Tudy' } });
@@ -115,10 +152,10 @@ describe('TideDayTable', () => {
     expect(wrapper.text()).toContain('Aucune marée');
   });
 
-  it('renders the legend as three toggle buttons (aria-pressed)', () => {
+  it('renders the legend as five toggle buttons (aria-pressed)', () => {
     const wrapper = mount(TideDayTable, { props: { tides } });
     const buttons = wrapper.findAll('.navihan-legend button');
-    expect(buttons).toHaveLength(3);
+    expect(buttons).toHaveLength(5); // bm, flot (fixe), estimation, constaté, pm
     expect(buttons.every(b => b.attributes('aria-pressed') === 'true')).toBe(true);
   });
 
@@ -139,5 +176,69 @@ describe('TideDayTable', () => {
     await pmButton!.trigger('click');
     expect(wrapper.findAll('tbody tr')[0].text()).not.toContain('08:25');
     expect(useNavihanDisplay().visible.pm).toBe(false);
+  });
+
+  it('shows the estimation (seuil) time as a Navihan pill', () => {
+    const wrapper = mount(TideDayTable, { props: { tides: editable } });
+    expect(wrapper.findAll('tbody tr')[0].text()).toContain('11:13'); // aflotEstimate
+  });
+
+  it('recalls the estimation time (not the basse mer time) in the Constaté cell', () => {
+    const wrapper = mount(TideDayTable, { props: { tides: editable } });
+    const cell = wrapper.find('td[data-label="Constaté"]');
+    expect(cell.text()).toContain('11:13'); // estimation rappelée
+    expect(cell.text()).not.toContain('08:22'); // pas l'heure de basse mer
+  });
+
+  it('orders the Constaté column by estimation time (chronological)', () => {
+    // Deux basses mers du jour avec estimations volontairement inversées vs l'ordre des basses.
+    const twoLows: FlatTide[] = [
+      {
+        date: '2026-07-25', time: '03:00', height: 1.5, type: 'low', coefficient: null,
+        navihan: { 'Basse mer': '04:15', 'A flot': '05:50' },
+        refDate: '2026-07-25', refTime: '03:00', aflotEstimate: '18:00', aflotObserved: null
+      },
+      {
+        date: '2026-07-25', time: '15:00', height: 1.6, type: 'low', coefficient: null,
+        navihan: { 'Basse mer': '16:15', 'A flot': '17:50' },
+        refDate: '2026-07-25', refTime: '15:00', aflotEstimate: '10:00', aflotObserved: null
+      }
+    ];
+    const wrapper = mount(TideDayTable, { props: { tides: twoLows } });
+    const cell = wrapper.find('td[data-label="Constaté"]').text();
+    expect(cell.indexOf('10:00')).toBeGreaterThanOrEqual(0);
+    expect(cell.indexOf('10:00')).toBeLessThan(cell.indexOf('18:00')); // trié par estimation
+  });
+
+  it('shows/hides the Constaté column via its visibility toggle', async () => {
+    const wrapper = mount(TideDayTable, { props: { tides: editable } });
+    expect(wrapper.find('thead').text()).toContain('Constaté');
+    useNavihanDisplay().visible.flotObs = false;
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find('thead').text()).not.toContain('Constaté');
+  });
+
+  it('renders an editable time input for admins and saves on change', async () => {
+    authState.admin = true;
+    const wrapper = mount(TideDayTable, { props: { tides: editable } });
+    const input = wrapper.find('.constate-input');
+    expect(input.exists()).toBe(true);
+    await input.setValue('11:07');
+    await input.trigger('change');
+    expect(obs.save).toHaveBeenCalledWith('2026-07-25', '08:22', '11:07');
+  });
+
+  it('deletes the observation when the admin clears the input', async () => {
+    authState.admin = true;
+    const wrapper = mount(TideDayTable, { props: { tides: editable } });
+    const input = wrapper.find('.constate-input');
+    await input.setValue('');
+    await input.trigger('change');
+    expect(obs.remove).toHaveBeenCalledWith('2026-07-25', '08:22');
+  });
+
+  it('does not render an input for non-admins', () => {
+    const wrapper = mount(TideDayTable, { props: { tides: editable } });
+    expect(wrapper.find('.constate-input').exists()).toBe(false);
   });
 });

@@ -16,6 +16,7 @@ const SETTINGS: Settings = {
   startDate: '2026-07-05', // fenêtre déterministe (indépendante de « aujourd'hui »)
   rangeDays: 3,
   navihan: { basseMer: 75, pleineMer: 75, aFlot: 160 },
+  aFlotThreshold: 2.8,
   aFlotDays: 3,
   coefDays: 5,
   weatherLinks: []
@@ -50,6 +51,7 @@ const getTidesMock = vi.fn();
 const getSitesMock = vi.fn<[], Promise<Site[]>>();
 const getSettingsMock = vi.fn<[], Promise<Settings>>();
 const saveSettingsMock = vi.fn();
+const getObservationsMock = vi.fn();
 
 vi.mock('../api/tides', () => ({
   getMeta: () => getMetaMock(),
@@ -60,6 +62,12 @@ vi.mock('../api/tides', () => ({
 vi.mock('../api/settings', () => ({
   getSettings: () => getSettingsMock(),
   saveSettings: (s: Settings) => saveSettingsMock(s)
+}));
+
+vi.mock('../api/aflotObservations', () => ({
+  getObservations: () => getObservationsMock(),
+  saveObservation: vi.fn(),
+  deleteObservation: vi.fn()
 }));
 
 /** Réimporte useTides avec un état singleton frais (useSettings/useSite/useTides). */
@@ -74,6 +82,7 @@ beforeEach(() => {
   getSitesMock.mockReset().mockResolvedValue(SITES);
   getSettingsMock.mockReset().mockResolvedValue({ ...SETTINGS, navihan: { ...SETTINGS.navihan } });
   saveSettingsMock.mockReset().mockResolvedValue(undefined);
+  getObservationsMock.mockReset().mockResolvedValue([]);
   getTidesMock.mockReset().mockImplementation((_from?: string, _to?: string, site?: string) =>
     // Étel : heures décalées de +1 h et basses mers à 2.22 (marqueur détectable).
     Promise.resolve(site === 'etel' ? tideOutput('etel', 1, 2.22) : tideOutput('port-tudy'))
@@ -109,7 +118,22 @@ describe('useTides — port de référence (Port-Tudy)', () => {
     const low = t.tableTides.value.find(x => x.type === 'low');
     expect(low).toBeDefined();
     expect(low!.refTime).toBe(low!.time); // référence → refTime = sa propre heure
-    expect(low!.navihan['A flot']).toBeTruthy(); // remise à flot calculée
+    expect(low!.refDate).toBe(low!.date);
+    expect(low!.navihan['A flot']).toBeTruthy(); // remise à flot (décalage fixe) conservée
+    expect(low!.aflotEstimate).toBeTruthy(); // estimation par seuil de hauteur
+  });
+
+  it('expose l’heure de remise à flot constatée (aflotObserved) depuis les observations', async () => {
+    getObservationsMock.mockResolvedValue([{ date: '2026-07-05', time: '03:00', observed: '06:00' }]);
+    const useTides = await freshUseTides();
+    const t = useTides();
+    await t.reload();
+    const low = t.tableTides.value.find(x => x.date === '2026-07-05' && x.time === '03:00');
+    expect(low).toBeDefined();
+    expect(low!.aflotObserved).toBe('06:00');
+    // Une basse mer sans observation reste à null.
+    const other = t.tableTides.value.find(x => x.type === 'low' && x.time === '15:00');
+    expect(other!.aflotObserved).toBeNull();
   });
 
   it('borne la durée éphémère du graphe des coefficients (1–90)', async () => {

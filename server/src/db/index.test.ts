@@ -5,7 +5,7 @@ describe('db migrations', () => {
   it('creates the schema and sets user_version to the current version', () => {
     const db = openDb(':memory:');
     const version = db.pragma('user_version', { simple: true });
-    expect(version).toBe(3);
+    expect(version).toBe(5);
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -20,6 +20,10 @@ describe('db migrations', () => {
     // v3 : colonne `login` sur access_log (attribution des connexions).
     const cols = db.prepare('PRAGMA table_info(access_log)').all().map((c: any) => c.name);
     expect(cols).toContain('login');
+    // v4 : table des remises à flot constatées (issue #4).
+    expect(tables).toContain('aflot_observations');
+    // v5 : table du lexique du mot du jour (éditable).
+    expect(tables).toContain('lexicon');
     db.close();
   });
 
@@ -41,7 +45,7 @@ describe('db migrations', () => {
     // Simule un rollback (ancien binaire remet user_version=1) puis un re-upgrade.
     db.pragma('user_version = 1');
     expect(() => migrate(db)).not.toThrow();
-    expect(db.pragma('user_version', { simple: true })).toBe(3);
+    expect(db.pragma('user_version', { simple: true })).toBe(5);
     const cols = db.prepare('PRAGMA table_info(access_log)').all().map((c: any) => c.name);
     expect(cols.filter((c: string) => c === 'login')).toHaveLength(1);
     db.close();
@@ -51,7 +55,7 @@ describe('db migrations', () => {
     const db = openDb(':memory:');
     migrate(db);
     migrate(db);
-    expect(db.pragma('user_version', { simple: true })).toBe(3);
+    expect(db.pragma('user_version', { simple: true })).toBe(5);
     // La table settings impose une ligne unique (id = 1).
     db.prepare("INSERT INTO settings (id, data) VALUES (1, '{}')").run();
     expect(() => db.prepare("INSERT INTO settings (id, data) VALUES (2, '{}')").run()).toThrow();

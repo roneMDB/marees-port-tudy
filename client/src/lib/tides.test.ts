@@ -8,6 +8,7 @@ const baseSettings: Settings = {
   startDate: null,
   rangeDays: 30,
   navihan: { basseMer: 75, pleineMer: 75, aFlot: 160 },
+  aFlotThreshold: 2.8,
   aFlotDays: 3,
   coefDays: 20,
   weatherLinks: []
@@ -159,6 +160,9 @@ describe('matchNavihanReference', () => {
     expect(rows[1].refTime).toBe('06:22'); // basse ↔ basse
     expect(rows[2].refTime).toBe('12:28'); // 13:05 ↔ pleine mer 12:28 (et non 23:40)
     expect(rows[3].refTime).toBe('19:01');
+    // La date Port-Tudy appariée est aussi exposée (clé des observations) — passage de minuit géré.
+    expect(rows[0].refDate).toBe('2026-07-22'); // apparié à la pleine mer de la veille
+    expect(rows[1].refDate).toBe('2026-07-23');
   });
 
   it('returns null refTime when no same-type reference is within tolerance', () => {
@@ -171,6 +175,7 @@ describe('matchNavihanReference', () => {
       { date: '2026-07-23', time: '01:00', height: 1.9, type: 'low', coefficient: null, navihan: {} }
     ];
     expect(matchNavihanReference(isolated, farRef)[0].refTime).toBeNull();
+    expect(matchNavihanReference(isolated, farRef)[0].refDate).toBeNull();
     expect(matchNavihanReference(isolated, [])[0].refTime).toBeNull();
   });
 });

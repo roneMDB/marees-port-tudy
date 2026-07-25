@@ -43,23 +43,26 @@ export function matchNavihanReference(
   reference: FlatTide[],
   toleranceMin = 180
 ): FlatTide[] {
-  const refByType: Record<'high' | 'low', { ms: number; time: string }[]> = { high: [], low: [] };
+  const refByType: Record<'high' | 'low', { ms: number; time: string; date: string }[]> = { high: [], low: [] };
   for (const r of reference) {
-    refByType[r.type].push({ ms: tideMs(r), time: r.time });
+    refByType[r.type].push({ ms: tideMs(r), time: r.time, date: r.date });
   }
   const toleranceMs = toleranceMin * 60_000;
   return site.map(t => {
     const ms = tideMs(t);
     let bestTime: string | null = null;
+    let bestDate: string | null = null;
     let bestDiff = Infinity;
     for (const r of refByType[t.type]) {
       const diff = Math.abs(r.ms - ms);
       if (diff < bestDiff) {
         bestDiff = diff;
         bestTime = r.time;
+        bestDate = r.date;
       }
     }
-    return { ...t, refTime: bestDiff <= toleranceMs ? bestTime : null };
+    const matched = bestDiff <= toleranceMs;
+    return { ...t, refTime: matched ? bestTime : null, refDate: matched ? bestDate : null };
   });
 }
 
