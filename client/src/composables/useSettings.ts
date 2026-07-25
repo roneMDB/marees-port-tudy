@@ -8,6 +8,7 @@ const DEFAULTS: Settings = {
   startDate: null,
   rangeDays: 30,
   navihan: { basseMer: 75, pleineMer: 75, aFlot: 160 },
+  aFlotThreshold: 2.8,
   aFlotDays: 3,
   coefDays: 20,
   weatherLinks: DEFAULT_WEATHER_LINKS.map(l => ({ ...l }))

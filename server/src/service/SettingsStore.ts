@@ -17,7 +17,8 @@ export interface Settings {
   startMode: 'today' | 'date';
   startDate: string | null; // YYYY-MM-DD quand startMode = 'date'
   rangeDays: number; // « Au » = début + rangeDays
-  navihan: NavihanOffsets; // décalages en minutes
+  navihan: NavihanOffsets; // décalages en minutes (basseMer/pleineMer ; aFlot déprécié, cf. aFlotThreshold)
+  aFlotThreshold: number; // hauteur d'eau (m) déclenchant la remise à flot (modèle seuil, issue #4)
   aFlotDays: number; // carte « À flot · N prochains jours »
   coefDays: number; // durée (jours) du graphe des coefficients
   weatherLinks: WeatherLink[]; // liens affichés sous la météo (éditables)
@@ -35,6 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
   startDate: null,
   rangeDays: 30,
   navihan: { basseMer: 75, pleineMer: 75, aFlot: 160 },
+  aFlotThreshold: 2.8,
   aFlotDays: 3,
   coefDays: 20,
   weatherLinks: DEFAULT_WEATHER_LINKS.map(l => ({ ...l }))
@@ -51,6 +53,13 @@ function clampInt(value: unknown, min: number, max: number, fallback: number): n
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, Math.round(n)));
+}
+
+/** Comme `clampInt` mais **sans arrondi** (hauteurs en mètres, ex. seuil de remise à flot). */
+function clampFloat(value: unknown, min: number, max: number, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
 }
 
 /**
@@ -86,6 +95,7 @@ export function sanitizeSettings(input: unknown): Settings {
       pleineMer: clampInt(nav.pleineMer, 0, MAX_MINUTES, DEFAULT_SETTINGS.navihan.pleineMer),
       aFlot: clampInt(nav.aFlot, 0, MAX_MINUTES, DEFAULT_SETTINGS.navihan.aFlot)
     },
+    aFlotThreshold: clampFloat(o.aFlotThreshold, 0, 10, DEFAULT_SETTINGS.aFlotThreshold),
     aFlotDays: clampInt(o.aFlotDays, 1, 14, DEFAULT_SETTINGS.aFlotDays),
     coefDays: clampInt(o.coefDays, 1, 90, DEFAULT_SETTINGS.coefDays),
     weatherLinks: sanitizeWeatherLinks(o.weatherLinks)

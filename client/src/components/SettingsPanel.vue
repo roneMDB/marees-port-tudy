@@ -17,6 +17,8 @@ const { offsets, reset: resetNavihan } = useNavihan();
 
 type OffsetKey = keyof NavihanOffsets;
 
+// Décalages fixes (minutes) appliqués à l'heure Port-Tudy. « Remise à flot » = ajout d'une valeur
+// fixe à la basse mer (ex. +2h50) ; l'« Estimation » (modèle seuil, issue #4) est réglée à part.
 const rows: { key: OffsetKey; label: string }[] = [
   { key: 'basseMer', label: 'Basse mer' },
   { key: 'pleineMer', label: 'Pleine mer' },
@@ -40,6 +42,11 @@ function setMinutes(key: OffsetKey, event: Event): void {
 
 function setAFlotDays(event: Event): void {
   settings.aFlotDays = clamp(Number((event.target as HTMLInputElement).value), 1, 14);
+}
+
+function onAFlotThreshold(event: Event): void {
+  const n = Number((event.target as HTMLInputElement).value);
+  if (Number.isFinite(n)) settings.aFlotThreshold = Math.min(10, Math.max(0, n));
 }
 
 function onRangeDays(event: Event): void {
@@ -85,7 +92,8 @@ function resetWeatherLinks(): void {
           <i class="bi bi-sliders me-1"></i> Réglages &amp; filtres
         </h5>
         <span class="text-muted small">
-          Remise à flot +{{ formatOffset(offsets.aFlot) }} · {{ settings.aFlotDays }} j
+          Remise à flot +{{ formatOffset(offsets.aFlot) }} · estim. ≥ {{ settings.aFlotThreshold }} m ·
+          {{ settings.aFlotDays }} j
         </span>
       </div>
       <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fermer"></button>
@@ -178,6 +186,25 @@ function resetWeatherLinks(): void {
         </div>
       </div>
       <div class="row g-3 mt-0">
+        <div class="col-12">
+          <label class="form-label small text-muted mb-1">Seuil de remise à flot (estimation)</label>
+          <div class="input-group">
+            <input
+              type="number"
+              class="form-control"
+              min="0"
+              max="10"
+              step="0.05"
+              :value="settings.aFlotThreshold"
+              @input="onAFlotThreshold"
+            />
+            <span class="input-group-text">m</span>
+          </div>
+          <div class="form-text">
+            pour l'<strong>estimation</strong> : hauteur d'eau (au-dessus du zéro) qui remet le bateau
+            à flot ; le délai après la basse mer varie alors avec le coefficient (issue #4).
+          </div>
+        </div>
         <div class="col-12">
           <label class="form-label small text-muted mb-1">Jours affichés (carte remise à flot)</label>
           <input

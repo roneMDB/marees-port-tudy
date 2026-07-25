@@ -5,13 +5,15 @@ import type { ChartData, ChartOptions } from 'chart.js';
 import type { FlatTide } from '../types';
 import { addDays, formatDate, todayKey } from '../lib/format';
 import { clampDate } from '../lib/tides';
-import { buildNavihanMaregram, navihanAflot, navihanExtremes, navihanHeightAtMinute } from '../lib/maregram';
+import { buildNavihanMaregram, navihanAflotByThreshold, navihanExtremes, navihanHeightAtMinute } from '../lib/maregram';
 import { useTheme } from '../composables/useTheme';
 import { useNavihan } from '../composables/useNavihan';
+import { useSettings } from '../composables/useSettings';
 
 const props = defineProps<{ allTides: FlatTide[] }>();
 const { isDark } = useTheme();
 const { offsets } = useNavihan();
+const { settings } = useSettings();
 
 // Jour affiché (navigable), borné aux dates disponibles dans les données.
 const dates = computed(() => [...new Set(props.allTides.map(t => t.date))].sort());
@@ -68,7 +70,9 @@ function formatMinutes(m: number): string {
 
 const curve = computed(() => buildNavihanMaregram(props.allTides, day.value, offsets));
 const extremes = computed(() => navihanExtremes(props.allTides, day.value, offsets));
-const aflot = computed(() => navihanAflot(props.allTides, day.value, offsets));
+const aflot = computed(() =>
+  navihanAflotByThreshold(props.allTides, day.value, offsets, settings.aFlotThreshold)
+);
 const nowMarker = computed(() => {
   if (!isToday.value) return null; // le repère « maintenant » n'a de sens que pour aujourd'hui
   const height = navihanHeightAtMinute(props.allTides, day.value, offsets, nowMinute.value);
