@@ -21,9 +21,14 @@ const { visible, toggle } = useNavihanDisplay();
 const { isAdmin } = useAuth();
 const { save, remove, load: reloadObservations } = useAflotObservations();
 
-/** Basses mers d'un jour, triées par heure **estimée** de remise à flot (colonne Constaté). */
+/** Heure Navihan « Remise à flot » (décalage fixe) d'une basse mer — rappel de la colonne Constaté. */
+function flotTime(low: FlatTide): string | undefined {
+  return low.navihan[NAVIHAN.aFlot];
+}
+
+/** Basses mers d'un jour, triées par heure de **remise à flot** Navihan (colonne Constaté). */
 function constateLows(day: DayTides): FlatTide[] {
-  return [...day.lows].sort((a, b) => (a.aflotEstimate ?? a.time).localeCompare(b.aflotEstimate ?? b.time));
+  return [...day.lows].sort((a, b) => (flotTime(a) ?? a.time).localeCompare(flotTime(b) ?? b.time));
 }
 
 /** Saisie/effacement de l'heure constatée d'une basse mer (clé = basse mer Port-Tudy). */
@@ -194,8 +199,8 @@ function navihanEntries(day: DayTides): NavihanEntry[] {
             <span v-if="!day.lows.length" class="text-muted">—</span>
             <div v-else class="constate-cell">
               <div v-for="l in constateLows(day)" :key="l.time" class="constate-row">
-                <span class="text-muted small constate-est" title="Estimation (rappel)">
-                  <i class="bi bi-graph-up-arrow"></i> {{ l.aflotEstimate ?? '—' }}
+                <span class="text-muted small constate-est" title="Remise à flot Navihan (rappel)">
+                  <i class="bi bi-check-circle"></i> {{ flotTime(l) ?? '—' }}
                 </span>
                 <template v-if="l.refTime">
                   <input

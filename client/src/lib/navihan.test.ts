@@ -81,32 +81,64 @@ describe('nextAflot', () => {
   ];
 
   it('returns the next à-flot, derived from the afternoon low, even before the evening high', () => {
-    const r = nextAflot(day, offsets, 2.8, new Date('2026-07-19T15:48:00'));
+    const r = nextAflot(day, offsets, new Date('2026-07-19T15:48:00'));
     expect(r).not.toBeNull();
     expect(r!.date).toBe('2026-07-19');
     expect(r!.basse.time).toBe('15:29');
-    // Cohérence : même heure que le calcul direct par seuil pour cette basse.
-    expect(r!.time).toBe(aflotTimeByThreshold(day, r!.basse, offsets, 2.8));
+    // Heure « Remise à flot » = décalage fixe après la basse mer (pas l'estimation par seuil).
+    expect(r!.time).toBe(shiftTime('15:29', offsets.aFlot));
   });
 
   it('skips à-flots already passed and moves to the next day', () => {
-    const r = nextAflot(day, offsets, 2.8, new Date('2026-07-19T22:00:00'));
+    const r = nextAflot(day, offsets, new Date('2026-07-19T22:00:00'));
     expect(r!.basse.date).toBe('2026-07-20');
     expect(r!.basse.time).toBe('03:52');
-    expect(r!.time).toBe(aflotTimeByThreshold(day, r!.basse, offsets, 2.8));
+    expect(r!.time).toBe(shiftTime('03:52', offsets.aFlot));
+  });
+
+  it('wraps past midnight when the fixed offset falls on the next day', () => {
+    const late = [tide('2026-07-19', '23:00', 'low', 1.2)];
+    const r = nextAflot(late, offsets, new Date('2026-07-19T23:30:00'));
+    expect(r!.date).toBe('2026-07-20');
+    expect(r!.time).toBe('01:40'); // 23:00 + 2h40
   });
 
   it('returns null when no upcoming à-flot exists', () => {
-    expect(nextAflot(day, offsets, 2.8, new Date('2026-07-21T00:00:00'))).toBeNull();
-    expect(nextAflot([tide('2026-07-19', '08:58', 'high', 5)], offsets, 2.8, new Date('2026-07-19T00:00:00'))).toBeNull();
+    expect(nextAflot(day, offsets, new Date('2026-07-21T00:00:00'))).toBeNull();
+    expect(nextAflot([tide('2026-07-19', '08:58', 'high', 5)], offsets, new Date('2026-07-19T00:00:00'))).toBeNull();
   });
 
-  it('aflotEvents lists every low with a following high, sorted chronologically', () => {
-    const events = aflotEvents(day, offsets, 2.8);
+  it('aflotEvents lists every low (fixed offset), sorted chronologically', () => {
+    const events = aflotEvents(day, offsets);
     expect(events.map(e => e.basse.time)).toEqual(['03:07', '15:29', '03:52']);
     for (let i = 1; i < events.length; i++) {
       expect(events[i].dt.getTime()).toBeGreaterThan(events[i - 1].dt.getTime());
     }
+  });
+
+  it('aflotEvents keeps a low with no following high (fixed offset needs no high)', () => {
+    const orphan = [tide('2026-07-19', '15:29', 'low', 1.5)];
+    expect(aflotEvents(orphan, offsets).map(e => e.basse.time)).toEqual(['15:29']);
+  });
+});
+
+// L'estimation (seuil de hauteur) n'alimente plus que le tableau : on garde la calibration du
+// modèle — le délai après la basse mer se raccourcit quand l'amplitude (coef) augmente.
+describe('modèle seuil — variation avec le coefficient', () => {
+  const offsets: NavihanOffsets = { basseMer: 75, pleineMer: 75, aFlot: 160 };
+  const toMinutes = (hhmm: string): number => {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+  };
+  const delay = (lowHeight: number, highHeight: number): number => {
+    const low = tide('2026-08-01', '02:00', 'low', lowHeight);
+    const high = tide('2026-08-01', '08:00', 'high', highHeight);
+    const t = aflotTimeByThreshold([low, high], low, offsets, 2.8);
+    return toMinutes(t!) - (120 + offsets.basseMer);
+  };
+
+  it('gives a shorter refloat delay in vive-eau (fort coef) than in morte-eau (faible coef)', () => {
+    expect(delay(0.6, 5.4)).toBeLessThan(delay(2.0, 3.6));
   });
 });
 

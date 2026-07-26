@@ -183,31 +183,32 @@ describe('TideDayTable', () => {
     expect(wrapper.findAll('tbody tr')[0].text()).toContain('11:13'); // aflotEstimate
   });
 
-  it('recalls the estimation time (not the basse mer time) in the Constaté cell', () => {
+  it('recalls the Navihan remise à flot time (not the estimation, not the basse mer) in the Constaté cell', () => {
     const wrapper = mount(TideDayTable, { props: { tides: editable } });
     const cell = wrapper.find('td[data-label="Constaté"]');
-    expect(cell.text()).toContain('11:13'); // estimation rappelée
+    expect(cell.text()).toContain('11:02'); // heure « Remise à flot » (décalage fixe) rappelée
+    expect(cell.text()).not.toContain('11:13'); // pas l'estimation par seuil
     expect(cell.text()).not.toContain('08:22'); // pas l'heure de basse mer
   });
 
-  it('orders the Constaté column by estimation time (chronological)', () => {
-    // Deux basses mers du jour avec estimations volontairement inversées vs l'ordre des basses.
+  it('orders the Constaté column by remise à flot time (chronological)', () => {
+    // Deux basses mers du jour avec heures « à flot » volontairement inversées vs l'ordre des basses.
     const twoLows: FlatTide[] = [
       {
         date: '2026-07-25', time: '03:00', height: 1.5, type: 'low', coefficient: null,
-        navihan: { 'Basse mer': '04:15', 'A flot': '05:50' },
-        refDate: '2026-07-25', refTime: '03:00', aflotEstimate: '18:00', aflotObserved: null
+        navihan: { 'Basse mer': '04:15', 'A flot': '18:00' },
+        refDate: '2026-07-25', refTime: '03:00', aflotEstimate: '05:50', aflotObserved: null
       },
       {
         date: '2026-07-25', time: '15:00', height: 1.6, type: 'low', coefficient: null,
-        navihan: { 'Basse mer': '16:15', 'A flot': '17:50' },
-        refDate: '2026-07-25', refTime: '15:00', aflotEstimate: '10:00', aflotObserved: null
+        navihan: { 'Basse mer': '16:15', 'A flot': '10:00' },
+        refDate: '2026-07-25', refTime: '15:00', aflotEstimate: '17:50', aflotObserved: null
       }
     ];
     const wrapper = mount(TideDayTable, { props: { tides: twoLows } });
     const cell = wrapper.find('td[data-label="Constaté"]').text();
     expect(cell.indexOf('10:00')).toBeGreaterThanOrEqual(0);
-    expect(cell.indexOf('10:00')).toBeLessThan(cell.indexOf('18:00')); // trié par estimation
+    expect(cell.indexOf('10:00')).toBeLessThan(cell.indexOf('18:00')); // trié par remise à flot
   });
 
   it('shows/hides the Constaté column via its visibility toggle', async () => {

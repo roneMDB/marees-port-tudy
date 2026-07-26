@@ -53,7 +53,8 @@ function epochMinutes(date: string, time: string): number {
 }
 
 /**
- * Heure de **remise à flot** (`HH:MM`) d'une basse mer, par **modèle seuil de hauteur** (issue #4) :
+ * **Estimation** de remise à flot (`HH:MM`) d'une basse mer, par **modèle seuil de hauteur**
+ * (issue #4) — n'est affichée que dans le **tableau du dashboard** (pastille « Estimation ») :
  * instant où la courbe Navihan montante (basse mer → pleine mer suivante, décalées) atteint
  * `thresholdHeight`. Le décalage après la basse mer varie ainsi avec le coefficient. `null` si le
  * seuil n'est pas atteint avant la pleine mer (morte-eau extrême) ou s'il n'y a pas de pleine mer
@@ -89,51 +90,37 @@ export interface NextAflot {
   basse: FlatTide; // basse mer d'origine
 }
 
-/** Un instant de remise à flot (modèle seuil) avec la basse mer d'origine. */
+/** Un instant de remise à flot (décalage fixe `aFlot`) avec la basse mer d'origine. */
 export interface AflotEvent {
   dt: Date;
   basse: FlatTide;
 }
 
 /**
- * Instants de **remise à flot** (modèle seuil de hauteur, issue #4) de toutes les basses mers ayant
- * une pleine mer suivante et atteignant le seuil, triés chronologiquement. Base commune de
- * `nextAflot` et de la carte « Prochaines remises à flot ». `tides` = extrêmes **Port-Tudy**.
+ * Instants de **remise à flot** de toutes les basses mers, par **décalage fixe** (`offsets.aFlot`,
+ * l'heure « Remise à flot » de Navihan), triés chronologiquement. Base commune de `nextAflot` et de
+ * la carte « Prochaines remises à flot ». L'**estimation** par seuil de hauteur
+ * (`aflotTimeByThreshold`) est volontairement réservée au tableau du dashboard.
+ * `tides` = extrêmes **Port-Tudy**.
  */
-export function aflotEvents(tides: FlatTide[], offsets: NavihanOffsets, thresholdHeight: number): AflotEvent[] {
-  const highs = tides
-    .filter(t => t.type === 'high' && Number.isFinite(t.height))
-    .map(t => ({ t, e: epochMinutes(t.date, t.time) }))
-    .sort((a, b) => a.e - b.e);
-
+export function aflotEvents(tides: FlatTide[], offsets: NavihanOffsets): AflotEvent[] {
   return tides
-    .filter(t => t.type === 'low' && Number.isFinite(t.height))
-    .map(low => {
-      const le = epochMinutes(low.date, low.time);
-      const nextHigh = highs.find(h => h.e > le);
-      if (!nextHigh) return null;
-      const a: OffsetPoint = { offset: le + offsets.basseMer, height: low.height };
-      const b: OffsetPoint = { offset: nextHigh.e + offsets.pleineMer, height: nextHigh.t.height };
-      const cross = inverseCosineRising(a, b, thresholdHeight);
-      return cross == null ? null : { dt: new Date(cross * 60000), basse: low };
-    })
-    .filter((c): c is AflotEvent => c != null)
+    .filter(t => t.type === 'low')
+    .map(low => ({
+      dt: new Date(new Date(`${low.date}T${low.time}:00`).getTime() + offsets.aFlot * 60000),
+      basse: low
+    }))
     .sort((a, b) => a.dt.getTime() - b.dt.getTime());
 }
 
 /**
- * Cherche le prochain « à flot » à venir (**modèle seuil de hauteur**, issue #4), dérivé de la
+ * Cherche le prochain « à flot » à venir (heure **Remise à flot**, décalage fixe), dérivé de la
  * basse mer dont l'instant de remise à flot est le premier ≥ `now` — indépendamment du fait que la
  * toute prochaine marée soit une pleine ou une basse mer. Renvoie `null` s'il n'y en a plus.
  */
-export function nextAflot(
-  tides: FlatTide[],
-  offsets: NavihanOffsets,
-  thresholdHeight: number,
-  now: Date
-): NextAflot | null {
+export function nextAflot(tides: FlatTide[], offsets: NavihanOffsets, now: Date): NextAflot | null {
   const pad = (n: number) => String(n).padStart(2, '0');
-  const first = aflotEvents(tides, offsets, thresholdHeight).find(e => e.dt >= now);
+  const first = aflotEvents(tides, offsets).find(e => e.dt >= now);
   if (!first) return null;
   const { dt, basse } = first;
   return {

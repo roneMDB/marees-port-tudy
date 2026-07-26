@@ -238,8 +238,13 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   `settings.aFlotThreshold` (m, défaut **2,8**, `DEFAULT_AFLOT_THRESHOLD`), donc délai qui **varie avec
   le coefficient** (cf. `docs/superpowers/specs/2026-07-24-navihan-coefficient-design.md`) ;
   **« Constaté »** (`aflotObserved`) = heure **réellement saisie** (persistée serveur, cf. table
-  `aflot_observations`). Fonctions pures testées : `inverseCosineRising`/`navihanAflotByThreshold`
-  (`lib/maregram.ts`), `aflotTimeByThreshold`/`aflotEvents`/`nextAflot` (`lib/navihan.ts`) — toujours
+  `aflot_observations`). **Périmètre de l'estimation** : elle n'apparaît **que** dans le tableau du
+  dashboard (pastille ↗ « Estimation »). Partout ailleurs — cartes « Prochaine(s) remise(s) à
+  flot », marqueurs du **marégramme**, rappel de la colonne **Constaté** — c'est l'heure
+  **« Remise à flot »** (décalage **fixe** `aFlot`) qui est utilisée. Fonctions pures testées :
+  `inverseCosineRising`/`navihanAflotFixed` (`lib/maregram.ts`),
+  `aflotTimeByThreshold` (estimation, tableau) / `aflotEvents`/`nextAflot` (décalage fixe, cartes)
+  (`lib/navihan.ts`) — toujours
   sur les hauteurs / basses mers **Port-Tudy** (`allTides`, `refDate`/`refTime`), même pour un port
   secondaire. `src/composables/useAflotObservations.ts` (singleton : map `date+heure Port-Tudy →
   constaté`, `load`/`get`/`save`/`remove` via `api/aflotObservations.ts`) alimente `aflotObserved` et
@@ -252,8 +257,8 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   ajout/suppression, bouton défauts), **Filtres d'affichage** (éphémères : `Type`, `Coef min`, reset).
   Remplace les anciens `TideFilters.vue` / `NavihanSettings.vue`. **Bouton + panneau masqués si le
   rôle n'est pas `admin`** (`useAuth().isAdmin`) : on ne montre pas des réglages non modifiables.
-  `StatCards.vue` — carte « Prochaine remise à flot » / « Prochaines remises à flot » sur
-  `settings.aFlotDays`.
+  `StatCards.vue` — carte « Prochaine remise à flot » / « Prochaines remises à flot » (heures
+  **Remise à flot**, décalage fixe) sur `settings.aFlotDays`.
 - `components/StatsPanel.vue` — **panneau « Statistiques d'accès »** (offcanvas) : KPIs (visites,
   LAN/externe), graphe visites/jour, pays/navigateurs/appareils. Charge `getStats()` à l'ouverture.
   Le bouton (navbar, `App.vue`) et le panneau ne sont montés que si `useAuth().isAdmin` ; le verrou
@@ -293,7 +298,8 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   + « Auj. » + sélecteur de date dans l'en-tête, borné aux dates dispo ; repère « maintenant »
   seulement aujourd'hui) : courbe de hauteur reconstruite
   par interpolation cosinus entre extrêmes via `lib/maregram.ts` (`buildMaregram`, testée), axe x
-  linéaire en minutes ; coef du jour au titre. `CoefChart.vue` — barres des coefficients sur
+  linéaire en minutes ; coef du jour au titre. Marqueurs « Remise à flot » = `navihanAflotFixed`
+  (décalage **fixe** `aFlot`, **pas** l'estimation par seuil). `CoefChart.vue` — barres des coefficients sur
   `coefDaysView` jours (défaut = réglage `coefDays` = 20) ; **champ durée dans le titre = éphémère**
   (session, non persisté, via `update:days` → `setCoefDaysView` ; revient au réglage au rechargement).
   Labels x sur deux lignes (date + heure). Données du Dashboard (`HeightChart` = `allTides` ;
@@ -306,9 +312,10 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   heure**, une par **type affichable** (`useNavihanDisplay`, 5 types masquables via la légende
   cliquable, persistés localStorage) : basse mer (↓), **Remise à flot** fixe (✓ vert),
   **Estimation** seuil (↗ cyan), **Constaté** (violet) et pleine mer (↑). La colonne **Constaté**
-  (masquable via le type `flotObs`) porte la **saisie** de l'heure réelle par basse mer :
-  `<input type="time">` **si `useAuth().isAdmin`** (→ `useAflotObservations.save`/`remove`), sinon
-  pastille/lecture. Responsive : pile de cartes sur mobile (`.tide-day-table`
+  (masquable via le type `flotObs`) porte la **saisie** de l'heure réelle par basse mer, précédée du
+  **rappel de l'heure « Remise à flot »** (décalage fixe, pas l'estimation) qui sert aussi de clé de
+  tri des lignes : `<input type="time">` **si `useAuth().isAdmin`**
+  (→ `useAflotObservations.save`/`remove`), sinon pastille/lecture. Responsive : pile de cartes sur mobile (`.tide-day-table`
   + `data-label`, cf. `assets/app.css`). Repère « aujourd'hui »,
   `table-responsive` (défilement horizontal mobile). Purement présentationnel : il rend la période
   qu'on lui passe (`tableTides`) ; la **navigation Précédent/Suivant/Début** (par période, cf.

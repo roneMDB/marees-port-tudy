@@ -35,13 +35,13 @@ const todayBand = computed(() =>
   todayCoefs.value.length ? coefBand(Math.max(...todayCoefs.value)) : null
 );
 
-// Prochaines heures « à flot » : événements à venir (**modèle seuil de hauteur**, issue #4),
-// groupés par leur date réelle, sur les `aFlotDays` premiers jours à partir de maintenant.
+// Prochaines heures « à flot » : heures **Remise à flot** de Navihan (décalage fixe `aFlot`, pas
+// l'estimation par seuil), groupées par date réelle, sur les `aFlotDays` premiers jours à venir.
 const upcomingAflot = computed(() => {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
   const byDate = new Map<string, string[]>();
-  aflotEvents(props.allTides, offsets, settings.aFlotThreshold)
+  aflotEvents(props.allTides, offsets)
     .filter(e => e.dt >= now)
     .forEach(({ dt }) => {
       const date = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
@@ -55,9 +55,9 @@ const upcomingAflot = computed(() => {
     .map(([date, times]) => ({ date, times }));
 });
 
-// Prochain « à flot » à venir (dérivé de la prochaine basse mer dont l'instant de remise à flot ≥
-// maintenant), même si la toute prochaine marée chronologique est une pleine mer. Sur `allTides`.
-const nextAflotEvent = computed(() => nextAflot(props.allTides, offsets, settings.aFlotThreshold, new Date()));
+// Prochain « à flot » à venir (heure **Remise à flot**, dérivée de la prochaine basse mer dont
+// l'instant ≥ maintenant), même si la toute prochaine marée est une pleine mer. Sur `allTides`.
+const nextAflotEvent = computed(() => nextAflot(props.allTides, offsets, new Date()));
 </script>
 
 <template>

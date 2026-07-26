@@ -201,8 +201,10 @@ function resetWeatherLinks(): void {
             <span class="input-group-text">m</span>
           </div>
           <div class="form-text">
-            pour l'<strong>estimation</strong> : hauteur d'eau (au-dessus du zéro) qui remet le bateau
-            à flot ; le délai après la basse mer varie alors avec le coefficient (issue #4).
+            pour l'<strong>estimation</strong> (pastille ↗ du tableau uniquement) : hauteur d'eau
+            (au-dessus du zéro) qui remet le bateau à flot ; le délai après la basse mer varie alors
+            avec le coefficient (issue #4). Cartes, marégramme et colonne « Constaté » utilisent
+            l'heure de <strong>remise à flot</strong> (décalage fixe ci-dessus).
           </div>
         </div>
         <div class="col-12">

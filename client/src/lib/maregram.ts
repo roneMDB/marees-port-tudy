@@ -127,33 +127,26 @@ export function navihanExtremes(extremes: FlatTide[], dateKey: string, offsets: 
 }
 
 /**
- * Points « remise à flot » du jour, **modèle seuil de hauteur** (issue #4) : pour chaque basse mer,
- * instant où la courbe Navihan montante atteint `thresholdHeight` (hauteur constante = seuil). Le
- * délai après la basse mer varie donc naturellement avec le coefficient. Une basse mer dont la
- * pleine mer suivante n'atteint pas le seuil (morte-eau extrême) est omise.
+ * Points « remise à flot » du jour, **décalage fixe** (`offsets.aFlot`) : pour chaque basse mer,
+ * l'heure Navihan « Remise à flot » (basse mer Port-Tudy + `aFlot`), à la hauteur de la courbe
+ * Navihan à cet instant. L'**estimation** par seuil de hauteur (`aflotTimeByThreshold`, issue #4)
+ * n'est pas tracée ici : elle reste cantonnée au tableau du dashboard.
  */
-export function navihanAflotByThreshold(
+export function navihanAflotFixed(
   extremes: FlatTide[],
   dateKey: string,
-  offsets: NavihanOffsets,
-  thresholdHeight: number
+  offsets: NavihanOffsets
 ): MaregramPoint[] {
   const dayStart = new Date(`${dateKey}T00:00:00`).getTime();
-  const minuteOf = (e: FlatTide) => (new Date(`${e.date}T${e.time}:00`).getTime() - dayStart) / 60000;
-  const highs = extremes
-    .filter(e => e.type === 'high' && Number.isFinite(e.height))
-    .map(e => ({ e, m: minuteOf(e) }))
-    .sort((p, q) => p.m - q.m);
+  const curve = toOffsetPoints(extremes, dateKey, navihanShift(offsets));
   const out: MaregramPoint[] = [];
   for (const low of extremes.filter(e => e.type === 'low' && Number.isFinite(e.height))) {
-    const lowMinute = minuteOf(low);
-    const nextHigh = highs.find(h => h.m > lowMinute);
-    if (!nextHigh) continue;
-    const a: OffsetPoint = { offset: lowMinute + offsets.basseMer, height: low.height };
-    const b: OffsetPoint = { offset: nextHigh.m + offsets.pleineMer, height: nextHigh.e.height };
-    const minutes = inverseCosineRising(a, b, thresholdHeight);
-    if (minutes == null || minutes < 0 || minutes > 1440) continue;
-    out.push({ minutes, height: thresholdHeight });
+    const minutes =
+      (new Date(`${low.date}T${low.time}:00`).getTime() - dayStart) / 60000 + offsets.aFlot;
+    if (minutes < 0 || minutes > 1440) continue;
+    const height = interpolate(curve, minutes);
+    if (height == null) continue; // instant non encadré par deux extrêmes (bord de plage)
+    out.push({ minutes, height });
   }
   return out;
 }

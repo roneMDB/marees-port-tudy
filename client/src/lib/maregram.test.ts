@@ -4,7 +4,7 @@ import {
   buildNavihanMaregram,
   heightAtMinute,
   inverseCosineRising,
-  navihanAflotByThreshold,
+  navihanAflotFixed,
   navihanExtremes,
   navihanHeightAtMinute
 } from './maregram';
@@ -78,17 +78,16 @@ describe('Navihan marégramme', () => {
     ]);
   });
 
-  it('navihanAflotByThreshold marks low tides where the rising Navihan curve reaches the threshold', () => {
-    // Courbe Navihan : basse (195 min, h1) → pleine (555 min, h5). Seuil 3 = mi-hauteur → mi-temps.
-    const pts = navihanAflotByThreshold(extremes, day, offsets, 3);
+  it('navihanAflotFixed marks each low at basse mer + aFlot, on the Navihan curve', () => {
+    // Basse 02:00 → remise à flot 04:40 = 280 min ; hauteur = celle de la courbe Navihan.
+    const pts = navihanAflotFixed(extremes, day, offsets);
     expect(pts).toHaveLength(1);
-    expect(pts[0].minutes).toBeCloseTo(375, 5); // 195 + 0.5 * 360
-    expect(pts[0].height).toBe(3); // hauteur = seuil (constante)
+    expect(pts[0].minutes).toBe(280); // 120 + 160
+    expect(pts[0].height).toBeCloseTo(navihanHeightAtMinute(extremes, day, offsets, 280)!, 5);
   });
 
-  it('navihanAflotByThreshold omits low tides whose next high never reaches the threshold', () => {
-    // Pleine mer à 5 m : un seuil de 5,5 m n'est jamais atteint ce cycle.
-    expect(navihanAflotByThreshold(extremes, day, offsets, 5.5)).toEqual([]);
+  it('navihanAflotFixed omits an à-flot outside the day / not bracketed by extremes', () => {
+    expect(navihanAflotFixed([ext(day, '22:00', 1, 'low')], day, offsets)).toEqual([]);
   });
 });
 
@@ -113,20 +112,5 @@ describe('inverseCosineRising', () => {
   it('returns null for a non-rising segment', () => {
     expect(inverseCosineRising({ offset: 0, height: 5 }, { offset: 100, height: 5 }, 4)).toBeNull();
     expect(inverseCosineRising({ offset: 0, height: 5 }, { offset: 100, height: 3 }, 4)).toBeNull();
-  });
-});
-
-describe('modèle seuil — variation avec le coefficient', () => {
-  const offsets: NavihanOffsets = { basseMer: 75, pleineMer: 75, aFlot: 160 };
-  const d = '2026-08-01';
-  const lo = (h: number): FlatTide => ext(d, '02:00', h, 'low');
-  const hi = (h: number): FlatTide => ext(d, '08:00', h, 'high');
-  const delay = (extr: FlatTide[]): number =>
-    navihanAflotByThreshold(extr, d, offsets, 2.8)[0].minutes - (120 + offsets.basseMer);
-
-  it('gives a shorter refloat delay in vive-eau (fort coef) than in morte-eau (faible coef)', () => {
-    const morteEau = delay([lo(2.0), hi(3.6)]); // faible amplitude
-    const viveEau = delay([lo(0.6), hi(5.4)]); // forte amplitude
-    expect(viveEau).toBeLessThan(morteEau);
   });
 });
