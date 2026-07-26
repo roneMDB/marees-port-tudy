@@ -331,8 +331,25 @@ function hashDate(dateKey: string): number {
  *  2) à défaut (marée peu marquante), rotation déterministe par date **surtout sur les termes de
  *     pêche**, avec 1 jour sur 3 un terme de marée « pédagogique » pour la variété.
  * Renvoie toujours une entrée, même sans coefficient (jour hors données).
+ *
+ * `offset` = nombre de « nouveau mot » demandés par l'utilisateur (bouton de la carte) : `0` donne
+ * le mot du jour, chaque cran avance d'une entrée dans le lexique et un tour complet ramène au mot
+ * du jour. Déterministe (aucun aléa) : même contexte + même offset → même mot.
  */
-export function noteOfTheDay(ctx: DayContext, lexicon: LexiconEntry[] = LEXIQUE): LexiconEntry {
+export function noteOfTheDay(
+  ctx: DayContext,
+  lexicon: LexiconEntry[] = LEXIQUE,
+  offset = 0
+): LexiconEntry {
+  const base = dayNote(ctx, lexicon);
+  if (!offset || lexicon.length < 2) return base;
+  const from = Math.max(0, lexicon.findIndex(e => e.id === base?.id));
+  const n = lexicon.length;
+  return lexicon[(((from + offset) % n) + n) % n];
+}
+
+/** Mot du jour « canonique » (offset 0) : contextuel si la marée est marquante, sinon rotation. */
+function dayNote(ctx: DayContext, lexicon: LexiconEntry[]): LexiconEntry {
   const { coef, prevCoef, dateKey } = ctx;
   const byId = (wanted: string) => lexicon.find(e => e.id === wanted);
   let id: string | null = null;

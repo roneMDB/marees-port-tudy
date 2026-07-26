@@ -97,3 +97,37 @@ describe('noteOfTheDay — rotation', () => {
     }
   });
 });
+
+describe('noteOfTheDay — offset (bouton « nouveau mot »)', () => {
+  const ctx = { dateKey: '2026-07-23', coef: 58, prevCoef: 57 };
+
+  it('offset 0 = le mot du jour', () => {
+    expect(noteOfTheDay(ctx, LEXIQUE, 0).id).toBe(noteOfTheDay(ctx).id);
+  });
+
+  it('chaque cran donne un autre terme du lexique', () => {
+    const base = noteOfTheDay(ctx).id;
+    const next = noteOfTheDay(ctx, LEXIQUE, 1);
+    expect(next.id).not.toBe(base);
+    expect(LEXIQUE.some(e => e.id === next.id)).toBe(true);
+    expect(noteOfTheDay(ctx, LEXIQUE, 2).id).not.toBe(next.id);
+  });
+
+  it('parcourt tout le lexique puis revient au mot du jour', () => {
+    const ids = new Set<string>();
+    for (let i = 0; i < LEXIQUE.length; i++) ids.add(noteOfTheDay(ctx, LEXIQUE, i).id);
+    expect(ids.size).toBe(LEXIQUE.length); // aucun doublon : un tour complet
+    expect(noteOfTheDay(ctx, LEXIQUE, LEXIQUE.length).id).toBe(noteOfTheDay(ctx).id);
+  });
+
+  it('change de mot même un jour de marée marquante (terme contextuel)', () => {
+    const marquant = { dateKey: '2026-07-23', coef: 105, prevCoef: 98 };
+    expect(noteOfTheDay(marquant).id).toBe('grande-maree');
+    expect(noteOfTheDay(marquant, LEXIQUE, 1).id).not.toBe('grande-maree');
+  });
+
+  it('reste stable avec un lexique d’une seule entrée', () => {
+    const single = [LEXIQUE[0]];
+    expect(noteOfTheDay(ctx, single, 3).id).toBe(LEXIQUE[0].id);
+  });
+});

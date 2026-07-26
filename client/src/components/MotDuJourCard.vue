@@ -16,6 +16,9 @@ onMounted(loadLexicon);
 // Repli (transitoire, non persisté) — cf. ResourcesCard.
 const open = ref(true);
 
+// Décalage dans le lexique demandé via « Nouveau mot » : éphémère (0 = le mot du jour).
+const shift = ref(0);
+
 // Contexte du jour, dérivé de la référence Port-Tudy (comme StatCards) :
 // coefficient d'aujourd'hui et de la veille, via groupByDay (pur/testé).
 const note = computed(() => {
@@ -24,8 +27,14 @@ const note = computed(() => {
   const yesterday = addDays(today, -1);
   const coef = days.find(d => d.date === today)?.coefficient ?? null;
   const prevCoef = days.find(d => d.date === yesterday)?.coefficient ?? null;
-  return noteOfTheDay({ dateKey: today, coef, prevCoef }, lexicon.value);
+  return noteOfTheDay({ dateKey: today, coef, prevCoef }, lexicon.value, shift.value);
 });
+
+/** Mot suivant du lexique (déplie la carte si elle était repliée, sinon le clic serait invisible). */
+function nextWord(): void {
+  shift.value += 1;
+  open.value = true;
+}
 </script>
 
 <template>
@@ -40,15 +49,26 @@ const note = computed(() => {
         <i class="bi bi-book me-1"></i> Le mot du jour
         <i :class="open ? 'bi bi-chevron-up' : 'bi bi-chevron-down'" class="small ms-1"></i>
       </button>
-      <button
-        type="button"
-        class="btn btn-sm btn-link link-secondary text-decoration-none p-0"
-        title="Masquer le mot du jour"
-        aria-label="Masquer le mot du jour"
-        @click="hide"
-      >
-        <i class="bi bi-eye-slash"></i>
-      </button>
+      <div class="d-flex align-items-center gap-3">
+        <button
+          type="button"
+          class="btn btn-sm btn-link link-secondary text-decoration-none p-0"
+          title="Charger un nouveau mot du lexique"
+          aria-label="Charger un nouveau mot"
+          @click="nextWord"
+        >
+          <i class="bi bi-arrow-repeat"></i>
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm btn-link link-secondary text-decoration-none p-0"
+          title="Masquer le mot du jour"
+          aria-label="Masquer le mot du jour"
+          @click="hide"
+        >
+          <i class="bi bi-eye-slash"></i>
+        </button>
+      </div>
     </div>
 
     <div v-show="open" class="card-body py-3 px-3">
@@ -65,6 +85,15 @@ const note = computed(() => {
             >{{ note.type === 'peche' ? 'Pêche' : 'Marée' }}</span>
           </div>
           <p class="text-body-secondary mb-0">{{ note.definition }}</p>
+          <!-- On s'est éloigné du mot du jour : retour explicite au terme choisi pour la marée. -->
+          <button
+            v-if="shift"
+            type="button"
+            class="btn btn-sm btn-link link-secondary text-decoration-none p-0 mt-1 small"
+            @click="shift = 0"
+          >
+            <i class="bi bi-arrow-counterclockwise me-1"></i> Revenir au mot du jour
+          </button>
         </div>
       </div>
     </div>
