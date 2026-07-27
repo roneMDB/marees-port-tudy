@@ -13,7 +13,8 @@ export type TideAnomalyKind =
   | 'heure-invalide'
   | 'hauteur-invalide'
   | 'alternance'
-  | 'rapprochees';
+  | 'rapprochees'
+  | 'doublon';
 
 /** Une anomalie repérée dans un jeu d'horaires. */
 export interface TideAnomaly {
@@ -85,6 +86,7 @@ interface Extreme {
   date: string;
   time: string;
   type: 'haute' | 'basse';
+  height: number;
   minutes: number; // instant absolu en minutes, pour comparer par-dessus minuit
 }
 
@@ -132,11 +134,41 @@ export function auditTides(parsed: unknown): TideAnomaly[] {
         anomalies.push({ date, kind: 'hauteur-invalide', message: `hauteur non numérique à ${e.heure} (« ${String(e.hauteur)} »)` });
         continue;
       }
-      extremes.push({ date, time: e.heure, type: e.maree, minutes: absoluteMinutes(date, e.heure) });
+      extremes.push({
+        date,
+        time: e.heure,
+        type: e.maree,
+        height: hauteur,
+        minutes: absoluteMinutes(date, e.heure)
+      });
     }
   }
 
   extremes.sort((a, b) => a.minutes - b.minutes);
+
+  // Journée recopiée : deux dates portant une marée identique au type, à la minute et au
+  // centimètre. La marée décalant d'environ 35 min par jour, c'est le signe d'une duplication à la
+  // source — que ni l'alternance ni l'espacement ne détectent, chaque valeur étant plausible
+  // isolément. Signalé comme suspicion : une coïncidence lointaine reste possible.
+  const byValue = new Map<string, Extreme[]>();
+  for (const x of extremes) {
+    const key = `${x.type}|${x.time}|${x.height}`;
+    (byValue.get(key) ?? byValue.set(key, []).get(key)!).push(x);
+  }
+  for (const group of byValue.values()) {
+    const dates = [...new Set(group.map(x => x.date))];
+    if (dates.length < 2) continue; // même jour → déjà couvert par le contrôle d'espacement
+    const { type, time, height } = group[0];
+    for (let i = 1; i < dates.length; i++) {
+      anomalies.push({
+        date: dates[i],
+        kind: 'doublon',
+        message:
+          `marée ${type} ${time} à ${height} m identique au ${dates[i - 1]} ` +
+          '(journée probablement recopiée — à vérifier)'
+      });
+    }
+  }
 
   for (let i = 1; i < extremes.length; i++) {
     const prev = extremes[i - 1];

@@ -137,3 +137,52 @@ describe('formatAuditMarkdown', () => {
     expect(md).toContain('a \\| b');
   });
 });
+
+// Motif de défaillance récurrent de la source : une journée recopiée sur une autre. L'alternance
+// et l'espacement ne le voient pas — les deux valeurs sont plausibles prises isolément.
+describe('auditTides — journées recopiées', () => {
+  it('signale une marée identique (type, heure, hauteur) sur deux dates', () => {
+    const found = auditTides({
+      '2026-08-27': [
+        { maree: 'haute', heure: '05:11', hauteur: '4.64' },
+        { maree: 'basse', heure: '11:51', hauteur: '1.22' },
+        { maree: 'haute', heure: '17:19', hauteur: '4.99' }
+      ],
+      '2026-08-28': [
+        { maree: 'basse', heure: '11:51', hauteur: '1.22' },
+        { maree: 'haute', heure: '17:50', hauteur: '5.16' }
+      ]
+    });
+    const dup = found.filter(a => a.kind === 'doublon');
+    expect(dup).toHaveLength(1);
+    expect(dup[0].message).toContain('2026-08-27');
+    expect(dup[0].message).toContain('11:51');
+  });
+
+  it('ne signale rien quand seule l’heure coïncide, la hauteur différant', () => {
+    const found = auditTides({
+      '2026-08-27': [{ maree: 'basse', heure: '11:51', hauteur: '1.22' }],
+      '2026-08-28': [{ maree: 'basse', heure: '11:51', hauteur: '1.35' }]
+    });
+    expect(found.filter(a => a.kind === 'doublon')).toEqual([]);
+  });
+
+  it('ne confond pas une pleine et une basse mer de mêmes heure et hauteur', () => {
+    const found = auditTides({
+      '2026-08-27': [{ maree: 'basse', heure: '11:51', hauteur: '3.00' }],
+      '2026-08-28': [{ maree: 'haute', heure: '11:51', hauteur: '3.00' }]
+    });
+    expect(found.filter(a => a.kind === 'doublon')).toEqual([]);
+  });
+
+  it('n’accuse pas deux marées identiques au sein d’un même jour', () => {
+    // Cas dégénéré : déjà couvert par les contrôles d'espacement, inutile d'y ajouter du bruit.
+    const found = auditTides({
+      '2026-08-27': [
+        { maree: 'basse', heure: '11:51', hauteur: '1.22' },
+        { maree: 'basse', heure: '11:51', hauteur: '1.22' }
+      ]
+    });
+    expect(found.filter(a => a.kind === 'doublon')).toEqual([]);
+  });
+});
