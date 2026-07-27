@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { openDb } from '../db';
 import {
-  UserError,
   createUserAccount,
   updateUserAccount,
   deleteUserAccount,

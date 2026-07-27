@@ -72,7 +72,13 @@ export default tseslint.config(
       // `filters` est un objet réactif passé délibérément et muté en place (design existant :
       // Dashboard → SettingsPanel) ; refactor emit hors périmètre.
       'vue/no-mutating-props': 'off',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }]
+      // `ignoreRestSiblings` autorise l'idiome d'omission `const { passwordHash, ...pub } = user`,
+      // qui garantit qu'un champ sensible ne fuit pas — le renommer en `_passwordHash` imposerait
+      // un `passwordHash: _passwordHash` bruyant là où la lisibilité est justement l'intérêt.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true }
+      ]
     }
   },
   configPrettier
