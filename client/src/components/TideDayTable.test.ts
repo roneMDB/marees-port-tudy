@@ -192,23 +192,23 @@ describe('TideDayTable', () => {
   });
 
   it('orders the Constaté column by remise à flot time (chronological)', () => {
-    // Deux basses mers du jour avec heures « à flot » volontairement inversées vs l'ordre des basses.
-    const twoLows: FlatTide[] = [
+    // Le tri suit la **remise à flot**, pas la basse mer d'origine. Cas discriminant : le 26 hérite
+    // de l'à-flot de la basse mer tardive du 25 (23:00 → 01:40), qui doit passer AVANT le sien
+    // (10:00 → 12:40) alors que sa basse mer est la plus tardive des deux.
+    const spill: FlatTide[] = [
       {
-        date: '2026-07-25', time: '03:00', height: 1.5, type: 'low', coefficient: null,
-        navihan: { 'Basse mer': '04:15', 'A flot': '18:00' },
-        refDate: '2026-07-25', refTime: '03:00', aflotEstimate: '05:50', aflotObserved: null
+        date: '2026-07-25', time: '23:00', height: 1.5, type: 'low', coefficient: null,
+        navihan: {}, refDate: '2026-07-25', refTime: '23:00', aflotObserved: null
       },
       {
-        date: '2026-07-25', time: '15:00', height: 1.6, type: 'low', coefficient: null,
-        navihan: { 'Basse mer': '16:15', 'A flot': '10:00' },
-        refDate: '2026-07-25', refTime: '15:00', aflotEstimate: '17:50', aflotObserved: null
+        date: '2026-07-26', time: '10:00', height: 1.6, type: 'low', coefficient: null,
+        navihan: {}, refDate: '2026-07-26', refTime: '10:00', aflotObserved: null
       }
     ];
-    const wrapper = mount(TideDayTable, { props: { tides: twoLows } });
+    const wrapper = mount(TideDayTable, { props: { tides: spill, from: '2026-07-26' } });
     const cell = wrapper.find('td[data-label="Constaté"]').text();
-    expect(cell.indexOf('10:00')).toBeGreaterThanOrEqual(0);
-    expect(cell.indexOf('10:00')).toBeLessThan(cell.indexOf('18:00')); // trié par remise à flot
+    expect(cell.indexOf('01:40')).toBeGreaterThanOrEqual(0);
+    expect(cell.indexOf('01:40')).toBeLessThan(cell.indexOf('12:40')); // trié par remise à flot
   });
 
   it('shows/hides the Constaté column via its visibility toggle', async () => {
@@ -241,5 +241,70 @@ describe('TideDayTable', () => {
   it('does not render an input for non-admins', () => {
     const wrapper = mount(TideDayTable, { props: { tides: editable } });
     expect(wrapper.find('.constate-input').exists()).toBe(false);
+  });
+});
+
+// Une heure Navihan qui franchit minuit appartient au lendemain : elle doit être rendue sur la
+// ligne de ce lendemain, et non en tête de la ligne de la basse mer d'origine.
+describe('TideDayTable — heures Navihan reportées au jour où elles ont lieu', () => {
+  // Basse mer tardive le 27 (22:52) → basse mer Navihan 00:07 et remise à flot 01:32, le **28**.
+  const acrossMidnight: FlatTide[] = [
+    {
+      date: '2026-07-27', time: '10:28', height: 1.88, type: 'low', coefficient: null,
+      refDate: '2026-07-27', refTime: '10:28', navihan: {}
+    },
+    {
+      date: '2026-07-27', time: '22:52', height: 1.74, type: 'low', coefficient: null,
+      refDate: '2026-07-27', refTime: '22:52', navihan: {}
+    },
+    {
+      date: '2026-07-28', time: '11:07', height: 1.68, type: 'low', coefficient: null,
+      refDate: '2026-07-28', refTime: '11:07', navihan: {}
+    }
+  ];
+
+  const rowFor = (wrapper: ReturnType<typeof mount>, label: string) =>
+    wrapper.findAll('tbody tr').find(r => r.text().includes(label))!;
+
+  beforeEach(() => {
+    const { visible } = useNavihanDisplay();
+    visible.bm = true; visible.flot = true; visible.flotEst = false;
+    visible.flotObs = true; visible.pm = true;
+  });
+
+  it('rend la remise à flot d’après minuit sur la ligne du lendemain', () => {
+    const wrapper = mount(TideDayTable, { props: { tides: acrossMidnight } });
+
+    const row27 = rowFor(wrapper, '27 juil.');
+    const row28 = rowFor(wrapper, '28 juil.');
+
+    // Le 27 ne garde que les heures qui ont lieu le 27 (issues de la basse mer de 10:28).
+    expect(row27.text()).toContain('11:43'); // basse mer Navihan 10:28 + 1h15
+    expect(row27.text()).toContain('13:08'); // remise à flot 10:28 + 2h40
+    expect(row27.text()).not.toContain('00:07');
+    expect(row27.text()).not.toContain('01:32');
+
+    // Elles apparaissent sur le 28, où elles se produisent réellement.
+    expect(row28.text()).toContain('00:07');
+    expect(row28.text()).toContain('01:32');
+  });
+
+  it('déplace aussi le rappel de la colonne Constaté sur la ligne du lendemain', () => {
+    const wrapper = mount(TideDayTable, { props: { tides: acrossMidnight } });
+
+    const cell27 = rowFor(wrapper, '27 juil.').find('td[data-label="Constaté"]');
+    const cell28 = rowFor(wrapper, '28 juil.').find('td[data-label="Constaté"]');
+
+    expect(cell27.text()).toContain('13:08');
+    expect(cell27.text()).not.toContain('01:32');
+    expect(cell28.text()).toContain('01:32');
+  });
+
+  it('n’affiche pas les lignes antérieures à `from` (jour d’amorce de la fenêtre)', () => {
+    const wrapper = mount(TideDayTable, { props: { tides: acrossMidnight, from: '2026-07-28' } });
+    const days = wrapper.findAll('tbody tr').map(r => r.text());
+    expect(days.some(t => t.includes('27 juil.'))).toBe(false);
+    // …mais le 28 hérite bien des heures issues de la basse mer du 27, hors fenêtre.
+    expect(days.join(' ')).toContain('01:32');
   });
 });

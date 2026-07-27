@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  aflotAgenda,
   aflotEvents,
   aflotTimeByThreshold,
   computeNavihan,
   DEFAULT_OFFSETS,
   formatOffset,
   nextAflot,
+  shiftMoment,
   shiftTime
 } from './navihan';
 import type { FlatTide, NavihanOffsets } from '../types';
@@ -119,6 +121,106 @@ describe('nextAflot', () => {
   it('aflotEvents keeps a low with no following high (fixed offset needs no high)', () => {
     const orphan = [tide('2026-07-19', '15:29', 'low', 1.5)];
     expect(aflotEvents(orphan, offsets).map(e => e.basse.time)).toEqual(['15:29']);
+  });
+});
+
+describe('shiftMoment', () => {
+  it('decale une heure en gardant la date quand on reste dans la journee', () => {
+    expect(shiftMoment('2026-07-26', '22:09', 75)).toEqual({ date: '2026-07-26', time: '23:24' });
+  });
+
+  it('avance la date quand le decalage franchit minuit', () => {
+    expect(shiftMoment('2026-07-26', '23:30', 75)).toEqual({ date: '2026-07-27', time: '00:45' });
+    expect(shiftMoment('2026-07-26', '22:09', 160)).toEqual({ date: '2026-07-27', time: '00:49' });
+  });
+
+  it('recule la date sur un decalage negatif avant minuit', () => {
+    expect(shiftMoment('2026-07-26', '00:30', -75)).toEqual({ date: '2026-07-25', time: '23:15' });
+  });
+
+  it('franchit les bornes de mois et d annee', () => {
+    expect(shiftMoment('2026-07-31', '23:30', 75)).toEqual({ date: '2026-08-01', time: '00:45' });
+    expect(shiftMoment('2026-12-31', '23:30', 75)).toEqual({ date: '2027-01-01', time: '00:45' });
+  });
+
+  it('laisse la date et l heure intactes a decalage nul', () => {
+    expect(shiftMoment('2026-07-26', '09:44', 0)).toEqual({ date: '2026-07-26', time: '09:44' });
+  });
+});
+
+describe('aflotAgenda', () => {
+  const offsets: NavihanOffsets = { basseMer: 75, pleineMer: 75, aFlot: 170 }; // 2h50
+  // Vraies basses mers Port-Tudy du 26 au 31/07/2026 (deux par journée de marée).
+  const tides = [
+    tide('2026-07-26', '09:44', 'low', 2.07),
+    tide('2026-07-26', '22:09', 'low', 1.95),
+    tide('2026-07-26', '15:54', 'high', 4.3),
+    tide('2026-07-27', '10:28', 'low', 1.88),
+    tide('2026-07-27', '22:52', 'low', 1.74),
+    tide('2026-07-28', '11:07', 'low', 1.68),
+    tide('2026-07-28', '23:29', 'low', 1.54)
+  ];
+
+  it('files each refloat under the day it actually happens', () => {
+    const days = aflotAgenda(tides, offsets, new Date('2026-07-26T00:00:00'), 3);
+    expect(days.map(d => d.date)).toEqual(['2026-07-26', '2026-07-27', '2026-07-28']);
+    expect(days.map(d => d.times.map(t => t.time))).toEqual([
+      ['12:34'], // 09:44 + 2h50 ; la basse de 22:09 donne 00:59 **le 27**
+      ['00:59', '13:18'],
+      ['01:42', '13:57']
+    ]);
+  });
+
+  it('sorts the times of a day chronologically', () => {
+    const [, day27] = aflotAgenda(tides, offsets, new Date('2026-07-26T00:00:00'), 2);
+    expect(day27.times.map(t => t.time)).toEqual(['00:59', '13:18']);
+  });
+
+  it('flags refloats already passed without dropping them', () => {
+    const [day26] = aflotAgenda(tides, offsets, new Date('2026-07-26T16:16:00'), 1);
+    expect(day26.times.map(t => [t.time, t.past])).toEqual([['12:34', true]]);
+  });
+
+  it('keeps the current day even when all its refloats are past', () => {
+    const days = aflotAgenda(tides, offsets, new Date('2026-07-26T23:00:00'), 2);
+    expect(days[0].date).toBe('2026-07-26');
+    expect(days[0].times.every(t => t.past)).toBe(true);
+  });
+
+  it('starts at the day of `now` and ignores earlier days', () => {
+    const days = aflotAgenda(tides, offsets, new Date('2026-07-28T00:00:00'), 5);
+    expect(days.map(d => d.date)).toEqual(['2026-07-28', '2026-07-29']);
+  });
+
+  // Données saines : une journée porte au plus deux remises à flot, même lorsqu'une basse mer
+  // tardive de la veille déborde sur elle (c'est précisément le cas du 30/07/2026).
+  it('gives at most two refloats a day on sound data', () => {
+    const across = [
+      tide('2026-07-29', '11:42', 'low', 1.52),
+      tide('2026-07-30', '00:04', 'low', 1.37),
+      tide('2026-07-30', '12:16', 'low', 1.39),
+      tide('2026-07-31', '00:38', 'low', 1.25)
+    ];
+    const days = aflotAgenda(across, offsets, new Date('2026-07-29T00:00:00'), 3);
+    expect(days.map(d => [d.date, d.times.map(t => t.time)])).toEqual([
+      ['2026-07-29', ['14:32']],
+      ['2026-07-30', ['02:54', '15:06']],
+      ['2026-07-31', ['03:28']]
+    ]);
+  });
+
+  it('limits the result to `days` days', () => {
+    expect(aflotAgenda(tides, offsets, new Date('2026-07-26T00:00:00'), 2)).toHaveLength(2);
+  });
+
+  it('ignores highs and days without any refloat', () => {
+    const onlyHighs = [tide('2026-07-26', '15:54', 'high', 4.3)];
+    expect(aflotAgenda(onlyHighs, offsets, new Date('2026-07-26T00:00:00'), 3)).toEqual([]);
+  });
+
+  it('returns an empty list when no day remains', () => {
+    expect(aflotAgenda(tides, offsets, new Date('2026-08-10T00:00:00'), 3)).toEqual([]);
+    expect(aflotAgenda([], offsets, new Date('2026-07-26T00:00:00'), 3)).toEqual([]);
   });
 });
 

@@ -41,6 +41,17 @@ export function todayKey(): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Situe une date par rapport à `today` : « aujourd'hui », « demain », sinon la date formatée.
+ * Sert à lever l'ambiguïté d'une heure seule (ex. une remise à flot à 00:49 qui tombe le
+ * lendemain se lirait comme une heure déjà passée).
+ */
+export function relativeDayLabel(dateKey: string, today: string): string {
+  if (dateKey === today) return "aujourd'hui";
+  if (dateKey === addDays(today, 1)) return 'demain';
+  return formatDate(dateKey);
+}
+
 /** Ajoute `days` jours à une date `YYYY-MM-DD` (midi local pour éviter tout décalage). */
 export function addDays(dateKey: string, days: number): string {
   const d = new Date(`${dateKey}T12:00:00`);

@@ -101,7 +101,10 @@ describe('useTides — port de référence (Port-Tudy)', () => {
 
     expect(t.tablePeriod.value).toEqual({ from: '2026-07-05', to: '2026-07-08' });
     expect(t.tableTides.value.length).toBeGreaterThan(0);
-    expect(t.tableTides.value.every(x => x.date >= '2026-07-05' && x.date <= '2026-07-08')).toBe(true);
+    // `tableTides` embarque **un jour d'amorce** avant la période : il fournit à la première ligne
+    // les heures Navihan de la veille qui franchissent minuit. `TideDayTable` ne le rend pas.
+    expect(t.tableTides.value.every(x => x.date >= '2026-07-04' && x.date <= '2026-07-08')).toBe(true);
+    expect(t.tableTides.value.some(x => x.date === '2026-07-04')).toBe(true);
     expect(t.canPrevPeriod.value).toBe(true); // 2026-07-05 > minDate
     expect(t.canNextPeriod.value).toBe(true); // 2026-07-08 < maxDate
 

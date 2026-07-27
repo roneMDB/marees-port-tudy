@@ -2,16 +2,29 @@
 import { computed } from 'vue';
 import type { FlatTide } from '../types';
 import type { DayTides } from '../lib/tides';
-import { NAVIHAN } from '../types';
 import { groupByDay } from '../lib/tides';
-import { formatDate, formatHeight, todayKey, coefBand } from '../lib/format';
+import { addDays, formatDate, formatHeight, todayKey, coefBand } from '../lib/format';
+import { shiftMoment } from '../lib/navihan';
+import { useNavihan } from '../composables/useNavihan';
 import { useNavihanDisplay, type NavihanKey } from '../composables/useNavihanDisplay';
 import { useAuth } from '../composables/useAuth';
 import { useAflotObservations } from '../composables/useAflotObservations';
 
-const props = withDefaults(defineProps<{ tides: FlatTide[]; siteLabel?: string }>(), {
-  siteLabel: 'Port-Tudy'
-});
+const props = withDefaults(
+  defineProps<{
+    tides: FlatTide[];
+    siteLabel?: string;
+    /**
+     * Première date à afficher. Le parent passe **un jour de plus en amont** dans `tides` pour que
+     * la première ligne hérite des heures Navihan issues de la veille (celles qui franchissent
+     * minuit) ; ce jour d'amorce ne doit pas être rendu comme une ligne.
+     */
+    from?: string;
+  }>(),
+  { siteLabel: 'Port-Tudy', from: '' }
+);
+
+const { offsets } = useNavihan();
 
 const today = todayKey();
 
@@ -21,14 +34,18 @@ const { visible, toggle } = useNavihanDisplay();
 const { isAdmin } = useAuth();
 const { save, remove, load: reloadObservations } = useAflotObservations();
 
-/** Heure Navihan « Remise à flot » (décalage fixe) d'une basse mer — rappel de la colonne Constaté. */
-function flotTime(low: FlatTide): string | undefined {
-  return low.navihan[NAVIHAN.aFlot];
+/**
+ * Instant Navihan d'une marée : sa **date réelle** et son heure, décalage `offset` appliqué à la
+ * marée Port-Tudy de référence. Le repli sur la marée elle-même sert au port de référence, où
+ * `refDate`/`refTime` valent la date et l'heure propres.
+ */
+function moment(t: FlatTide, offset: number): { date: string; time: string } {
+  return shiftMoment(t.refDate ?? t.date, t.refTime ?? t.time, offset);
 }
 
-/** Basses mers d'un jour, triées par heure de **remise à flot** Navihan (colonne Constaté). */
-function constateLows(day: DayTides): FlatTide[] {
-  return [...day.lows].sort((a, b) => (flotTime(a) ?? a.time).localeCompare(flotTime(b) ?? b.time));
+/** Instant de la **remise à flot** (décalage fixe) d'une basse mer. */
+function flotMoment(low: FlatTide): { date: string; time: string } {
+  return moment(low, offsets.aFlot);
 }
 
 /** Saisie/effacement de l'heure constatée d'une basse mer (clé = basse mer Port-Tudy). */
@@ -43,8 +60,13 @@ async function onObserved(low: FlatTide, event: Event): Promise<void> {
   }
 }
 
-// Une ligne par jour (la période à afficher est fournie déjà bornée par le parent).
-const rows = computed(() => groupByDay(props.tides).map(day => ({ day, band: coefBand(day.coefficient) })));
+// Une ligne par jour. Le jour d'amorce (cf. prop `from`) est écarté : il n'est là que pour fournir
+// à la première ligne les heures Navihan de la veille qui franchissent minuit.
+const rows = computed(() =>
+  groupByDay(props.tides)
+    .filter(day => !props.from || day.date >= props.from)
+    .map(day => ({ day, band: coefBand(day.coefficient) }))
+);
 
 /** Une pastille Navihan : heure + type (clé, icône, couleur, libellé). */
 interface NavihanEntry {
@@ -65,25 +87,71 @@ const NAVIHAN_TYPES: { key: NavihanKey; pillClass: string; icon: string; label: 
 ];
 
 /**
- * Heures Navihan du jour, aplaties, **filtrées** selon le choix d'affichage et **triées par heure
- * croissante**. Chaque type porte son icône : basse mer (↓), remise à flot (✓, « feu vert » pour
- * sortir), pleine mer (↑). Les heures viennent des marées du port sélectionné mais sont dérivées
- * de Port-Tudy en amont ; les valeurs absentes ou de type masqué sont ignorées.
+ * Heures Navihan indexées par le jour où elles ont **réellement lieu**, filtrées selon le choix
+ * d'affichage et triées par heure croissante. Une heure dont le décalage franchit minuit est donc
+ * rangée au lendemain, et non en tête de la ligne de la marée d'origine — où elle se lirait comme
+ * une heure du petit matin de ce jour-là. Chaque type porte son icône : basse mer (↓), remise à
+ * flot (✓, « feu vert » pour sortir), estimation (↗), pleine mer (↑).
  */
-function navihanEntries(day: DayTides): NavihanEntry[] {
-  const entries: NavihanEntry[] = [];
-  const push = (key: NavihanKey, time: string | undefined, pillClass: string, icon: string, title: string) => {
-    if (time && visible[key]) entries.push({ key, time, pillClass, icon, title });
+const navihanByDate = computed(() => {
+  const byDate = new Map<string, NavihanEntry[]>();
+  const push = (
+    key: NavihanKey,
+    at: { date: string; time: string } | null,
+    pillClass: string,
+    icon: string,
+    title: string
+  ) => {
+    if (!at || !visible[key]) return;
+    const list = byDate.get(at.date) ?? [];
+    list.push({ key, time: at.time, pillClass, icon, title });
+    byDate.set(at.date, list);
   };
-  for (const l of day.lows) {
-    push('bm', l.navihan[NAVIHAN.basseMer], 'navihan-pill--bm', 'bi-arrow-down', 'Basse mer');
-    push('flot', l.navihan[NAVIHAN.aFlot], 'navihan-pill--flot', 'bi-check-circle', 'Remise à flot (décalage fixe)');
-    push('flotEst', l.aflotEstimate ?? undefined, 'navihan-pill--flot-est', 'bi-graph-up-arrow', 'Estimation remise à flot (seuil de hauteur)');
+
+  for (const t of props.tides) {
+    if (t.type === 'high') {
+      push('pm', moment(t, offsets.pleineMer), 'navihan-pill--pm', 'bi-arrow-up', 'Pleine mer');
+      continue;
+    }
+    const bm = moment(t, offsets.basseMer);
+    push('bm', bm, 'navihan-pill--bm', 'bi-arrow-down', 'Basse mer');
+    push('flot', flotMoment(t), 'navihan-pill--flot', 'bi-check-circle', 'Remise à flot (décalage fixe)');
+    // L'estimation n'a pas de date propre : elle suit la basse mer Navihan dont elle découle, et
+    // bascule au lendemain si son heure d'horloge est passée avant celle-ci (franchissement).
+    const est = t.aflotEstimate
+      ? { date: t.aflotEstimate >= bm.time ? bm.date : addDays(bm.date, 1), time: t.aflotEstimate }
+      : null;
+    push('flotEst', est, 'navihan-pill--flot-est', 'bi-graph-up-arrow', 'Estimation remise à flot (seuil de hauteur)');
   }
-  for (const h of day.highs) {
-    push('pm', h.navihan[NAVIHAN.pleineMer], 'navihan-pill--pm', 'bi-arrow-up', 'Pleine mer');
+
+  byDate.forEach(list => list.sort((a, b) => a.time.localeCompare(b.time)));
+  return byDate;
+});
+
+function navihanEntries(day: DayTides): NavihanEntry[] {
+  return navihanByDate.value.get(day.date) ?? [];
+}
+
+/**
+ * Saisies « Constaté » indexées par le jour de la **remise à flot** : l'observation suit l'à-flot
+ * qu'elle mesure, donc elle passe au lendemain avec lui. La clé d'enregistrement reste la basse
+ * mer Port-Tudy (`refDate`/`refTime`), seule la ligne d'affichage change.
+ */
+const constateByDate = computed(() => {
+  const byDate = new Map<string, { low: FlatTide; flot: string }[]>();
+  for (const t of props.tides) {
+    if (t.type !== 'low') continue;
+    const { date, time } = flotMoment(t);
+    const list = byDate.get(date) ?? [];
+    list.push({ low: t, flot: time });
+    byDate.set(date, list);
   }
-  return entries.sort((a, b) => a.time.localeCompare(b.time));
+  byDate.forEach(list => list.sort((a, b) => a.flot.localeCompare(b.flot)));
+  return byDate;
+});
+
+function constateRows(day: DayTides): { low: FlatTide; flot: string }[] {
+  return constateByDate.value.get(day.date) ?? [];
 }
 </script>
 
@@ -196,11 +264,11 @@ function navihanEntries(day: DayTides): NavihanEntry[] {
             </span>
           </td>
           <td v-if="visible.flotObs" data-label="Constaté">
-            <span v-if="!day.lows.length" class="text-muted">—</span>
+            <span v-if="!constateRows(day).length" class="text-muted">—</span>
             <div v-else class="constate-cell">
-              <div v-for="l in constateLows(day)" :key="l.time" class="constate-row">
+              <div v-for="{ low: l, flot } in constateRows(day)" :key="l.date + l.time" class="constate-row">
                 <span class="text-muted small constate-est" title="Remise à flot Navihan (rappel)">
-                  <i class="bi bi-check-circle"></i> {{ flotTime(l) ?? '—' }}
+                  <i class="bi bi-check-circle"></i> {{ flot }}
                 </span>
                 <template v-if="l.refTime">
                   <input

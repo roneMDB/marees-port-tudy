@@ -124,7 +124,7 @@ function resetFilters(): void {
             </div>
           </div>
         </div>
-        <TideDayTable :tides="tableTides" :site-label="current.label" />
+        <TideDayTable :tides="tableTides" :from="tablePeriod.from" :site-label="current.label" />
       </div>
     </template>
   </div>

@@ -108,7 +108,12 @@ export function useTides() {
       meta.value?.maxDate ?? ''
     )
   );
-  const tableTides = computed(() => windowedTides(tablePeriod.value.from, tablePeriod.value.to));
+  // Un jour d'**amorce** en amont : les heures Navihan de la veille qui franchissent minuit sont
+  // rendues sur la première ligne de la période. `TideDayTable` reçoit `from` et n'affiche pas ce
+  // jour supplémentaire comme une ligne.
+  const tableTides = computed(() =>
+    windowedTides(addDays(tablePeriod.value.from, -1), tablePeriod.value.to)
+  );
 
   const canPrevPeriod = computed(() => {
     const min = meta.value?.minDate ?? '';

@@ -207,7 +207,8 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   tolérance 3 h, sinon `null`), `groupByDay(tides)` (regroupe par jour → `DayTides` : pleines/
   basses mers triées + coef du jour) et `periodWindow(from, rangeDays, offset, min, max)` (fenêtre
   du tableau décalée de `offset` périodes, bornée) — **fonctions pures, testées**.
-- `src/lib/format.ts` — `formatDate`, `formatHeight`.
+- `src/lib/format.ts` — `formatDate`, `formatHeight`, `todayKey`, `addDays`, `coefBand`,
+  `relativeDayLabel` (« aujourd'hui »/« demain »/date — lève l'ambiguïté d'une heure seule).
 - `src/composables/useSettings.ts` — **config serveur** (singleton) : `settings` réactif (défauts
   puis hydraté via `GET /api/settings`), `load()`, et **sauvegarde auto débouncée** (~500 ms → `PUT`).
   Un flag `hydrating` empêche l'hydratation initiale de déclencher un save. `src/api/settings.ts`
@@ -246,7 +247,9 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   flot », marqueurs du **marégramme**, rappel de la colonne **Constaté** — c'est l'heure
   **« Remise à flot »** (décalage **fixe** `aFlot`) qui est utilisée. Fonctions pures testées :
   `inverseCosineRising`/`navihanAflotFixed` (`lib/maregram.ts`),
-  `aflotTimeByThreshold` (estimation, tableau) / `aflotEvents`/`nextAflot` (décalage fixe, cartes)
+  `aflotTimeByThreshold` (estimation, tableau) / `aflotEvents`/`nextAflot`/`aflotAgenda`
+  (décalage fixe, cartes) / `shiftTime` (→ `HH:MM`) et `shiftMoment` (→ `{ date, time }`, à
+  utiliser dès qu'une heure Navihan est **datée**, car les décalages franchissent minuit)
   (`lib/navihan.ts`) — toujours
   sur les hauteurs / basses mers **Port-Tudy** (`allTides`, `refDate`/`refTime`), même pour un port
   secondaire. `src/composables/useAflotObservations.ts` (singleton : map `date+heure Port-Tudy →
@@ -260,8 +263,24 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   ajout/suppression, bouton défauts), **Filtres d'affichage** (éphémères : `Type`, `Coef min`, reset).
   Remplace les anciens `TideFilters.vue` / `NavihanSettings.vue`. **Bouton + panneau masqués si le
   rôle n'est pas `admin`** (`useAuth().isAdmin`) : on ne montre pas des réglages non modifiables.
-  `StatCards.vue` — carte « Prochaine remise à flot » / « Prochaines remises à flot » (heures
-  **Remise à flot**, décalage fixe) sur `settings.aFlotDays`.
+  `StatCards.vue` — carte « Prochaine remise à flot » : heure **Remise à flot** suivie du **jour de
+  l'à-flot lui-même** (`relativeDayLabel(nextAflot().date, …)` → « aujourd'hui »/« demain ») — pas
+  celui de la basse mer, qui diffère quand le décalage franchit minuit (une remise à flot à 00:49 se
+  lisait sinon comme déjà passée) ; en légende, la **basse mer Navihan** dont elle découle
+  (Port-Tudy + `basseMer` via `shiftMoment`, **pas** l'heure Port-Tudy brute), datée elle aussi de
+  son propre jour. **Toutes les heures de cette carte sont donc des heures Navihan datées.**
+  Carte « Prochaines remises à flot » = **agenda** des `settings.aFlotDays` prochains jours
+  (`aflotAgenda`, un jour par ligne). **Règle générale du projet : une heure Navihan est rangée au
+  jour où elle a réellement lieu.** ~14 % des basses mers ont leur à-flot après minuit ; il est
+  donc listé au **lendemain**, jamais sur le jour de la basse mer d'origine. Sur des données
+  saines, un jour porte au plus 2 remises à flot. Les heures **déjà passées restent listées,
+  estompées** (`.aflot-past`) : la carte est un agenda stable, elle ne se vide pas au fil de la
+  journée. Comme cette carte est la plus haute de la rangée, elle **imposerait** sa
+  hauteur : au-delà de **3 jours** (budget calé sur les 3 autres cartes) le surplus est **replié**
+  derrière « + N autres jours » / « Voir moins » — repli **éphémère** (`ref` local, la liste est
+  tronquée en JS ; bouton `btn btn-link` + chevron, aucun JS Bootstrap, cf.
+  `ResourcesCard`/`MotDuJourCard`), refermé automatiquement si `aFlotDays` retombe sous le budget.
+  `StatCards.test.ts`.
 - `components/StatsPanel.vue` — **panneau « Statistiques d'accès »** (offcanvas) : KPIs (visites,
   LAN/externe), graphe visites/jour, pays/navigateurs/appareils. Charge `getStats()` à l'ouverture.
   Le bouton (navbar, `App.vue`) et le panneau ne sont montés que si `useAuth().isAdmin` ; le verrou
@@ -318,8 +337,17 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   mers (Port-Tudy). La colonne **Navihan** (dérivée Port-Tudy) affiche des **pastilles triées par
   heure**, une par **type affichable** (`useNavihanDisplay`, 5 types masquables via la légende
   cliquable, persistés localStorage) : basse mer (↓), **Remise à flot** fixe (✓ vert),
-  **Estimation** seuil (↗ cyan), **Constaté** (violet) et pleine mer (↑). La colonne **Constaté**
-  (masquable via le type `flotObs`) porte la **saisie** de l'heure réelle par basse mer, précédée du
+  **Estimation** seuil (↗ cyan), **Constaté** (violet) et pleine mer (↑). **Chaque pastille est
+  rendue sur la ligne du jour où elle a réellement lieu** (`shiftMoment` sur `refDate`/`refTime`,
+  repli sur la marée elle-même pour le port de référence) : une heure dérivée d'une basse mer
+  tardive part donc au **lendemain**, au lieu de remonter en tête de la ligne d'origine où elle se
+  lisait comme une heure du petit matin de ce jour-là. Conséquence : `tableTides` embarque **un jour
+  d'amorce** en amont (`addDays(from, -1)` dans `useTides`) pour que la première ligne hérite des
+  heures de la veille ; la prop **`from`** dit à `TideDayTable` de ne pas rendre ce jour comme une
+  ligne. La colonne **Constaté**
+  (masquable via le type `flotObs`) porte la **saisie** de l'heure réelle, **rangée elle aussi au
+  jour de la remise à flot** (l'observation suit l'à-flot qu'elle mesure ; la clé en base reste la
+  basse mer Port-Tudy), précédée du
   **rappel de l'heure « Remise à flot »** (décalage fixe, pas l'estimation) qui sert aussi de clé de
   tri des lignes : `<input type="time">` **si `useAuth().isAdmin`**
   (→ `useAflotObservations.save`/`remove`), sinon pastille/lecture. Responsive : pile de cartes sur mobile (`.tide-day-table`

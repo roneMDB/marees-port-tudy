@@ -27,6 +27,20 @@ export function shiftTime(time: string, offsetMinutes: number): string {
 }
 
 /**
+ * Comme `shiftTime`, mais renvoie aussi la **date réelle** du résultat : indispensable dès qu'on
+ * affiche une heure Navihan datée, puisqu'un décalage peut franchir minuit (une basse mer
+ * Port-Tudy à 23:30 donne une basse mer Navihan à 00:45 **le lendemain**).
+ */
+export function shiftMoment(
+  date: string,
+  time: string,
+  offsetMinutes: number
+): { date: string; time: string } {
+  const dt = new Date(new Date(`${date}T${time}:00`).getTime() + offsetMinutes * 60000);
+  return { date: localDate(dt), time: localTime(dt) };
+}
+
+/**
  * Construit la map des heures Navihan d'un extrême selon les décalages courants :
  * basse mer → `Basse mer` + `A flot` (**décalage fixe**, calcul historique conservé) ;
  * pleine mer → `Pleine mer`. L'**estimation** de remise à flot par seuil de hauteur (issue #4) est
@@ -113,21 +127,75 @@ export function aflotEvents(tides: FlatTide[], offsets: NavihanOffsets): AflotEv
     .sort((a, b) => a.dt.getTime() - b.dt.getTime());
 }
 
+const pad = (n: number): string => String(n).padStart(2, '0');
+
+/** Heure locale `HH:MM` d'un instant. */
+function localTime(dt: Date): string {
+  return `${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+}
+
+/** Date locale `YYYY-MM-DD` d'un instant (donc la date **réelle**, après passage de minuit). */
+function localDate(dt: Date): string {
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+}
+
 /**
  * Cherche le prochain « à flot » à venir (heure **Remise à flot**, décalage fixe), dérivé de la
  * basse mer dont l'instant de remise à flot est le premier ≥ `now` — indépendamment du fait que la
  * toute prochaine marée soit une pleine ou une basse mer. Renvoie `null` s'il n'y en a plus.
  */
 export function nextAflot(tides: FlatTide[], offsets: NavihanOffsets, now: Date): NextAflot | null {
-  const pad = (n: number) => String(n).padStart(2, '0');
   const first = aflotEvents(tides, offsets).find(e => e.dt >= now);
   if (!first) return null;
   const { dt, basse } = first;
-  return {
-    time: `${pad(dt.getHours())}:${pad(dt.getMinutes())}`,
-    date: `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`,
-    basse
-  };
+  return { time: localTime(dt), date: localDate(dt), basse };
+}
+
+/** Une remise à flot dans l'agenda. */
+export interface AflotTime {
+  time: string; // heure `HH:MM`
+  past: boolean; // déjà passée par rapport à `now`
+}
+
+/** Les remises à flot qui ont lieu un jour donné. */
+export interface AflotDay {
+  date: string; // jour où les remises à flot **ont lieu**, `YYYY-MM-DD`
+  times: AflotTime[]; // chronologiques
+}
+
+/**
+ * Agenda des remises à flot (heure « Remise à flot », décalage fixe `aFlot`) sur les `days`
+ * premiers jours à partir de celui de `now` (inclus).
+ *
+ * Le regroupement se fait par **date réelle de la remise à flot** : une basse mer tardive dont le
+ * décalage franchit minuit voit donc son à-flot rangé au **lendemain**, là où il a effectivement
+ * lieu. Sur des données saines, un jour porte au plus deux remises à flot.
+ *
+ * Les heures **déjà passées ne sont pas retirées** (`past` les marque) : la carte reste un agenda
+ * stable qui ne se vide pas au fil de la journée. `tides` = extrêmes **Port-Tudy**.
+ */
+export function aflotAgenda(
+  tides: FlatTide[],
+  offsets: NavihanOffsets,
+  now: Date,
+  days: number
+): AflotDay[] {
+  const today = localDate(now);
+  const byDay = new Map<string, AflotTime[]>();
+
+  // `aflotEvents` est déjà trié : l'ordre d'insertion des heures est donc chronologique.
+  for (const { dt } of aflotEvents(tides, offsets)) {
+    const date = localDate(dt);
+    if (date < today) continue;
+    const times = byDay.get(date) ?? [];
+    times.push({ time: localTime(dt), past: dt < now });
+    byDay.set(date, times);
+  }
+
+  return Array.from(byDay.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(0, days)
+    .map(([date, times]) => ({ date, times }));
 }
 
 /** Formate des minutes en libellé `XhYY` (ex. 75 → "1h15", 120 → "2h"). */

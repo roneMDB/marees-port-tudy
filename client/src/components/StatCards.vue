@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { FlatTide } from '../types';
-import { formatDate, formatHeight, todayKey, coefBand } from '../lib/format';
-import { aflotEvents, nextAflot } from '../lib/navihan';
+import { formatDate, formatHeight, relativeDayLabel, todayKey, coefBand } from '../lib/format';
+import { aflotAgenda, nextAflot, shiftMoment } from '../lib/navihan';
 import { useNavihan } from '../composables/useNavihan';
 import { useSettings } from '../composables/useSettings';
 
@@ -35,29 +35,52 @@ const todayBand = computed(() =>
   todayCoefs.value.length ? coefBand(Math.max(...todayCoefs.value)) : null
 );
 
-// Prochaines heures « à flot » : heures **Remise à flot** de Navihan (décalage fixe `aFlot`, pas
-// l'estimation par seuil), groupées par date réelle, sur les `aFlotDays` premiers jours à venir.
-const upcomingAflot = computed(() => {
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const byDate = new Map<string, string[]>();
-  aflotEvents(props.allTides, offsets)
-    .filter(e => e.dt >= now)
-    .forEach(({ dt }) => {
-      const date = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
-      const time = `${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
-      const times = byDate.get(date) ?? [];
-      times.push(time);
-      byDate.set(date, times);
-    });
-  return Array.from(byDate.entries())
-    .slice(0, settings.aFlotDays)
-    .map(([date, times]) => ({ date, times }));
+// Agenda des remises à flot (décalage fixe `aFlot`, pas l'estimation par seuil) sur les
+// `aFlotDays` prochains jours, chacune rangée au jour où elle a **réellement** lieu. Les heures
+// passées restent listées (estompées) : c'est un agenda, pas un compte à rebours.
+const aflotDays = computed(() =>
+  aflotAgenda(props.allTides, offsets, new Date(), settings.aFlotDays)
+);
+
+/**
+ * Jours affichés au repos. Budget calé sur la hauteur des 3 autres cartes de la rangée (libellé +
+ * valeur + sous-libellé = 3 lignes) : au-delà, la carte étirerait toute la rangée, puisque c'est
+ * elle la plus haute. Le surplus est replié derrière « + N autres jours ».
+ */
+const COLLAPSED_DAYS = 3;
+
+// Repli transitoire, non persisté — cf. ResourcesCard / MotDuJourCard.
+const expanded = ref(false);
+const shownAflotDays = computed(() =>
+  expanded.value ? aflotDays.value : aflotDays.value.slice(0, COLLAPSED_DAYS)
+);
+const hiddenDays = computed(() => Math.max(0, aflotDays.value.length - COLLAPSED_DAYS));
+const canExpand = computed(() => hiddenDays.value > 0);
+
+// `aFlotDays` peut retomber sous le budget alors que la carte est dépliée : on la referme, sinon
+// l'état resterait « déplié » sans bouton pour le défaire.
+watch(canExpand, possible => {
+  if (!possible) expanded.value = false;
 });
 
-// Prochain « à flot » à venir (heure **Remise à flot**, dérivée de la prochaine basse mer dont
-// l'instant ≥ maintenant), même si la toute prochaine marée est une pleine mer. Sur `allTides`.
-const nextAflotEvent = computed(() => nextAflot(props.allTides, offsets, new Date()));
+/**
+ * Carte « Prochaine remise à flot » : prochain à-flot à venir (heure **Remise à flot**, dérivée de
+ * la prochaine basse mer dont l'instant ≥ maintenant, même si la toute prochaine marée est une
+ * pleine mer ; sur `allTides`), prêt à afficher. Tout est en heures **Navihan**, et chaque heure
+ * porte sa **date réelle** — les décalages franchissent minuit, si bien que l'à-flot et la basse
+ * mer dont il découle peuvent tomber des jours différents.
+ */
+const nextAflotCard = computed(() => {
+  const event = nextAflot(props.allTides, offsets, new Date());
+  if (!event) return null;
+  return {
+    time: event.time,
+    // Le jour de l'à-flot lui-même : sans lui, « 00:49 » se lirait comme déjà passé aujourd'hui.
+    day: relativeDayLabel(event.date, todayKey()),
+    // Basse mer **Navihan** (Port-Tudy + `basseMer`), pas l'heure Port-Tudy brute.
+    low: shiftMoment(event.basse.date, event.basse.time, offsets.basseMer)
+  };
+});
 </script>
 
 <template>
@@ -68,10 +91,14 @@ const nextAflotEvent = computed(() => nextAflot(props.allTides, offsets, new Dat
           <div class="d-flex justify-content-between align-items-center">
             <div>
               <div class="text-uppercase small opacity-75">Prochaine remise à flot</div>
-              <template v-if="nextAflotEvent">
-                <div class="fs-5 fw-bold">{{ nextAflotEvent.time }}</div>
-                <div class="small opacity-75 text-capitalize">
-                  Basse mer · {{ nextAflotEvent.basse.time }} · {{ formatDate(nextAflotEvent.basse.date) }}
+              <template v-if="nextAflotCard">
+                <div class="fs-5 fw-bold">
+                  {{ nextAflotCard.time }}
+                  <span class="fs-6 fw-normal opacity-75">{{ nextAflotCard.day }}</span>
+                </div>
+                <div class="small opacity-75">
+                  Basse mer Navihan · {{ nextAflotCard.low.time }} ·
+                  <span class="text-capitalize">{{ formatDate(nextAflotCard.low.date) }}</span>
                 </div>
               </template>
               <div v-else class="fs-6">—</div>
@@ -127,21 +154,41 @@ const nextAflotEvent = computed(() => nextAflot(props.allTides, offsets, new Dat
           <div class="d-flex justify-content-between align-items-center">
             <div class="flex-grow-1" style="min-width: 0">
               <div class="text-uppercase small text-muted mb-1">Prochaines remises à flot</div>
-              <div v-if="!upcomingAflot.length" class="small text-muted">—</div>
-              <div v-else class="aflot-list small mb-0">
-                <div v-for="d in upcomingAflot" :key="d.date" class="aflot-day">
-                  <span class="aflot-date text-muted text-capitalize">
-                    {{ formatDate(d.date, { weekday: 'short', day: '2-digit', month: '2-digit' }) }}
-                  </span>
-                  <span class="aflot-times">
-                    <span
-                      v-for="t in d.times"
-                      :key="t"
-                      class="badge rounded-pill bg-success-subtle text-success-emphasis fw-semibold"
-                    >{{ t }}</span>
-                  </span>
+              <div v-if="!aflotDays.length" class="small text-muted">—</div>
+              <template v-else>
+                <div id="aflot-days-list" class="aflot-list small mb-0">
+                  <div v-for="d in shownAflotDays" :key="d.date" class="aflot-day">
+                    <span class="aflot-date text-muted text-capitalize">
+                      {{ formatDate(d.date, { weekday: 'short', day: '2-digit', month: '2-digit' }) }}
+                    </span>
+                    <span class="aflot-times">
+                      <span
+                        v-for="t in d.times"
+                        :key="t.time"
+                        class="badge rounded-pill fw-semibold"
+                        :class="t.past
+                          ? 'aflot-past bg-body-secondary text-secondary-emphasis'
+                          : 'bg-success-subtle text-success-emphasis'"
+                        :title="t.past ? 'Déjà passée' : undefined"
+                      >{{ t.time }}</span>
+                    </span>
+                  </div>
                 </div>
-              </div>
+                <button
+                  v-if="canExpand"
+                  type="button"
+                  class="btn btn-link btn-sm p-0 mt-1 small text-decoration-none align-self-start"
+                  :aria-expanded="expanded"
+                  aria-controls="aflot-days-list"
+                  @click="expanded = !expanded"
+                >
+                  <i :class="expanded ? 'bi bi-chevron-up' : 'bi bi-chevron-down'" class="me-1"></i>
+                  <template v-if="expanded">Voir moins</template>
+                  <template v-else>
+                    + {{ hiddenDays }} autre{{ hiddenDays > 1 ? 's' : '' }} jour{{ hiddenDays > 1 ? 's' : '' }}
+                  </template>
+                </button>
+              </template>
             </div>
             <i class="bi bi-life-preserver fs-3 text-success opacity-75 ms-2"></i>
           </div>
@@ -152,18 +199,26 @@ const nextAflotEvent = computed(() => nextAflot(props.allTides, offsets, new Dat
 </template>
 
 <style scoped>
-/* Blocs-jours qui s'enroulent : on remplit d'abord la largeur, puis on passe à la ligne (hauteur). */
+/* Une ligne par jour, ce qui rend le repli à N jours net et lisible. */
 .aflot-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem 0.85rem;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
-/* Un jour = sa date au-dessus de ses horaires (puces), en colonne compacte. */
+/*
+ * Un jour = sa date à gauche, ses horaires à droite. `wrap` est nécessaire : une journée peut
+ * porter **trois** remises à flot (quand le décalage fixe de la basse mer de la veille franchit
+ * minuit), ce qui déborde de la carte en `col-lg-3` étroite (~230 px vers 992 px de viewport).
+ * On passe alors à la ligne plutôt que de rogner un horaire. Le repli tronquant en **jours** et
+ * non en pixels, une ligne plus haute est sans conséquence : elle ne décale aucun budget.
+ */
 .aflot-day {
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.15rem 0.5rem;
 }
 
 .aflot-date {
@@ -175,5 +230,10 @@ const nextAflotEvent = computed(() => nextAflot(props.allTides, offsets, new Dat
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem;
+}
+
+/* Heure déjà passée : listée mais estompée, pour garder un agenda stable sur la journée. */
+.aflot-past {
+  opacity: 0.55;
 }
 </style>
