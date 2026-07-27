@@ -1872,6 +1872,12 @@
       "coefficient": "42"
     },
     {
+      "maree": "haute",
+      "heure": "22:42",
+      "hauteur": "3.84",
+      "coefficient": "36"
+    },
+    {
       "maree": "basse",
       "heure": "04:48",
       "hauteur": "1.78"
@@ -2117,6 +2123,12 @@
       "heure": "07:09",
       "hauteur": "5.07",
       "coefficient": "93"
+    },
+    {
+      "maree": "haute",
+      "heure": "19:27",
+      "hauteur": "5.22",
+      "coefficient": "91"
     },
     {
       "maree": "basse",
