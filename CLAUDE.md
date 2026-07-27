@@ -28,10 +28,13 @@ proche dans le temps** (appariement par proximité, gère le décalage horaire /
 - `docker compose up --build` — build l'image (multi-stage) et lance sur `:3000` avec le volume
   `./data:/data` (config + horaires persistés, auto-seed si vide). `DATA_DIR=/data` dans l'image.
 - `npm test` — tests des deux workspaces (server puis client).
-- `npm -w server run check-tides` — **rapport de cohérence** des horaires (graines de tous les
-  sites), ou d'un fichier précis : `npm -w server run check-tides -- fichier.json`. Diagnostic
-  **seul, ne modifie rien** ; sort en 1 si des anomalies sont trouvées (utilisable en CI).
-  Option `--markdown` pour un rapport partageable :
+- `npm -w server run check-tides` — **rapport de cohérence** des horaires. Diagnostic **seul, ne
+  modifie rien** ; sort en 1 si une anomalie ou une source illisible est rencontrée (utilisable en
+  CI). Options : `--site <id>` (un port, répétable ; id inconnu = erreur), **`--db`** (audite la
+  **base de production** `DATA_DIR/marees.db` au lieu des graines — c'est elle qui est réellement
+  servie et elle peut avoir divergé par un import runtime), `<fichier.json>` (contrôler un jeu de
+  données **avant** de l'importer), `--markdown` (rapport partageable). Exemples :
+  `… -- --site etel`, `… -- --db`, `… -- --db --site port-tudy`,
   `npm --silent -w server run check-tides -- --markdown > rapport-marees.md` (`--silent` évite que
   npm préfixe sa ligne `> ts-node …` dans le fichier).
 - Par workspace : `npm -w server run <script>`, `npm -w client run <script>`.
