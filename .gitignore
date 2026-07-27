@@ -165,3 +165,8 @@ test-results/
 
 # Generated HTML output (`-f html > marees.html`)
 marees.html
+
+# Sorties régénérables de `npm -w server run check-tides` : rapport de cohérence, et fichier de
+# correctifs destiné à l'import « Fusionner ». Périment dès la correction suivante.
+rapport-marees.md
+import-marees-port-tudy.json
