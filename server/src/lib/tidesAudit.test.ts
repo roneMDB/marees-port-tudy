@@ -186,3 +186,29 @@ describe('auditTides — journées recopiées', () => {
     expect(found.filter(a => a.kind === 'doublon')).toEqual([]);
   });
 });
+
+// Auditer un jeu partiel (ex. un fichier d'import de quelques jours épars) ne doit pas produire de
+// fausses ruptures : entre deux jours éloignés, l'alternance n'est simplement pas observable.
+describe('auditTides — jeux non contigus', () => {
+  it('n’invente pas de rupture d’alternance par-dessus un trou de plusieurs jours', () => {
+    const found = auditTides({
+      '2026-07-29': [
+        { maree: 'basse', heure: '11:42', hauteur: '1.52' },
+        { maree: 'haute', heure: '17:44', hauteur: '4.83' }
+      ],
+      '2026-08-13': [
+        { maree: 'haute', heure: '05:58', hauteur: '5.13' }, // même type, mais 15 jours plus tard
+        { maree: 'basse', heure: '11:55', hauteur: '0.85' }
+      ]
+    });
+    expect(found).toEqual([]);
+  });
+
+  it('signale toujours une rupture au sein d’une suite continue', () => {
+    const found = auditTides({
+      '2026-07-29': [{ maree: 'basse', heure: '11:42', hauteur: '1.52' }],
+      '2026-07-30': [{ maree: 'basse', heure: '00:04', hauteur: '1.37' }] // 12 h plus tard
+    });
+    expect(found.filter(a => a.kind === 'alternance')).toHaveLength(1);
+  });
+});

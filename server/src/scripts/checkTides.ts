@@ -28,6 +28,13 @@ if (opts.errors.length) {
 /** Sites retenus : ceux demandés par `--site`, sinon tous. */
 const sites = opts.sites.length ? SITES.filter(s => opts.sites.includes(s.id)) : SITES;
 
+/**
+ * Répertoire de référence des chemins relatifs. `npm -w server run …` exécute le script depuis
+ * `server/`, alors que l'utilisateur tape sa commande depuis la racine : `INIT_CWD` (posé par npm)
+ * rend le chemin relatif à l'endroit attendu.
+ */
+const baseDir = process.env.INIT_CWD || process.cwd();
+
 /** Audite un fichier JSON. `null` si la source est inutilisable (signalé sur stderr). */
 function auditFile(label: string, file: string): SiteAudit | null {
   if (!fs.existsSync(file)) {
@@ -69,7 +76,7 @@ function auditDb(): (SiteAudit | null)[] {
 }
 
 const results: (SiteAudit | null)[] = opts.files.length
-  ? opts.files.map(f => auditFile(f, path.resolve(f)))
+  ? opts.files.map(f => auditFile(f, path.resolve(baseDir, f)))
   : opts.fromDb
     ? auditDb()
     : sites.map(s => auditFile(s.label, path.join(RESOURCES_DIR, s.filename)));

@@ -8,6 +8,14 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
  */
 const MIN_GAP_MINUTES = 180;
 
+/**
+ * Au-delà de cet écart, on considère qu'il y a une **discontinuité** dans le jeu de données (jour
+ * absent, fichier d'import ne couvrant que quelques dates éparses) plutôt qu'une anomalie :
+ * l'alternance n'y est pas observable. Un extrême réellement manquant ne crée qu'un trou d'environ
+ * 12 h, donc il reste détecté.
+ */
+const MAX_GAP_MINUTES = 24 * 60;
+
 export type TideAnomalyKind =
   | 'type-invalide'
   | 'heure-invalide'
@@ -173,6 +181,8 @@ export function auditTides(parsed: unknown): TideAnomaly[] {
   for (let i = 1; i < extremes.length; i++) {
     const prev = extremes[i - 1];
     const cur = extremes[i];
+    const gap = cur.minutes - prev.minutes;
+    if (gap > MAX_GAP_MINUTES) continue; // discontinuité : rien à conclure sur cette paire
 
     if (prev.type === cur.type) {
       anomalies.push({
@@ -184,7 +194,6 @@ export function auditTides(parsed: unknown): TideAnomaly[] {
       });
     }
 
-    const gap = cur.minutes - prev.minutes;
     if (gap < MIN_GAP_MINUTES) {
       anomalies.push({
         date: cur.date,
