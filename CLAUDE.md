@@ -369,3 +369,9 @@ racine reste pour le local.
   Pour mettre à jour un site, éditer sa graine `server/src/resources/horaires_marees_<site>.json`
   (embarquée dans l'image) puis supprimer `marees.db` du `DATA_DIR`/volume (ré-amorçage au prochain
   démarrage).
+- **Qualité de la graine Port-Tudy** : 4 basses mers parasites ont été retirées (29/07 23:52,
+  13/08 sans heure, 28/08 10:10, 11/10 23:27) — elles violaient l'alternance haute/basse et
+  produisaient des jours à 3 remises à flot. Contrôle de non-régression : entre deux pleines mers
+  consécutives il doit y avoir **exactement une** basse mer. **3 anomalies subsistent côté pleines
+  mers** (20/08 et 31/08 sans pleine mer du soir, 21-22/08 dupliquée à 3,64 m) : sans effet sur les
+  remises à flot, mais elles faussent le marégramme et les heures « pleine mer » de ces jours.

@@ -1369,11 +1369,6 @@
       "maree": "basse",
       "heure": "11:42",
       "hauteur": "1.52"
-    },
-    {
-      "maree": "basse",
-      "heure": "23:52",
-      "hauteur": "1.74"
     }
   ],
   "2026-07-30": [
@@ -1723,10 +1718,6 @@
       "maree": "basse",
       "heure": "11:55",
       "hauteur": "0.85"
-    },
-    {
-      "maree": "basse",
-      "hauteur": "0.76"
     }
   ],
   "2026-08-14": [
@@ -2071,11 +2062,6 @@
       "heure": "17:50",
       "hauteur": "5.16",
       "coefficient": "86"
-    },
-    {
-      "maree": "basse",
-      "heure": "10:10",
-      "hauteur": "1.07"
     },
     {
       "maree": "basse",
@@ -3101,11 +3087,6 @@
         "maree": "basse",
         "heure": "11:51",
         "hauteur": "1.00"
-      },
-      {
-        "maree": "basse",
-        "heure": "23:27",
-        "hauteur": "1.07"
       }
     ],
     "2026-10-12": [
