@@ -408,10 +408,17 @@ racine reste pour le local.
   démarrage).
 - **Qualité de la graine Port-Tudy** : 4 basses mers parasites ont été retirées (29/07 23:52,
   13/08 sans heure, 28/08 10:10, 11/10 23:27) — elles violaient l'alternance haute/basse et
-  produisaient des jours à 3 remises à flot. Contrôle de non-régression : `npm -w server run
-  check-tides` (entre deux extrêmes il doit y avoir alternance, et jamais moins de 3 h d'écart).
-  **4 anomalies subsistent côté pleines mers**, à reprendre depuis l'annuaire officiel — ce sont des
-  valeurs *manquantes ou fausses*, non reconstituables par déduction : 15/08 pleine mer du matin
-  datée 01:12 (à 3 min d'une basse mer ; devrait être vers 07:13 d'après ses voisines), 20/08 et
-  31/08 sans pleine mer du soir, 21-22/08 dupliquée à 3,64 m. Sans effet sur les remises à flot,
-  mais elles faussent le marégramme et les heures « pleine mer » de ces jours.
+  produisaient des jours à 3 remises à flot. **11 journées ont ensuite été reprises depuis
+  l'annuaire officiel** (heures et hauteurs fausses ou manquantes, non reconstituables par
+  déduction) : 29/07, 13/08, 15/08, 20/08, 21/08, 22/08, 27/08, 28/08, 31/08, 11/10, 12/10. Contrôle
+  de non-régression : `npm -w server run check-tides`.
+- **Deux doublons restants sont des coïncidences vérifiées**, à ne pas re-investiguer : Port-Tudy
+  `basse 15:25 · 2,01 m` le 06/06 **et** le 17/09 ; Étel `haute 13:36 · 4,10 m` le 08/08 **et** le
+  06/09. Les quatre dates ont été confirmées bonnes (annuaire, et test du milieu des extrêmes
+  encadrants). Le contrôle `doublon` les signale par construction : c'est le coût de précision
+  assumé d'un test qui, lui, a trouvé 5 vraies journées recopiées.
+- Le motif de défaillance dominant de cette source est le **décalage d'un jour** : une journée porte
+  la valeur de sa voisine. Le test le plus discriminant est le **milieu des extrêmes encadrants**
+  (une basse mer tombe à mi-chemin entre ses deux pleines mers) — mais avec une tolérance réelle de
+  ±36 min, il **ne suffit pas** à trancher seul : le 27/08 (faux) et le 17/09 (bon) présentaient
+  tous deux un écart de +36 min. Seul l'annuaire tranche.
