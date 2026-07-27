@@ -294,8 +294,11 @@ Durcissement déjà **intégré à l'image** : en-têtes de sécurité (helmet),
   **France** (base GeoIP intégrée) réduit fortement le bruit d'Internet.
 - **Auto-Block** (Panneau → Sécurité → Compte) : bannit les IP après trop d'échecs de connexion
   **DSM** (protège le NAS ; l'app est protégée par sa propre limitation de débit).
-- **Secret hérité** : une ancienne clé `API_MAREE_KEY` (inutilisée par le code) figure dans
-  l'historique Git du dépôt — si le dépôt est public, **révoquez/rotez cette clé**.
+- **Secret hérité** : une ancienne clé `API_MAREE_KEY` (fournisseur `api-maree.fr`, **plus utilisée
+  par le code** depuis le passage aux horaires locaux) figure en clair dans le commit initial de
+  l'historique Git. **Le dépôt étant public, cette clé est exposée : révoquez-la côté api-maree.fr.**
+  Réécrire l'historique ne suffirait pas (la clé a déjà pu être moissonnée) ; seule la révocation
+  chez le fournisseur ferme l'accès. La révocation ne casse rien côté app.
 
 ### 8.4 Statistiques d'accès (rôle admin)
 

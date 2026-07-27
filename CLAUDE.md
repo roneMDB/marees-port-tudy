@@ -37,7 +37,10 @@ proche dans le temps** (appariement par proximité, gère le décalage horaire /
 ### Serveur (`server/`)
 
 Flux : `src/index.ts` (pino + `initStorage` (base SQLite, cf. Persistance) + `createApp`) → `src/app.ts`
-(Express : `trust proxy`, **helmet** (CSP off), **rate-limit** global + météo + login, routeur
+(Express : `trust proxy`, **helmet** (**CSP active**, taillée pour la SPA buildée : `script-src 'self'`
+sans `unsafe-inline`/`unsafe-eval`, `style-src` + `'unsafe-inline'` pour Bootstrap/Chart.js/Vue,
+`img-src` + `data:`, `object-src`/`frame-ancestors` `'none'` ; vérifiée par `security.test.ts`),
+**rate-limit** global + météo + login, routeur
 public `auth` (login/logout/status), **garde d'authentification optionnel** (`middleware/auth.ts`,
 monté sur `/api`), `express.json`, routers `/api`, statique `client/dist` en prod, error handler
 qui renvoie **400** sur erreur client — ex. JSON invalide — sinon 500). Servi en même origine →

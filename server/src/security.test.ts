@@ -118,6 +118,21 @@ describe('sécurité — rôle admin pour les actions sensibles', () => {
   });
 });
 
+/** Découpe l'en-tête CSP en `directive -> sources`, indépendamment de l'ordre. */
+function parseCsp(header: string | undefined): Record<string, string[]> {
+  expect(header, "l'en-tête Content-Security-Policy doit être envoyé").toBeDefined();
+  return Object.fromEntries(
+    (header as string)
+      .split(';')
+      .map((d) => d.trim())
+      .filter(Boolean)
+      .map((d) => {
+        const [name, ...sources] = d.split(/\s+/);
+        return [name, sources];
+      })
+  );
+}
+
 describe('sécurité — en-têtes & rate-limit', () => {
   it('applique les en-têtes helmet et masque X-Powered-By', async () => {
     const res = await request(app).get('/api/health');
@@ -128,5 +143,35 @@ describe('sécurité — en-têtes & rate-limit', () => {
   it('expose les en-têtes de limitation de débit', async () => {
     const res = await request(app).get('/api/health');
     expect(res.headers['ratelimit-limit']).toBeDefined();
+  });
+
+  it('envoie une CSP verrouillée (pas de script inline ni eval)', async () => {
+    const res = await request(app).get('/api/health');
+    const csp = parseCsp(res.headers['content-security-policy']);
+
+    // Le durcissement : aucune échappatoire côté scripts, pas d'objets ni d'iframing.
+    expect(csp['script-src']).toEqual(["'self'"]);
+    expect(csp['script-src']).not.toContain("'unsafe-inline'");
+    expect(csp['script-src']).not.toContain("'unsafe-eval'");
+    expect(csp['default-src']).toEqual(["'self'"]);
+    expect(csp['object-src']).toEqual(["'none'"]);
+    expect(csp['frame-ancestors']).toEqual(["'none'"]);
+    expect(csp['base-uri']).toEqual(["'self'"]);
+  });
+
+  it('autorise ce dont la SPA buildée a besoin (styles inline, images data:, SW, manifest)', async () => {
+    const res = await request(app).get('/api/health');
+    const csp = parseCsp(res.headers['content-security-policy']);
+
+    // Styles inline de Bootstrap / Chart.js / bindings `:style` de Vue.
+    expect(csp['style-src']).toContain("'unsafe-inline'");
+    // Fonds SVG `data:` du CSS Bootstrap.
+    expect(csp['img-src']).toContain('data:');
+    // Polices bootstrap-icons servies depuis /assets, API et météo en même origine.
+    expect(csp['font-src']).toEqual(["'self'"]);
+    expect(csp['connect-src']).toEqual(["'self'"]);
+    // Service worker + manifest de la PWA (vite-plugin-pwa).
+    expect(csp['worker-src']).toEqual(["'self'"]);
+    expect(csp['manifest-src']).toEqual(["'self'"]);
   });
 });
