@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import type { FlatTide } from '../types';
 import { addDays, todayKey } from '../lib/format';
 import { groupByDay } from '../lib/tides';
-import { noteOfTheDay } from '../lib/lexique';
+import { noteOfTheDay, shuffledShifts } from '../lib/lexique';
 import { useMotDuJour } from '../composables/useMotDuJour';
 import { useLexicon } from '../composables/useLexicon';
 
@@ -19,6 +19,16 @@ const open = ref(true);
 // Décalage dans le lexique demandé via « Nouveau mot » : éphémère (0 = le mot du jour).
 const shift = ref(0);
 
+/**
+ * Sac de décalages mélangé, dépilé à chaque « Nouveau mot » puis remélangé une fois vide. Tirer
+ * dans un sac plutôt qu'au hasard à chaque clic garantit qu'aucun mot ne revient avant que tout le
+ * lexique soit passé — avec 45 entrées, l'aléa pur ramènerait un mot déjà vu très vite.
+ */
+const bag = ref<number[]>([]);
+
+// Le lexique arrive du serveur après le montage : un sac constitué avant serait mal dimensionné.
+watch(() => lexicon.value.length, () => { bag.value = []; });
+
 // Contexte du jour, dérivé de la référence Port-Tudy (comme StatCards) :
 // coefficient d'aujourd'hui et de la veille, via groupByDay (pur/testé).
 const note = computed(() => {
@@ -30,9 +40,10 @@ const note = computed(() => {
   return noteOfTheDay({ dateKey: today, coef, prevCoef }, lexicon.value, shift.value);
 });
 
-/** Mot suivant du lexique (déplie la carte si elle était repliée, sinon le clic serait invisible). */
+/** Mot aléatoire du lexique (déplie la carte si elle était repliée, sinon le clic serait invisible). */
 function nextWord(): void {
-  shift.value += 1;
+  if (!bag.value.length) bag.value = shuffledShifts(lexicon.value.length);
+  shift.value = bag.value.pop() ?? 0;
   open.value = true;
 }
 </script>

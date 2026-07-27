@@ -63,3 +63,67 @@ describe('MotDuJourCard', () => {
     expect(wrapper.findAll('button').some(b => b.text().includes('Revenir au mot du jour'))).toBe(false);
   });
 });
+
+// « Nouveau mot » tire dans un sac mélangé : l'ordre change d'une session à l'autre, et aucun mot
+// ne revient avant que tout le lexique soit passé.
+describe('MotDuJourCard — tirage aléatoire du lexique', () => {
+  beforeEach(() => {
+    useMotDuJour().show();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-23T10:00:00'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const bouton = (w: ReturnType<typeof mount>) => w.get('button[aria-label="Charger un nouveau mot"]');
+  const terme = (w: ReturnType<typeof mount>) => w.get('.fs-5').text();
+
+  it('ne rend jamais deux fois le même mot avant d’avoir fait le tour', async () => {
+    const wrapper = mount(MotDuJourCard, { props: { allTides: tides } });
+    const vus = [terme(wrapper)];
+
+    for (let i = 0; i < LEXIQUE.length - 1; i++) {
+      await bouton(wrapper).trigger('click');
+      vus.push(terme(wrapper));
+    }
+
+    expect(vus).toHaveLength(LEXIQUE.length);
+    expect(new Set(vus).size).toBe(LEXIQUE.length); // tous distincts
+  });
+
+  it('repart pour un tour complet ensuite, sans se bloquer', async () => {
+    const wrapper = mount(MotDuJourCard, { props: { allTides: tides } });
+    for (let i = 0; i < LEXIQUE.length * 2; i++) await bouton(wrapper).trigger('click');
+    expect(terme(wrapper).length).toBeGreaterThan(0); // toujours un mot affiché
+  });
+
+  it('tire un ordre différent d’un montage à l’autre', async () => {
+    const suite = async () => {
+      const w = mount(MotDuJourCard, { props: { allTides: tides } });
+      const out: string[] = [];
+      for (let i = 0; i < 8; i++) {
+        await bouton(w).trigger('click');
+        out.push(terme(w));
+      }
+      return out.join('|');
+    };
+    // Sur 8 tirages parmi 45 entrées, deux suites identiques sont hautement improbables ;
+    // on tolère une collision en réessayant une fois pour rester non-flaky.
+    const a = await suite();
+    const differe = (await suite()) !== a || (await suite()) !== a;
+    expect(differe).toBe(true);
+  });
+
+  it('« Revenir au mot du jour » ramène bien au mot canonique', async () => {
+    const wrapper = mount(MotDuJourCard, { props: { allTides: tides } });
+    const motDuJour = terme(wrapper);
+    await bouton(wrapper).trigger('click');
+    expect(terme(wrapper)).not.toBe(motDuJour);
+
+    const retour = wrapper.findAll('button').find(b => b.text().includes('Revenir au mot du jour'))!;
+    await retour.trigger('click');
+    expect(terme(wrapper)).toBe(motDuJour);
+  });
+});

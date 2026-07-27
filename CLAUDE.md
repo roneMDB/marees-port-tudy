@@ -311,9 +311,12 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   (pure, testée) **privilégie un terme de marée quand la marée du jour est marquante** (bande de coef
   grande-maree/vive-eau/morte-eau, ou tendance revif/déchet) ; sinon rotation déterministe **surtout
   pêche**, 1 jour sur 3 un terme marée. Chaque entrée est typée **`maree`/`peche`** (badge + icône).
-  Le bouton **« Nouveau mot »** de l'en-tête incrémente `offset` (état **éphémère** de la carte, non
-  persisté) : chaque cran avance d'une entrée dans le lexique (déterministe, aucun aléa) et un tour
-  complet ramène au mot du jour ; un lien « Revenir au mot du jour » s'affiche dès que `offset > 0`.
+  Le bouton **« Nouveau mot »** de l'en-tête tire un terme **au hasard** : il dépile un **sac de
+  décalages mélangé** (`shuffledShifts`, Fisher-Yates, générateur injectable donc testé), remélangé
+  une fois vide. Sac plutôt qu'aléa pur à chaque clic : sur 45 entrées, le hasard seul ramènerait un
+  mot déjà vu bien avant d'avoir fait le tour ; ici aucun ne revient avant que tous soient passés.
+  État **éphémère** (non persisté), remis à zéro si le lexique change de taille (il arrive du serveur
+  après le montage). Un lien « Revenir au mot du jour » s'affiche dès que le décalage n'est plus nul.
   Le lexique est **persisté en base** (table `lexicon`, servie par `useLexicon` → `api/lexicon.ts`,
   fallback embarqué `LEXIQUE` hors-ligne). `components/LexiconPanel.vue` — **panneau « Lexique du mot
   du jour »** (offcanvas, **admin-only**) : ajout / édition inline / suppression + « Rétablir les

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LEXIQUE, noteOfTheDay } from './lexique';
+import { LEXIQUE, noteOfTheDay, shuffledShifts } from './lexique';
 
 describe('LEXIQUE', () => {
   it('a des termes et définitions non vides', () => {
@@ -129,5 +129,40 @@ describe('noteOfTheDay — offset (bouton « nouveau mot »)', () => {
   it('reste stable avec un lexique d’une seule entrée', () => {
     const single = [LEXIQUE[0]];
     expect(noteOfTheDay(ctx, single, 3).id).toBe(LEXIQUE[0].id);
+  });
+});
+
+describe('shuffledShifts', () => {
+  /** Générateur déterministe : suite fixe, rejouée en boucle. Permet d'assertion l'ordre exact. */
+  const seeded = (values: number[]) => {
+    let i = 0;
+    return () => values[i++ % values.length];
+  };
+
+  it('renvoie une permutation de tous les décalages non nuls', () => {
+    const shifts = shuffledShifts(6, seeded([0.1, 0.7, 0.3, 0.9, 0.5]));
+    expect([...shifts].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('n’inclut jamais 0, qui est le mot du jour lui-même', () => {
+    expect(shuffledShifts(10, seeded([0.42])).includes(0)).toBe(false);
+  });
+
+  it('mélange réellement : l’ordre diffère de la suite croissante', () => {
+    // Générateur constant à 0 → chaque échange prend l'indice 0, ce qui fait tourner la liste.
+    // (À 0.99 on aurait j === i : tous les échanges seraient neutres et l'ordre inchangé.)
+    expect(shuffledShifts(6, seeded([0]))).toEqual([2, 3, 4, 5, 1]);
+  });
+
+  it('est déterministe pour un même générateur', () => {
+    const a = shuffledShifts(8, seeded([0.2, 0.8, 0.4]));
+    const b = shuffledShifts(8, seeded([0.2, 0.8, 0.4]));
+    expect(a).toEqual(b);
+  });
+
+  it('renvoie une liste vide quand il n’y a rien à tirer', () => {
+    expect(shuffledShifts(1)).toEqual([]);
+    expect(shuffledShifts(0)).toEqual([]);
+    expect(shuffledShifts(-3)).toEqual([]);
   });
 });

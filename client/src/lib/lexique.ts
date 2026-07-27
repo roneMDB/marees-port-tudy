@@ -348,6 +348,23 @@ export function noteOfTheDay(
   return lexicon[(((from + offset) % n) + n) % n];
 }
 
+/**
+ * Ordre de tirage aléatoire des décalages `1..count-1` — tous les mots du lexique sauf celui du
+ * jour (décalage 0), mélangés par Fisher-Yates.
+ *
+ * On tire dans un sac mélangé plutôt qu'un décalage au hasard à chaque clic : sur un lexique de 45
+ * entrées, l'aléa pur ramènerait un mot déjà vu bien avant d'avoir fait le tour. Ici, aucun mot ne
+ * revient avant que tous soient passés. `random` est injectable pour rendre la fonction testable.
+ */
+export function shuffledShifts(count: number, random: () => number = Math.random): number[] {
+  const shifts = Array.from({ length: Math.max(0, count - 1) }, (_, i) => i + 1);
+  for (let i = shifts.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [shifts[i], shifts[j]] = [shifts[j], shifts[i]];
+  }
+  return shifts;
+}
+
 /** Mot du jour « canonique » (offset 0) : contextuel si la marée est marquante, sinon rotation. */
 function dayNote(ctx: DayContext, lexicon: LexiconEntry[]): LexiconEntry {
   const { coef, prevCoef, dateKey } = ctx;
