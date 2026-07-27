@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { auditTides } from './tidesAudit';
+import { auditTides, formatAuditMarkdown } from './tidesAudit';
 
 /** Journée saine : deux pleines mers, deux basses mers, alternées. */
 const cleanDay = [
@@ -85,5 +85,55 @@ describe('auditTides', () => {
     expect(() => auditTides(null)).not.toThrow();
     expect(auditTides(null)).toEqual([]);
     expect(auditTides({ '2026-08-01': 'pas un tableau' })).toEqual([]);
+  });
+});
+
+describe('formatAuditMarkdown', () => {
+  const clean = { label: 'Étel', file: 'horaires_marees_etel.json', anomalies: [] };
+  const dirty = {
+    label: 'Port-Tudy',
+    file: 'horaires_marees_port-tudy.json',
+    anomalies: [
+      { date: '2026-08-15', kind: 'rapprochees' as const, message: '01:09 et 01:12 : 3 min' },
+      { date: '2026-08-21', kind: 'alternance' as const, message: 'deux marées basses de suite' }
+    ]
+  };
+
+  it('titre le rapport et résume chaque site dans un tableau', () => {
+    const md = formatAuditMarkdown([dirty, clean]);
+    expect(md).toContain('# Rapport de cohérence des horaires de marées');
+    expect(md).toContain('| Port-Tudy | `horaires_marees_port-tudy.json` | 2 |');
+    expect(md).toContain('| Étel | `horaires_marees_etel.json` | 0 |');
+  });
+
+  it('détaille les anomalies en tableau markdown', () => {
+    const md = formatAuditMarkdown([dirty]);
+    expect(md).toContain('## Port-Tudy');
+    expect(md).toContain('| 2026-08-15 | `rapprochees` | 01:09 et 01:12 : 3 min |');
+    expect(md).toContain('| 2026-08-21 | `alternance` | deux marées basses de suite |');
+  });
+
+  it('signale explicitement un site sans anomalie', () => {
+    const md = formatAuditMarkdown([clean]);
+    expect(md).toContain('Aucune anomalie');
+    expect(md).not.toContain('| Date |'); // pas de tableau de détail inutile
+  });
+
+  it('conclut sur le total et rappelle que rien n’est modifié', () => {
+    expect(formatAuditMarkdown([dirty, clean])).toMatch(/2 anomalies/);
+    expect(formatAuditMarkdown([clean])).toMatch(/Aucune anomalie détectée/);
+    expect(formatAuditMarkdown([dirty])).toContain('Aucune donnée n’a été modifiée');
+  });
+
+  it('n’ajoute une date que si on la lui fournit (sortie déterministe sinon)', () => {
+    expect(formatAuditMarkdown([clean])).not.toMatch(/Généré le/);
+    expect(formatAuditMarkdown([clean], '2026-07-26')).toContain('Généré le 2026-07-26');
+  });
+
+  it('échappe les barres verticales pour ne pas casser les tableaux', () => {
+    const md = formatAuditMarkdown([
+      { label: 'X', file: 'x.json', anomalies: [{ date: '2026-01-01', kind: 'alternance', message: 'a | b' }] }
+    ]);
+    expect(md).toContain('a \\| b');
   });
 });

@@ -22,6 +22,65 @@ export interface TideAnomaly {
   message: string; // description lisible, avec les heures en cause
 }
 
+/** Résultat de l'audit d'un jeu d'horaires (un site, ou un fichier passé en argument). */
+export interface SiteAudit {
+  label: string;
+  file: string; // nom de fichier, pour situer la source
+  anomalies: TideAnomaly[];
+}
+
+/** Échappe ce qui casserait une cellule de tableau markdown. */
+function cell(text: string): string {
+  return text.replace(/\|/g, '\\|');
+}
+
+/**
+ * Rend le résultat de l'audit en markdown : un tableau de synthèse par site, puis le détail des
+ * anomalies. `generatedAt` est **injecté** (et omis par défaut) pour que la sortie reste
+ * déterministe — utile en test comme pour un rapport versionné qu'on veut voir diffé proprement.
+ * Fonction pure.
+ */
+export function formatAuditMarkdown(audits: SiteAudit[], generatedAt?: string): string {
+  const total = audits.reduce((n, a) => n + a.anomalies.length, 0);
+  const out: string[] = ['# Rapport de cohérence des horaires de marées', ''];
+
+  if (generatedAt) out.push(`Généré le ${generatedAt}.`, '');
+  out.push(
+    'Contrôles appliqués : validité de chaque entrée (type, heure `HH:MM`, hauteur numérique),',
+    'alternance pleine mer / basse mer, et écart minimal de 3 h entre deux extrêmes.',
+    '',
+    '| Site | Fichier | Anomalies |',
+    '| --- | --- | ---: |'
+  );
+  for (const a of audits) {
+    out.push(`| ${cell(a.label)} | \`${cell(a.file)}\` | ${a.anomalies.length} |`);
+  }
+  out.push('');
+
+  for (const a of audits) {
+    out.push(`## ${a.label}`, '');
+    if (!a.anomalies.length) {
+      out.push('Aucune anomalie.', '');
+      continue;
+    }
+    out.push('| Date | Type | Détail |', '| --- | --- | --- |');
+    for (const an of a.anomalies) {
+      out.push(`| ${an.date} | \`${an.kind}\` | ${cell(an.message)} |`);
+    }
+    out.push('');
+  }
+
+  out.push(
+    total === 0
+      ? '**Aucune anomalie détectée.**'
+      : `**${total} anomalie${total > 1 ? 's' : ''} au total.** Aucune donnée n’a été modifiée : ` +
+        'ce rapport est un diagnostic. Corrigez la graine, ou importez les jours corrigés en mode ' +
+        '« Fusionner ».',
+    ''
+  );
+  return out.join('\n');
+}
+
 interface Extreme {
   date: string;
   time: string;

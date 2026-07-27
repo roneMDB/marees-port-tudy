@@ -31,6 +31,9 @@ proche dans le temps** (appariement par proximité, gère le décalage horaire /
 - `npm -w server run check-tides` — **rapport de cohérence** des horaires (graines de tous les
   sites), ou d'un fichier précis : `npm -w server run check-tides -- fichier.json`. Diagnostic
   **seul, ne modifie rien** ; sort en 1 si des anomalies sont trouvées (utilisable en CI).
+  Option `--markdown` pour un rapport partageable :
+  `npm --silent -w server run check-tides -- --markdown > rapport-marees.md` (`--silent` évite que
+  npm préfixe sa ligne `> ts-node …` dans le fichier).
 - Par workspace : `npm -w server run <script>`, `npm -w client run <script>`.
 - Un seul test : `npx vitest run -t "<nom>"` depuis `server/` ou `client/`. Watch : `npx vitest`.
 - `npm -w client run type-check` — `vue-tsc --noEmit` (le build Vite ne type-check pas).
