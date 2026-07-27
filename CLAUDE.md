@@ -28,6 +28,9 @@ proche dans le temps** (appariement par proximité, gère le décalage horaire /
 - `docker compose up --build` — build l'image (multi-stage) et lance sur `:3000` avec le volume
   `./data:/data` (config + horaires persistés, auto-seed si vide). `DATA_DIR=/data` dans l'image.
 - `npm test` — tests des deux workspaces (server puis client).
+- `npm -w server run check-tides` — **rapport de cohérence** des horaires (graines de tous les
+  sites), ou d'un fichier précis : `npm -w server run check-tides -- fichier.json`. Diagnostic
+  **seul, ne modifie rien** ; sort en 1 si des anomalies sont trouvées (utilisable en CI).
 - Par workspace : `npm -w server run <script>`, `npm -w client run <script>`.
 - Un seul test : `npx vitest run -t "<nom>"` depuis `server/` ou `client/`. Watch : `npx vitest`.
 - `npm -w client run type-check` — `vue-tsc --noEmit` (le build Vite ne type-check pas).
@@ -399,7 +402,10 @@ racine reste pour le local.
   démarrage).
 - **Qualité de la graine Port-Tudy** : 4 basses mers parasites ont été retirées (29/07 23:52,
   13/08 sans heure, 28/08 10:10, 11/10 23:27) — elles violaient l'alternance haute/basse et
-  produisaient des jours à 3 remises à flot. Contrôle de non-régression : entre deux pleines mers
-  consécutives il doit y avoir **exactement une** basse mer. **3 anomalies subsistent côté pleines
-  mers** (20/08 et 31/08 sans pleine mer du soir, 21-22/08 dupliquée à 3,64 m) : sans effet sur les
-  remises à flot, mais elles faussent le marégramme et les heures « pleine mer » de ces jours.
+  produisaient des jours à 3 remises à flot. Contrôle de non-régression : `npm -w server run
+  check-tides` (entre deux extrêmes il doit y avoir alternance, et jamais moins de 3 h d'écart).
+  **4 anomalies subsistent côté pleines mers**, à reprendre depuis l'annuaire officiel — ce sont des
+  valeurs *manquantes ou fausses*, non reconstituables par déduction : 15/08 pleine mer du matin
+  datée 01:12 (à 3 min d'une basse mer ; devrait être vers 07:13 d'après ses voisines), 20/08 et
+  31/08 sans pleine mer du soir, 21-22/08 dupliquée à 3,64 m. Sans effet sur les remises à flot,
+  mais elles faussent le marégramme et les heures « pleine mer » de ces jours.
