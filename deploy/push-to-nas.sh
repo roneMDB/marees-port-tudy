@@ -24,8 +24,9 @@ scp -O -P "${NAS_PORT}" "${IMAGE_ARCHIVE}" "${NAS_HOST}:${NAS_DIR}/"
 echo "==> 3/4 Transfert du compose (renommé docker-compose.yml à l'arrivée)"
 scp -O -P "${NAS_PORT}" deploy/docker-compose.nas.yml "${NAS_HOST}:${NAS_DIR}/docker-compose.yml"
 
-echo "==> 4/4 Transfert du script de mise à jour NAS"
+echo "==> 4/4 Transfert des scripts NAS (mise à jour + sauvegarde de la base)"
 scp -O -P "${NAS_PORT}" deploy/update-on-nas.sh "${NAS_HOST}:${NAS_DIR}/update-on-nas.sh"
+scp -O -P "${NAS_PORT}" deploy/backup-db-on-nas.sh "${NAS_HOST}:${NAS_DIR}/backup-db-on-nas.sh"
 
 echo
 echo "✓ Fichiers transférés dans ${NAS_DIR}/"

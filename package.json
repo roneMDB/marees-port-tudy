@@ -17,6 +17,7 @@
     "build": "npm -w server run build && npm -w client run build",
     "start": "npm -w server run start",
     "start:auth": "APP_PASSWORD=${APP_PASSWORD:-marees-dev} APP_USER=${APP_USER:-marees} ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin-dev} ADMIN_USER=${ADMIN_USER:-admin} npm run start",
+    "db:pull": "./deploy/pull-db-from-nas.sh",
     "test": "npm -w server run test && npm -w client run test",
     "test:e2e": "playwright test",
     "test:e2e:report": "playwright show-report",
