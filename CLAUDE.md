@@ -28,6 +28,12 @@ proche dans le temps** (appariement par proximité, gère le décalage horaire /
 - `docker compose up --build` — build l'image (multi-stage) et lance sur `:3000` avec le volume
   `./data:/data` (config + horaires persistés, auto-seed si vide). `DATA_DIR=/data` dans l'image.
 - `npm test` — tests des deux workspaces (server puis client).
+- `npm run db:pull` — **rapatrie la base de prod** du NAS dans `server/data/marees.db`
+  (`deploy/pull-db-from-nas.sh`). Instantané **à chaud** par `sqlite3 … "VACUUM INTO …"` +
+  `PRAGMA integrity_check` **côté NAS**, puis `scp -O` : en mode WAL, copier `marees.db` seul
+  ramènerait une base quasi vide. L'ancienne base locale devient `marees.db.bak-<horodatage>` et
+  ses `-wal`/`-shm` périmés sont supprimés. Arrêter `npm run dev` avant. Réglages surchargables :
+  `NAS_HOST`/`NAS_PORT`/`NAS_DIR`/`LOCAL_DB`.
 - `npm -w server run check-tides` — **rapport de cohérence** des horaires. Diagnostic **seul, ne
   modifie rien** ; sort en 1 si une anomalie ou une source illisible est rencontrée (utilisable en
   CI). Options : `--site <id>` (un port, répétable ; id inconnu = erreur), **`--db`** (audite la
@@ -382,6 +388,14 @@ Actif uniquement en build de prod, pas en dev. Icône : `client/public/favicon.s
 `deploy/docker-compose.nas.yml` (image chargée, volume `/volume1/docker/marees/data`),
 `deploy/README.md` (procédure NAS Synology DS218+ par transfert de fichier). Le `docker-compose.yml`
 racine reste pour le local.
+
+**Sauvegarde de la base de prod** (issue #11) : `deploy/backup-db-on-nas.sh` s'exécute **sur le
+NAS** (transféré par `push-to-nas.sh` comme `update-on-nas.sh`) et écrit
+`backups/marees-AAAAMMJJ-HHMMSS.db.gz` avec rotation (`KEEP=14`) ; instantané **à chaud**
+(`VACUUM INTO` + `integrity_check` **avant** l'écriture et **avant** la rotation → une sauvegarde
+ratée ne fait pas tomber une bonne sauvegarde), ni `sudo` ni `docker` requis, donc planifiable
+comme **tâche utilisateur** du Planificateur de tâches DSM (procédure + restauration :
+`deploy/INSTALLATION-NAS.md` §10). Le pendant côté PC est `npm run db:pull`.
 
 ## Fichiers clés
 

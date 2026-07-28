@@ -21,8 +21,9 @@ Deux scripts automatisent tout le déploiement une fois les **prérequis (§1)**
 
 | Script | S'exécute… | Fait quoi |
 | --- | --- | --- |
-| [`push-to-nas.sh`](push-to-nas.sh) | sur le **PC** | build + export de l'image (`save-image.sh`), puis `scp` de l'image, du `docker-compose.yml` et de `update-on-nas.sh` vers le NAS. **Ne redémarre pas** le conteneur. |
+| [`push-to-nas.sh`](push-to-nas.sh) | sur le **PC** | build + export de l'image (`save-image.sh`), puis `scp` de l'image, du `docker-compose.yml` et des scripts NAS (`update-on-nas.sh`, `backup-db-on-nas.sh`) vers le NAS. **Ne redémarre pas** le conteneur. |
 | [`update-on-nas.sh`](update-on-nas.sh) | sur le **NAS** | `docker load` de l'image + `docker-compose up -d` (recrée le conteneur) + `docker image prune`. Données `data/` **conservées**. |
+| [`backup-db-on-nas.sh`](backup-db-on-nas.sh) | sur le **NAS** | sauvegarde datée de la base (`backups/marees-*.db.gz`, rotation) — à planifier, cf. **[§10](#10-sauvegarde--restauration-des-données)**. |
 
 ```bash
 # 1. Côté PC (dans le dossier du projet)
@@ -34,8 +35,8 @@ cd /volume1/docker/marees && sudo bash update-on-nas.sh
 ```
 
 Le même couple de commandes sert à l'**installation initiale** et aux **mises à jour** : seule
-la première fois nécessite la préparation des dossiers (§2). Le script `update-on-nas.sh` est
-transféré à chaque `push`, donc toujours à jour sur le NAS.
+la première fois nécessite la préparation des dossiers (§2). Les scripts NAS sont transférés à
+chaque `push`, donc toujours à jour sur le NAS.
 
 **Réglages surchargables** (défauts = configuration DS218+ actuelle) :
 
@@ -350,11 +351,65 @@ ses fichiers WAL `marees.db-wal` / `marees.db-shm`.
 > la migration est **automatique au 1er démarrage** de la nouvelle image. Procédure détaillée,
 > vérification et rollback : **[MIGRATION-SQLITE.md](MIGRATION-SQLITE.md)**.
 
-**Sauvegarde** : copier le dossier `data/` (ou l'inclure dans *Hyper Backup*) ; idéalement
-conteneur arrêté, sinon copier les trois fichiers `marees.db`, `marees.db-wal`, `marees.db-shm`.
-**Restauration** : remettre ces fichiers dans `data/` puis redémarrer le conteneur.
+> ⚠️ **Ne copiez pas `marees.db` tout seul.** La base est en mode **WAL** : l'essentiel des
+> données vit dans `marees.db-wal` jusqu'au *checkpoint*. Constaté en prod le 28/07/2026 :
+> `marees.db` = **4 Ko** pour `marees.db-wal` = **1,2 Mo** — la copie du seul `.db` aurait ramené
+> une base quasi vide. Utilisez le script ci-dessous, qui prend un **instantané cohérent**
+> (`sqlite3 … "VACUUM INTO …"`), **à chaud**, sans arrêter le conteneur.
 
-**Mettre à jour les horaires** : via le panneau **« Import des horaires »** de l'app (rôle admin) —
+### 10.1 Sauvegarde (script + planification DSM)
+
+`deploy/backup-db-on-nas.sh` est transféré sur le NAS par `push-to-nas.sh` (§0). À la main :
+
+```bash
+cd /volume1/docker/marees
+bash backup-db-on-nas.sh        # → backups/marees-AAAAMMJJ-HHMMSS.db.gz
+KEEP=30 bash backup-db-on-nas.sh   # garde 30 sauvegardes au lieu de 14
+```
+
+Il vérifie l'instantané (`PRAGMA integrity_check`) **avant** d'écrire et **avant** la rotation :
+une sauvegarde ratée ne fait jamais tomber une bonne sauvegarde. Ni `sudo` ni `docker` requis.
+
+**Planification quotidienne** — *Panneau de configuration → Planificateur de tâches → Créer →
+Tâche planifiée* :
+
+| Champ | Valeur |
+| --- | --- |
+| Utilisateur | `erwan` (pas besoin de `root`) |
+| Commande | `bash /volume1/docker/marees/backup-db-on-nas.sh` |
+| Planification | Quotidien (ex. 04:00) |
+
+Pointer ensuite *Hyper Backup* sur **`/volume1/docker/marees/backups`** pour une copie hors NAS.
+
+### 10.2 Restauration
+
+```bash
+cd /volume1/docker/marees
+sudo docker-compose stop
+gunzip -c backups/marees-20260728-184227.db.gz > data/marees.db
+rm -f data/marees.db-wal data/marees.db-shm   # journaux de l'ANCIENNE base
+sudo docker-compose start
+```
+
+### 10.3 Copier la base de prod sur le poste de dev
+
+Depuis le PC, dans le dépôt :
+
+```bash
+npm run db:pull      # → server/data/marees.db (l'ancienne devient marees.db.bak-<horodatage>)
+```
+
+Même mécanique (instantané `VACUUM INTO` + `integrity_check` sur le NAS, puis `scp -O`).
+Arrêter `npm run dev` avant. Si l'instantané échoue faute de droits sur `marees.db-shm`, replier
+sur un instantané pris **dans le conteneur** (il embarque `better-sqlite3`) :
+
+```bash
+sudo docker exec marees-port-tudy node -e "require('better-sqlite3')('/data/marees.db').backup('/data/snapshot.db').then(()=>console.log('ok'))"
+```
+
+### 10.4 Mettre à jour les horaires
+
+Via le panneau **« Import des horaires »** de l'app (rôle admin) —
 coller/téléverser un JSON, pris en compte immédiatement (plus besoin de redémarrer). Pour repartir
 des graines embarquées, arrêter le conteneur, supprimer `marees.db*` du volume, puis redémarrer.
 
