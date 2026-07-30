@@ -61,17 +61,19 @@ onMounted(load);
           </div>
           <div class="vr d-none d-sm-block"></div>
           <div class="small">
+            <!-- Vitesse et force Beaufort sur la même ligne : ce sont deux expressions du même
+                 vent, les séparer casserait le lien. Le libellé accompagne la force, le chiffre
+                 seul ne disant rien à qui ne connaît pas l'échelle. -->
             <div>
               <i class="bi bi-wind me-1"></i>Vent {{ Math.round(weather.current.windSpeed) }}
               {{ weather.units.wind }} {{ degToCompass(weather.current.windDirection) }}
-              <span class="text-muted">(rafales {{ Math.round(weather.current.windGusts) }})</span>
-            </div>
-            <!-- Force Beaufort, avec son libellé : le chiffre seul ne dit rien à qui ne connaît
-                 pas l'échelle. -->
-            <div>
-              <i class="bi bi-speedometer2 me-1"></i>
+              <span class="mx-1">·</span>
               <span class="fw-semibold">{{ beaufort(weather.current.windSpeed).force }} Bft</span>
-              <span class="text-muted"> · {{ beaufort(weather.current.windSpeed).label }}</span>
+              <!-- Virgule et non espace de tête : Vue élague les blancs en début de nœud texte,
+                   ce qui collait « 3 Bftpetite brise ». -->
+              <span class="text-muted">, {{ beaufort(weather.current.windSpeed).label }}</span>
+              <span class="text-muted"> (rafales {{ Math.round(weather.current.windGusts) }}
+                {{ weather.units.wind }} · {{ beaufort(weather.current.windGusts).force }} Bft)</span>
             </div>
             <div v-if="weather.marine?.current">
               <i class="bi bi-water me-1"></i>Houle {{ weather.marine.current.waveHeight }} {{ weather.units.wave }}
@@ -83,7 +85,9 @@ onMounted(load);
 
         <!-- Prévisions quotidiennes -->
         <div class="row g-2 text-center">
-          <div v-for="d in weather.daily" :key="d.date" class="col">
+          <!-- Deux tuiles par ligne sous `sm` : à 4 colonnes sur un téléphone, « 24 km/h O · 4 Bft »
+               se disloque sur trois lignes. -->
+          <div v-for="d in weather.daily" :key="d.date" class="col-6 col-sm">
             <div class="border rounded py-2 h-100">
               <div class="small text-muted text-capitalize">{{ formatDate(d.date, { weekday: 'short' }) }}</div>
               <i :class="['bi', wmoIcon(d.weatherCode)]" class="fs-5 text-primary"></i>
@@ -91,12 +95,12 @@ onMounted(load);
                 <span class="fw-semibold">{{ Math.round(d.tempMax) }}°</span>
                 <span class="text-muted"> / {{ Math.round(d.tempMin) }}°</span>
               </div>
+              <!-- Vitesse et force sur une ligne ; pas de libellé, l'espace est compté ici. -->
               <div class="small text-muted">
-                <i class="bi bi-wind"></i> {{ Math.round(d.windMax) }}
+                <i class="bi bi-wind"></i> {{ Math.round(d.windMax) }} {{ weather.units.wind }}
                 <span v-if="d.windDirection != null">{{ degToCompass(d.windDirection) }}</span>
+                <span class="mx-1">·</span>{{ beaufort(d.windMax).force }} Bft
               </div>
-              <!-- Ici la force seule : l'espace est compté dans une tuile. -->
-              <div class="small text-muted">{{ beaufort(d.windMax).force }} Bft</div>
             </div>
           </div>
         </div>

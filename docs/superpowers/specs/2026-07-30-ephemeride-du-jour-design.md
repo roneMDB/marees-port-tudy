@@ -149,9 +149,11 @@ rangée météo / mot du jour, avec le même montage conditionnel que `MotDuJour
 
 ### `client/src/components/WeatherCard.vue`
 
-- conditions actuelles : après le vent, `4 Bft · jolie brise` — le libellé dit ce que le chiffre seul
-  ne dit pas ;
-- tuiles de prévision : la seule **force**, l'espace y est compté ;
+- le vent est donné **dans les deux unités sur une même ligne**, vitesse comme rafales :
+  `Vent 18 km/h O · 3 Bft, petite brise (rafales 34 km/h · 5 Bft)`. Ce sont deux expressions du même
+  vent ; les mettre sur deux lignes séparées, comme au premier jet, casse le lien entre elles ;
+- tuiles de prévision : les deux chiffres sans le libellé (`22 km/h O · 4 Bft`), et **2 tuiles par
+  ligne sous `sm`** — à 4 colonnes sur un téléphone, la ligne se disloque sur trois lignes ;
 - eau et UV **ne sont pas** ajoutés ici : ils vivent dans la tuile Mer de l'éphéméride, pour ne pas
   dire deux fois la même chose.
 

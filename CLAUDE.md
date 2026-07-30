@@ -376,8 +376,13 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   (bouton de rafraîchissement). Point d'entrée **unique** de la météo : `WeatherCard` **et** la tuile
   « Mer » de `EphemerideCard` en ont besoin, et chacune la chargeant pour son compte appellerait
   `/api/weather` deux fois. `resetWeatherForTests()` remet le singleton à zéro entre les tests.
-  `WeatherCard.vue` affiche la **force Beaufort** (`lib/weather.beaufort`) : force **et** libellé dans
-  les conditions actuelles, force seule dans les tuiles de prévision (l'espace y est compté).
+  `WeatherCard.vue` exprime le vent **dans les deux unités sur une même ligne** — km/h **et** force
+  Beaufort (`lib/weather.beaufort`) — vitesse comme rafales : ce sont deux expressions du même vent,
+  les séparer casserait le lien. Le **libellé** (« petite brise ») n'accompagne la force que dans les
+  conditions actuelles ; les tuiles de prévision se limitent aux deux chiffres, et passent à **2 par
+  ligne sous `sm`** (à 4 colonnes sur un téléphone, « 24 km/h O · 4 Bft » se disloque). Le libellé est
+  précédé d'une **virgule** et non d'un espace : Vue élague les blancs en début de nœud texte, ce qui
+  collait « 3 Bftpetite brise ». `WeatherCard.test.ts`.
 - `src/composables/useTheme.ts` — thème clair/sombre (singleton). Applique `data-bs-theme`
   (mode couleur natif Bootstrap 5.3) sur `<html>`, persiste dans `localStorage`, défaut =
   préférence système. Bascule via le bouton de la navbar ; les graphiques Chart.js lisent
