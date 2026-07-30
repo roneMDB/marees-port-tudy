@@ -44,6 +44,7 @@ const weather = {
 } satisfies Weather;
 
 const tile = (w: ReturnType<typeof mount>, name: string) => w.get(`[data-tile="${name}"]`).text();
+const wrapperSup = (w: ReturnType<typeof mount>) => w.get('[data-tile="calendrier"] sup').text();
 
 async function mountCard(): Promise<ReturnType<typeof mount>> {
   const wrapper = mount(EphemerideCard);
@@ -103,6 +104,23 @@ describe('EphemerideCard', () => {
     expect(text).toContain('jour / 365');
     expect(text).toContain('sem. 31');
     expect(text).toContain('Sainte Juliette');
+  });
+
+  it('ne met la majuscule qu’au premier mot de la date', async () => {
+    // En français le mois s'écrit en minuscules : « Jeudi 30 juillet », pas « Jeudi 30 Juillet »
+    // (ce que produisait `text-capitalize`).
+    expect(tile(await mountCard(), 'calendrier')).toContain('Jeudi 30 juillet');
+  });
+
+  it('n’affiche la date qu’une fois dans la carte', async () => {
+    const wrapper = await mountCard();
+    const occurrences = wrapper.text().match(/30 juillet/gi) ?? [];
+    expect(occurrences).toHaveLength(1);
+  });
+
+  it('note le quantième avec un exposant simple', async () => {
+    // `<sup>` fait déjà l'exposant : y mettre « ᵉ » le doublerait et donnerait « 211˚ ».
+    expect(wrapperSup(await mountCard())).toBe('e');
   });
 
   it('affiche la température de l’eau et l’indice UV venus de la météo', async () => {

@@ -107,11 +107,14 @@ Routes settings (`src/routes/settings.ts`) :
 
 Route météo (`src/routes/weather.ts` + `src/service/weather.ts`) :
 - `GET /api/weather?lat&lon&days` → `fetchWeather()` (Open-Meteo, **sans clé**) : normalise
-  conditions actuelles + prévisions quotidiennes (dont `windDirection` dominante, `null` si absente)
-  + marine (vagues, `null` si indisponible près des côtes). Défaut = zone Port-Tudy (Groix). `400`
+  conditions actuelles + prévisions quotidiennes (dont `windDirection` dominante, `null` si absente,
+  et **`uvIndexMax`**) + marine (vagues et **`seaTemperature`** / `seaTemperatureMax`, `null` si
+  indisponible près des côtes). Défaut = zone Port-Tudy (Groix). `400`
   sur coordonnées invalides. `fetchWeather` prend un `fetchImpl` injectable (tests sans réseau).
   Codes WMO traduits (`weatherText`). La carte météo affiche aussi des **liens configurables**
   (`settings.weatherLinks`, cf. Config) avec placeholders `{lat}`/`{lon}` (`lib/weather.resolveLinkUrl`).
+  **UV et température de l'eau alimentent la tuile « Mer » de l'éphéméride** (issue #13), pas la
+  carte météo.
 
 Routes auth (`src/routes/auth.ts`, publiques) :
 - `POST /api/login` `{ user, password, remember }` → `resolveUser` (recherche en base + vérification
@@ -220,10 +223,27 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   (plage de dates inclusive, type, coef min) et `matchNavihanReference(site, reference)` (annote
   chaque marée du port sélectionné d'un `refTime` = heure Port-Tudy de même type la plus proche,
   tolérance 3 h, sinon `null`), `groupByDay(tides)` (regroupe par jour → `DayTides` : pleines/
-  basses mers triées + coef du jour) et `periodWindow(from, rangeDays, offset, min, max)` (fenêtre
+  basses mers triées + coef du jour), `tidalRange(day)` (**marnage** du jour = plus haute pleine mer
+  − plus basse basse mer, `null` s'il manque un type ; utilisé par la carte « Marnage du jour » de
+  `StatCards`) et `periodWindow(from, rangeDays, offset, min, max)` (fenêtre
   du tableau décalée de `offset` périodes, bornée) — **fonctions pures, testées**.
 - `src/lib/format.ts` — `formatDate`, `formatHeight`, `todayKey`, `addDays`, `coefBand`,
   `relativeDayLabel` (« aujourd'hui »/« demain »/date — lève l'ambiguïté d'une heure seule).
+- `src/lib/ephemeride.ts` + `src/lib/saints.ts` — **éphéméride du jour** (issue #13), **calculée
+  localement** donc disponible hors-ligne : `sunTimes` (lever/coucher/midi solaire, série NOAA,
+  paramétrable par la hauteur du soleil visée → crépuscules), `formatTimeInZone` (`HH:MM` dans un
+  fuseau explicite — `sunTimes` renvoie des instants UTC, sinon les tests dépendraient du fuseau de
+  la machine), `formatDuration`, `daylightDelta` (écart de durée du jour avec la veille), `moonPhase`,
+  `nextSyzygy`, `dayOfYear` (quantième), `isoWeek` ; `saintOfDay` (366 libellés figés, `SAINTS_BY_MONTH`).
+  **Précision** : soleil à moins de 2 min d'Open-Meteo sur quatre saisons, syzygies à moins de 5 min
+  des instants publiés des éclipses de 2026 (ancres de test). Deux pièges à ne pas réintroduire :
+  le terme `+0.0009` de l'énoncé courant de l'algorithme solaire **ne s'applique pas ici** (il
+  compense un arrondi de `n` que ce calcul ne fait pas → 1,3 min de retard) ; et la phase de lune
+  doit être rapportée à la **lunaison réelle**, pas au mois synodique moyen, sinon le jour de la
+  pleine lune se lit « gibbeuse décroissante ». `EPHEMERIDE_LOCATION` (Belz) est un **miroir** de
+  `DEFAULT_LAT`/`DEFAULT_LON` du serveur, comme `DEFAULT_WEATHER_LINKS`.
+- `src/lib/weather.ts` — `wmoIcon`, `degToCompass`, `resolveLinkUrl` et **`beaufort(kmh)`**
+  (`{ force, label }`, seuils en km/h puisque Open-Meteo renvoie des km/h).
 - `src/composables/useSettings.ts` — **config serveur** (singleton) : `settings` réactif (défauts
   puis hydraté via `GET /api/settings`), `load()`, et **sauvegarde auto débouncée** (~500 ms → `PUT`).
   Un flag `hydrating` empêche l'hydratation initiale de déclencher un save. `src/api/settings.ts`
@@ -295,7 +315,26 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   derrière « + N autres jours » / « Voir moins » — repli **éphémère** (`ref` local, la liste est
   tronquée en JS ; bouton `btn btn-link` + chevron, aucun JS Bootstrap, cf.
   `ResourcesCard`/`MotDuJourCard`), refermé automatiquement si `aFlotDays` retombe sous le budget.
-  `StatCards.test.ts`.
+  `StatCards.test.ts`. Le **marnage du jour** de cette carte vient de `tidalRange` (`lib/tides.ts`).
+- **Éphéméride du jour** (`components/EphemerideCard.vue`, `lib/ephemeride.ts`, `lib/saints.ts`,
+  `composables/useEphemeride.ts`, issue #13) — carte **pleine largeur** placée après `StatCards`,
+  quatre tuiles : **Soleil** (lever → coucher, durée du jour et son écart avec la veille, midi
+  solaire), **Lune** (phase + illumination, prochaine syzygie ; mention « vives-eaux à suivre »
+  **seulement** à ≤ 2 jours de la syzygie, celles-ci la suivant de ~36 h), **Calendrier** (date,
+  quantième, semaine ISO, saint du jour), **Mer** (température de l'eau + indice UV). Repli
+  **éphémère** (`ref` local, cf. `ResourcesCard`), masquage **persisté** via `useEphemeride`
+  (`localStorage` `marees-ephemeride`, calque de `useMotDuJour`). **Trois tuiles sur quatre sont
+  calculées localement** : Soleil, Lune et Calendrier n'ont **aucune dépendance réseau** (si la
+  requête météo échoue, seules l'eau et l'UV passent à « — » — couvert par un test). Hors-ligne avec
+  le cache PWA chaud, la carte est même complète, l'eau et l'UV venant du `NetworkFirst` sur `/api`.
+  **En revanche, sur cache froid, rien ne s'affiche** : la carte vit dans le `v-else` de
+  `Dashboard.vue`, après les états loading/error, donc un échec de `/api/tides` masque tout le
+  dashboard. Le cache runtime n'est alimenté qu'à partir de la **2ᵉ** visite, le service worker ne
+  contrôlant pas encore la page lors de la 1ʳᵉ (comportement PWA préexistant, non propre à l'éphéméride).
+  Le **marnage n'y figure pas** : `StatCards` a déjà sa carte « Marnage du jour ». La date n'est
+  affichée **qu'une fois** (tuile Calendrier, pas dans l'en-tête) et sa majuscule est posée en JS —
+  `text-capitalize` en mettrait une à chaque mot (« Jeudi 30 Juillet », or les mois s'écrivent en
+  minuscules). `EphemerideCard.test.ts`.
 - `components/StatsPanel.vue` — **panneau « Statistiques d'accès »** (offcanvas) : KPIs (visites,
   LAN/externe), graphe visites/jour, pays/navigateurs/appareils. Charge `getStats()` à l'ouverture.
   Le bouton (navbar, `App.vue`) et le panneau ne sont montés que si `useAuth().isAdmin` ; le verrou
@@ -332,6 +371,13 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   `changeMyPassword` puis réhydrate le statut. `useAuth` expose désormais `user` et `mustChangePassword`.
 - `Dashboard.vue` affiche un encart explicatif : heures **Port-Tudy** = référence, le but est
   d'en déduire les heures **Navihan** (basse mer, pleine mer, « remise à flot »).
+- `src/composables/useWeather.ts` — **météo partagée** (singleton) : `weather`/`loading`/`error`,
+  `load()` **idempotent** (les appels suivants attendent la même promesse) et `reload()` forcé
+  (bouton de rafraîchissement). Point d'entrée **unique** de la météo : `WeatherCard` **et** la tuile
+  « Mer » de `EphemerideCard` en ont besoin, et chacune la chargeant pour son compte appellerait
+  `/api/weather` deux fois. `resetWeatherForTests()` remet le singleton à zéro entre les tests.
+  `WeatherCard.vue` affiche la **force Beaufort** (`lib/weather.beaufort`) : force **et** libellé dans
+  les conditions actuelles, force seule dans les tuiles de prévision (l'espace y est compté).
 - `src/composables/useTheme.ts` — thème clair/sombre (singleton). Applique `data-bs-theme`
   (mode couleur natif Bootstrap 5.3) sur `<html>`, persiste dans `localStorage`, défaut =
   préférence système. Bascule via le bouton de la navbar ; les graphiques Chart.js lisent

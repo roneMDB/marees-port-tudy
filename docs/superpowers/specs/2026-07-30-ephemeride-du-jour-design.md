@@ -66,16 +66,33 @@ Aucune dépendance, tout pur et testé, dans l'esprit de `lib/maregram.ts` / `li
 - `moonPhase(dateKey)` → `{ age, illumination (0–1), name, icon }`. Huit phases françaises :
   Nouvelle lune, Premier croissant, Premier quartier, Gibbeuse croissante, Pleine lune, Gibbeuse
   décroissante, Dernier quartier, Dernier croissant.
-- `nextSyzygy(dateKey)` → `{ kind: 'new' | 'full'; date; daysAway }`. **Formule de Meeus** tronquée
-  aux termes périodiques principaux (`M`, `M'`, `F`), pas la seule lunaison moyenne : celle-ci se
-  trompe de ±14 h, donc visiblement d'un jour sur un compte à rebours affiché en jours.
+- `nextSyzygy(dateKey)` → `{ kind: 'new' | 'full'; date; at; daysAway }`. **Formule de Meeus**
+  tronquée aux termes périodiques principaux (`M`, `M'`, `F`), pas la seule lunaison moyenne :
+  celle-ci se trompe de ±14 h, donc visiblement d'un jour sur un compte à rebours affiché en jours.
+
+**Deux écarts trouvés en validant contre des références externes**, à ne pas réintroduire :
+
+- le terme `+0,0009` de l'énoncé courant de l'algorithme solaire compense un **arrondi de `n` à
+  l'entier** que ce calcul ne fait pas (`n` = jour julien exact à 12:00 UT) ; il ajoutait 1,3 min de
+  retard systématique ;
+- nommer la phase d'après le mois synodique **moyen** fait lire « gibbeuse décroissante » le jour de
+  la pleine lune : la vitesse de la lune varie, la vraie demi-lunaison n'est pas `SYNODIC/2`, et la
+  pleine lune du 2026-08-28 tombe à une fraction de 0,52. La fraction est donc rapportée à la
+  **lunaison réelle**, et le jour d'une syzygie porte son nom comme dans un almanach.
 - `dayOfYear(dateKey)` → `{ day, total }` (366 les années bissextiles) — le « quantième » demandé.
 - `isoWeek(dateKey)` → numéro de semaine ISO 8601.
 
 ### `client/src/lib/saints.ts` (nouveau)
 
-`SAINTS: Record<string, string>` clé `MM-DD`, 366 entrées (`02-29` incluse), calendrier civil
-français usuel, une entrée par jour ; `saintOfDay(dateKey)`.
+`SAINTS_BY_MONTH` : un tableau par mois, 366 entrées au total (`02-29` incluse), calendrier civil
+français usuel ; `saintOfDay(dateKey)`. Rangé par mois plutôt qu'en clés `MM-DD` plates : les
+longueurs se vérifient d'un coup d'œil, et un test les compare aux longueurs de mois attendues —
+c'est ainsi qu'une entrée manquante (sainte Élodie, 22 octobre) a été détectée.
+
+Chaque entrée porte son **libellé complet**, « Saint » / « Sainte » compris, plutôt qu'un prénom nu
+dont on déduirait le genre : une trentaine de prénoms masculins du calendrier se terminent par « e »
+(Blaise, Achille, Alexandre, Christophe, Étienne, Jérôme…), et toute heuristique produirait des
+« Sainte Blaise ».
 
 ### Ajouts aux libs existantes
 
@@ -111,11 +128,20 @@ stylée dans ces composants (variables `--bs-*-bg-subtle`, donc juste en thème 
 |---|---|
 | Soleil | lever → coucher, durée du jour + écart avec la veille, midi solaire |
 | Lune | phase + illumination en %, prochaine syzygie et compte à rebours |
-| Calendrier | date en clair, « 211ᵉ jour / 365 · sem. 31 », saint du jour |
-| Mer | marnage du jour, température de l'eau, indice UV |
+| Calendrier | date en clair, « 211e jour / 365 · sem. 31 », saint du jour |
+| Mer | température de l'eau, indice UV |
 
 La mention **« vives-eaux à suivre »** de la tuile Lune ne s'affiche **que** si la syzygie est à
 ≤ 2 jours : les vives-eaux suivent la syzygie de ~36 h, l'afficher sans condition serait faux.
+
+Le **marnage ne figure pas** dans la tuile Mer, contrairement à l'intention initiale : `StatCards`
+affiche déjà une carte « Marnage du jour ». `tidalRange` sert donc à remplacer la logique inline de
+`StatCards` par une fonction pure testée, plutôt qu'à répéter l'information. La carte n'a par
+conséquent **aucune prop**.
+
+La date n'est affichée **qu'une fois**, dans la tuile Calendrier, et sa majuscule est posée en JS :
+`text-capitalize` en met une à chaque mot (« Jeudi 30 Juillet »), or les mois français s'écrivent en
+minuscules.
 
 `Dashboard.vue` : `<EphemerideCard :all-tides="allTides" />` **après `<StatCards>`**, avant la
 rangée météo / mot du jour, avec le même montage conditionnel que `MotDuJourCard` pour le rappel en
@@ -142,6 +168,23 @@ rangée météo / mot du jour, avec le même montage conditionnel que `MotDuJour
   (`vi.useFakeTimers`), marées factices, assertions sur les quatre tuiles, le repli et le masquage.
 - `server/src/service/weather.test.ts` : fixtures étendues aux deux nouveaux champs (`fetchImpl` est
   déjà injectable).
+
+## Hors-ligne : ce qui est réellement vrai
+
+Vérifié en build de production avec un navigateur piloté :
+
+- les tuiles **Soleil, Lune, Calendrier** n'ont **aucune dépendance réseau** — si la requête météo
+  échoue, elles restent renseignées et seules l'eau et l'UV passent à « — » (test dédié) ;
+- hors-ligne avec le **cache PWA chaud**, la carte est **complète**, l'eau et l'UV venant du
+  `NetworkFirst` sur `/api` ;
+- hors-ligne sur **cache froid**, en revanche, **rien ne s'affiche** : la carte est dans le `v-else`
+  de `Dashboard.vue`, après les états loading/error, donc l'échec de `/api/tides` masque tout le
+  dashboard. Et le cache runtime ne se remplit qu'à partir de la **2ᵉ** visite, le service worker ne
+  contrôlant pas encore la page lors de la première.
+
+Ce dernier point est un **comportement PWA préexistant**, pas une conséquence de cette issue : il
+vaudrait pour n'importe quelle carte du dashboard. Le corriger (précacher `/api/tides`, ou sortir
+les cartes sans dépendance de données du `v-else`) dépasse le périmètre de #13.
 
 ## Hors périmètre
 

@@ -58,10 +58,23 @@ const syzygyLabel = computed(() => {
 const springTidesAhead = computed(() => syzygy.value.daysAway <= 2);
 
 const quantieme = computed(() => dayOfYear(date.value));
-/** « 1ᵉʳ jour » pour le 1er janvier, « 211ᵉ jour » ensuite. */
-const quantiemeSuffix = computed(() => (quantieme.value.day === 1 ? 'ᵉʳ' : 'ᵉ'));
+/**
+ * « 1er jour » pour le 1er janvier, « 211e jour » ensuite. Lettres ordinaires : le `<sup>` fait
+ * l'exposant, et le doubler avec les caractères modificateurs (ᵉ) donnerait « 211˚ ».
+ */
+const quantiemeSuffix = computed(() => (quantieme.value.day === 1 ? 'er' : 'e'));
 const week = computed(() => isoWeek(date.value));
 const saint = computed(() => saintOfDay(date.value));
+
+/**
+ * Date en clair, majuscule sur la **seule** première lettre : `text-capitalize` de Bootstrap la
+ * met à chaque mot et donnerait « Jeudi 30 Juillet », alors qu'en français les mois s'écrivent
+ * en minuscules.
+ */
+const longDate = computed(() => {
+  const text = formatDate(date.value, { weekday: 'long', day: 'numeric', month: 'long' });
+  return text.charAt(0).toUpperCase() + text.slice(1);
+});
 
 /** Température de l'eau : conditions marines du moment, indisponibles pour certains points côtiers. */
 const seaTemperature = computed(() => marine.value?.seaTemperature ?? null);
@@ -78,8 +91,8 @@ const temperatureUnit = computed(() => weather.value?.units.temperature ?? '°C'
         :aria-expanded="open"
         @click="open = !open"
       >
+        <!-- Pas de date ici : la tuile Calendrier la porte, la répéter serait redondant. -->
         <i class="bi bi-sunrise me-1"></i> Éphéméride du jour
-        <span class="fw-normal text-muted small">· {{ formatDate(date, { weekday: 'long', day: 'numeric', month: 'long' }) }}</span>
         <i :class="open ? 'bi bi-chevron-up' : 'bi bi-chevron-down'" class="small ms-1"></i>
       </button>
       <button
@@ -138,9 +151,7 @@ const temperatureUnit = computed(() => weather.value?.units.temperature ?? '°C'
             <span class="ephemeride-icon ephemeride-icon--calendar"><i class="bi bi-calendar-date"></i></span>
             <div class="ephemeride-body">
               <div class="text-uppercase small text-muted">Calendrier</div>
-              <div class="fs-5 fw-semibold text-capitalize">
-                {{ formatDate(date, { weekday: 'long', day: 'numeric', month: 'long' }) }}
-              </div>
+              <div class="fs-5 fw-semibold">{{ longDate }}</div>
               <div class="small text-body-secondary">
                 {{ quantieme.day }}<sup>{{ quantiemeSuffix }}</sup> jour / {{ quantieme.total }}
                 <span class="text-muted">· sem. {{ week }}</span>
