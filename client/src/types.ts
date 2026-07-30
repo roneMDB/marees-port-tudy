@@ -142,11 +142,18 @@ export interface WeatherDaily {
   windMax: number;
   gustMax: number;
   windDirection: number | null;
+  uvIndexMax: number | null;
 }
 
 export interface WeatherMarine {
-  current: { time: string; waveHeight: number; wavePeriod: number; waveDirection: number } | null;
-  daily: { date: string; waveHeightMax: number; wavePeriodMax: number }[];
+  current: {
+    time: string;
+    waveHeight: number;
+    wavePeriod: number;
+    waveDirection: number;
+    seaTemperature: number | null;
+  } | null;
+  daily: { date: string; waveHeightMax: number; wavePeriodMax: number; seaTemperatureMax: number | null }[];
 }
 
 export interface Weather {

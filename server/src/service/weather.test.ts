@@ -23,14 +23,26 @@ const forecastJson = {
     precipitation_sum: [0, 2.4],
     wind_speed_10m_max: [29.3, 30.1],
     wind_gusts_10m_max: [50, 52],
-    wind_direction_10m_dominant: [58, 240]
+    wind_direction_10m_dominant: [58, 240],
+    uv_index_max: [6.95, 5.4]
   }
 };
 
 const marineJson = {
   timezone: 'Europe/Paris',
-  current: { time: '2026-07-19T11:30', wave_height: 0.66, wave_period: 4.15, wave_direction: 75 },
-  daily: { time: ['2026-07-19', '2026-07-20'], wave_height_max: [0.8, 0.9], wave_period_max: [5, 5.2] }
+  current: {
+    time: '2026-07-19T11:30',
+    wave_height: 0.66,
+    wave_period: 4.15,
+    wave_direction: 75,
+    sea_surface_temperature: 21.3
+  },
+  daily: {
+    time: ['2026-07-19', '2026-07-20'],
+    wave_height_max: [0.8, 0.9],
+    wave_period_max: [5, 5.2],
+    sea_surface_temperature_max: [21.6, 21.2]
+  }
 };
 
 function makeFetch(opts: { marineFails?: boolean } = {}): typeof fetch {
@@ -60,6 +72,8 @@ describe('fetchWeather', () => {
     expect(w.daily[1].weatherText).toBe('Pluie faible'); // code 61
     // Direction dominante du vent par jour (null si absente de la réponse).
     expect(w.daily.map(d => d.windDirection)).toEqual([58, 240]);
+    // Indice UV maximal du jour (tuile « Mer » de l'éphéméride).
+    expect(w.daily.map(d => d.uvIndexMax)).toEqual([6.95, 5.4]);
   });
 
   it('sets daily windDirection to null when the field is absent', async () => {
@@ -72,10 +86,44 @@ describe('fetchWeather', () => {
     expect(w.daily.every(d => d.windDirection === null)).toBe(true);
   });
 
+  it('sets daily uvIndexMax to null when the field is absent', async () => {
+    const noUv = (async () =>
+      ({ ok: true, status: 200, json: async () => ({
+        ...forecastJson,
+        daily: { ...forecastJson.daily, uv_index_max: undefined }
+      }) }) as Response) as unknown as typeof fetch;
+    const w = await fetchWeather(47.6, -3.5, 2, noUv);
+    expect(w.daily.every(d => d.uvIndexMax === null)).toBe(true);
+  });
+
   it('includes marine data when available', async () => {
     const w = await fetchWeather(47.6, -3.5, 2, makeFetch());
     expect(w.marine?.current).toMatchObject({ waveHeight: 0.66, wavePeriod: 4.15, waveDirection: 75 });
     expect(w.marine?.daily).toHaveLength(2);
+  });
+
+  it('exposes the sea surface temperature (current + daily)', async () => {
+    const w = await fetchWeather(47.6, -3.5, 2, makeFetch());
+    expect(w.marine?.current?.seaTemperature).toBe(21.3);
+    expect(w.marine?.daily.map(d => d.seaTemperatureMax)).toEqual([21.6, 21.2]);
+  });
+
+  it('sets sea temperatures to null when the marine API omits them', async () => {
+    const noSea = (async (url: string | URL) => {
+      if (String(url).includes('marine-api')) {
+        return { ok: true, status: 200, json: async () => ({
+          ...marineJson,
+          current: { ...marineJson.current, sea_surface_temperature: undefined },
+          daily: { ...marineJson.daily, sea_surface_temperature_max: undefined }
+        }) } as Response;
+      }
+      return { ok: true, status: 200, json: async () => forecastJson } as Response;
+    }) as unknown as typeof fetch;
+    const w = await fetchWeather(47.6, -3.5, 2, noSea);
+    // La houle reste servie : seule la température manque.
+    expect(w.marine?.current?.waveHeight).toBe(0.66);
+    expect(w.marine?.current?.seaTemperature).toBeNull();
+    expect(w.marine?.daily.every(d => d.seaTemperatureMax === null)).toBe(true);
   });
 
   it('degrades gracefully to marine: null when the marine API fails', async () => {

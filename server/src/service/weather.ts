@@ -56,11 +56,24 @@ export interface DailyWeather {
   windMax: number;
   gustMax: number;
   windDirection: number | null; // direction dominante (degrés), null si indisponible
+  uvIndexMax: number | null; // indice UV maximal du jour, null si indisponible
 }
 
 export interface MarineWeather {
-  current: { time: string; waveHeight: number; wavePeriod: number; waveDirection: number } | null;
-  daily: { date: string; waveHeightMax: number; wavePeriodMax: number }[];
+  current: {
+    time: string;
+    waveHeight: number;
+    wavePeriod: number;
+    waveDirection: number;
+    /** Température de surface de la mer (°C), null si non fournie pour ce point. */
+    seaTemperature: number | null;
+  } | null;
+  daily: {
+    date: string;
+    waveHeightMax: number;
+    wavePeriodMax: number;
+    seaTemperatureMax: number | null;
+  }[];
 }
 
 export interface WeatherResult {
@@ -100,7 +113,7 @@ export async function fetchWeather(
     current:
       'temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m',
     daily:
-      'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant',
+      'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,uv_index_max',
     timezone: 'auto',
     forecast_days: String(days)
   });
@@ -119,7 +132,8 @@ export async function fetchWeather(
     precipitation: d.precipitation_sum[i],
     windMax: d.wind_speed_10m_max[i],
     gustMax: d.wind_gusts_10m_max[i],
-    windDirection: d.wind_direction_10m_dominant?.[i] ?? null
+    windDirection: d.wind_direction_10m_dominant?.[i] ?? null,
+    uvIndexMax: d.uv_index_max?.[i] ?? null
   }));
 
   // Conditions marines : optionnelles (peuvent manquer près des côtes → marine = null).
@@ -128,8 +142,8 @@ export async function fetchWeather(
     const marineParams = new URLSearchParams({
       latitude: String(latitude),
       longitude: String(longitude),
-      current: 'wave_height,wave_period,wave_direction',
-      daily: 'wave_height_max,wave_period_max',
+      current: 'wave_height,wave_period,wave_direction,sea_surface_temperature',
+      daily: 'wave_height_max,wave_period_max,sea_surface_temperature_max',
       timezone: 'auto',
       forecast_days: String(days)
     });
@@ -144,12 +158,14 @@ export async function fetchWeather(
               time: mc.time,
               waveHeight: mc.wave_height,
               wavePeriod: mc.wave_period,
-              waveDirection: mc.wave_direction
+              waveDirection: mc.wave_direction,
+              seaTemperature: mc.sea_surface_temperature ?? null
             },
       daily: (md.time ?? []).map((date: string, i: number) => ({
         date,
         waveHeightMax: md.wave_height_max[i],
-        wavePeriodMax: md.wave_period_max[i]
+        wavePeriodMax: md.wave_period_max[i],
+        seaTemperatureMax: md.sea_surface_temperature_max?.[i] ?? null
       }))
     };
   } catch {
