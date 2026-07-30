@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { degToCompass, resolveLinkUrl, wmoIcon } from './weather';
+import { beaufort, degToCompass, resolveLinkUrl, wmoIcon } from './weather';
 
 describe('degToCompass', () => {
   it('maps degrees to an 8-point French compass', () => {
@@ -18,6 +18,31 @@ describe('wmoIcon', () => {
     expect(wmoIcon(63)).toBe('bi-cloud-rain');
     expect(wmoIcon(95)).toBe('bi-cloud-lightning-rain');
     expect(wmoIcon(4)).toBe('bi-cloud'); // code non mappé → défaut
+  });
+});
+
+describe('beaufort', () => {
+  it('classe une vitesse en force et libellé', () => {
+    expect(beaufort(0)).toEqual({ force: 0, label: 'calme' });
+    expect(beaufort(18)).toEqual({ force: 3, label: 'petite brise' });
+    expect(beaufort(25)).toEqual({ force: 4, label: 'jolie brise' });
+    expect(beaufort(150)).toEqual({ force: 12, label: 'ouragan' });
+  });
+
+  it('bascule exactement aux bornes de l’échelle', () => {
+    // Bornes basses de chaque force, en km/h.
+    const starts = [2, 6, 12, 20, 29, 39, 50, 62, 75, 89, 103, 118];
+    starts.forEach((kmh, i) => {
+      const force = i + 1;
+      expect(beaufort(kmh).force).toBe(force);
+      expect(beaufort(kmh - 0.1).force).toBe(force - 1);
+    });
+  });
+
+  it('traite une vitesse absente ou négative comme un calme', () => {
+    expect(beaufort(null).force).toBe(0);
+    expect(beaufort(undefined).force).toBe(0);
+    expect(beaufort(-5).force).toBe(0);
   });
 });
 

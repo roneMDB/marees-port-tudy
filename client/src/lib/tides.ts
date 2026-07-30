@@ -95,6 +95,19 @@ export function groupByDay(tides: FlatTide[]): DayTides[] {
 }
 
 /**
+ * Marnage du jour (issue #13) : écart entre la plus haute pleine mer et la plus basse basse mer,
+ * en mètres. `null` s'il manque l'un des deux, le marnage n'ayant alors pas de sens.
+ */
+export function tidalRange(day: DayTides): number | null {
+  if (!day.highs.length || !day.lows.length) return null;
+  const heights = (tides: FlatTide[]) => tides.map(t => t.height).filter(h => Number.isFinite(h));
+  const highs = heights(day.highs);
+  const lows = heights(day.lows);
+  if (!highs.length || !lows.length) return null;
+  return Math.max(...highs) - Math.min(...lows);
+}
+
+/**
  * Fenêtre du tableau décalée de `offset` périodes de `rangeDays` jours par rapport au début
  * configuré (`offset` négatif = passé). `to` = `from + rangeDays` (période pleine, même en bord de
  * plage). Bornée à `[min, max]` (bornes vides ignorées). `offset = 0` → fenêtre configurée.

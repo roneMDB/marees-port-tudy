@@ -6,6 +6,7 @@ import { useMotDuJour } from '../composables/useMotDuJour';
 import { formatDate } from '../lib/format';
 import SettingsPanel from '../components/SettingsPanel.vue';
 import StatCards from '../components/StatCards.vue';
+import EphemerideCard from '../components/EphemerideCard.vue';
 import MotDuJourCard from '../components/MotDuJourCard.vue';
 import WeatherCard from '../components/WeatherCard.vue';
 import ResourcesCard from '../components/ResourcesCard.vue';
@@ -58,6 +59,8 @@ function resetFilters(): void {
       <SettingsPanel v-if="canEditSettings" :filters="filters" :meta="meta" @reset="resetFilters" />
 
       <StatCards :all-tides="allTides" />
+
+      <EphemerideCard />
 
       <div class="row g-3 mb-3">
         <div :class="motDuJourVisible ? 'col-12 col-lg-9' : 'col-12'">

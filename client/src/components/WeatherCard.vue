@@ -1,32 +1,18 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import { getWeather } from '../api/weather';
-import { degToCompass, resolveLinkUrl, wmoIcon } from '../lib/weather';
+import { onMounted } from 'vue';
+import { beaufort, degToCompass, resolveLinkUrl, wmoIcon } from '../lib/weather';
 import { formatDate } from '../lib/format';
 import { useSettings } from '../composables/useSettings';
-import type { Weather } from '../types';
+import { useWeather } from '../composables/useWeather';
 
-const loading = ref(true);
-const error = ref<string | null>(null);
-const weather = ref<Weather | null>(null);
+// État partagé : la tuile « Mer » de l'éphéméride lit la même météo (un seul appel réseau).
+const { weather, loading, error, load, reload } = useWeather();
 
 // Liens météo configurables (réglages) ; {lat}/{lon} résolus sur le lieu courant.
 const { settings } = useSettings();
 function linkHref(url: string): string {
   const loc = weather.value?.location;
   return resolveLinkUrl(url, loc?.latitude, loc?.longitude);
-}
-
-async function load(): Promise<void> {
-  loading.value = true;
-  error.value = null;
-  try {
-    weather.value = await getWeather(undefined, undefined, 4);
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
-  } finally {
-    loading.value = false;
-  }
 }
 
 onMounted(load);
@@ -44,7 +30,7 @@ onMounted(load);
         type="button"
         class="btn btn-sm btn-link text-decoration-none p-0"
         title="Rafraîchir"
-        @click="load"
+        @click="reload"
       >
         <i class="bi bi-arrow-clockwise"></i>
       </button>
@@ -57,7 +43,7 @@ onMounted(load);
 
       <div v-else-if="error" class="alert alert-warning d-flex justify-content-between align-items-center mb-0 py-2">
         <span class="small"><i class="bi bi-exclamation-triangle me-1"></i>{{ error }}</span>
-        <button type="button" class="btn btn-sm btn-outline-secondary" @click="load">Réessayer</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" @click="reload">Réessayer</button>
       </div>
 
       <template v-else-if="weather">
@@ -79,6 +65,13 @@ onMounted(load);
               <i class="bi bi-wind me-1"></i>Vent {{ Math.round(weather.current.windSpeed) }}
               {{ weather.units.wind }} {{ degToCompass(weather.current.windDirection) }}
               <span class="text-muted">(rafales {{ Math.round(weather.current.windGusts) }})</span>
+            </div>
+            <!-- Force Beaufort, avec son libellé : le chiffre seul ne dit rien à qui ne connaît
+                 pas l'échelle. -->
+            <div>
+              <i class="bi bi-speedometer2 me-1"></i>
+              <span class="fw-semibold">{{ beaufort(weather.current.windSpeed).force }} Bft</span>
+              <span class="text-muted"> · {{ beaufort(weather.current.windSpeed).label }}</span>
             </div>
             <div v-if="weather.marine?.current">
               <i class="bi bi-water me-1"></i>Houle {{ weather.marine.current.waveHeight }} {{ weather.units.wave }}
@@ -102,6 +95,8 @@ onMounted(load);
                 <i class="bi bi-wind"></i> {{ Math.round(d.windMax) }}
                 <span v-if="d.windDirection != null">{{ degToCompass(d.windDirection) }}</span>
               </div>
+              <!-- Ici la force seule : l'espace est compté dans une tuile. -->
+              <div class="small text-muted">{{ beaufort(d.windMax).force }} Bft</div>
             </div>
           </div>
         </div>

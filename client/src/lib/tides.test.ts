@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clampDate, filterTides, flatten, groupByDay, matchNavihanReference, periodWindow, resolveWindow } from './tides';
+import {
+  clampDate, filterTides, flatten, groupByDay, matchNavihanReference, periodWindow, resolveWindow,
+  tidalRange
+} from './tides';
+import type { DayTides } from './tides';
 import { addDays } from './format';
 import type { FlatTide, Settings, TideOutput } from '../types';
 
@@ -210,6 +214,34 @@ describe('groupByDay', () => {
     ];
     expect(groupByDay(noCoef)[0].coefficient).toBeNull();
     expect(groupByDay([])).toEqual([]);
+  });
+});
+
+describe('tidalRange', () => {
+  const day = (highs: number[], lows: number[]): DayTides => ({
+    date: '2026-07-30',
+    highs: highs.map(height => ({
+      date: '2026-07-30', time: '12:00', height, type: 'high' as const, coefficient: 80, navihan: {}
+    })),
+    lows: lows.map(height => ({
+      date: '2026-07-30', time: '06:00', height, type: 'low' as const, coefficient: null, navihan: {}
+    })),
+    coefficient: 80
+  });
+
+  it('mesure l’écart entre la plus haute pleine mer et la plus basse basse mer', () => {
+    expect(tidalRange(day([5.12], [1.3]))).toBeCloseTo(3.82, 5);
+    // Deux marées de chaque type : les extrêmes du jour, pas la première paire.
+    expect(tidalRange(day([4.9, 5.2], [1.5, 1.1]))).toBeCloseTo(4.1, 5);
+  });
+
+  it('renvoie null quand il manque un type de marée', () => {
+    expect(tidalRange(day([5.1], []))).toBeNull();
+    expect(tidalRange(day([], [1.3]))).toBeNull();
+  });
+
+  it('renvoie null quand les hauteurs ne sont pas exploitables', () => {
+    expect(tidalRange(day([Number.NaN], [1.3]))).toBeNull();
   });
 });
 

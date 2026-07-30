@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import type { FlatTide } from '../types';
 import { formatDate, formatHeight, relativeDayLabel, todayKey, coefBand } from '../lib/format';
 import { aflotAgenda, nextAflot, shiftMoment } from '../lib/navihan';
+import { groupByDay, tidalRange } from '../lib/tides';
 import { useNavihan } from '../composables/useNavihan';
 import { useSettings } from '../composables/useSettings';
 
@@ -13,12 +14,8 @@ const { settings } = useSettings();
 
 // Marnage du jour : amplitude (plus haute pleine mer − plus basse basse mer) d'aujourd'hui.
 const todayMarnage = computed(() => {
-  const key = todayKey();
-  const todays = props.allTides.filter(t => t.date === key && Number.isFinite(t.height));
-  const highs = todays.filter(t => t.type === 'high').map(t => t.height);
-  const lows = todays.filter(t => t.type === 'low').map(t => t.height);
-  if (!highs.length || !lows.length) return null;
-  return Math.max(...highs) - Math.min(...lows);
+  const day = groupByDay(props.allTides).find(d => d.date === todayKey());
+  return day ? tidalRange(day) : null;
 });
 
 // Coefficient(s) du jour : pleines mers d'aujourd'hui (indépendant du filtre de dates).
