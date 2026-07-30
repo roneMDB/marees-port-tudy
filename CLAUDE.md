@@ -109,7 +109,11 @@ Route météo (`src/routes/weather.ts` + `src/service/weather.ts`) :
 - `GET /api/weather?lat&lon&days` → `fetchWeather()` (Open-Meteo, **sans clé**) : normalise
   conditions actuelles + prévisions quotidiennes (dont `windDirection` dominante, `null` si absente,
   et **`uvIndexMax`**) + marine (vagues et **`seaTemperature`** / `seaTemperatureMax`, `null` si
-  indisponible près des côtes). Défaut = zone Port-Tudy (Groix). `400`
+  indisponible près des côtes). Le 5ᵉ paramètre **`extraSeaPoints`** ajoute des lieux dont on ne veut
+  que la température de l'eau → `marine.extra: { label, seaTemperature }[]` ; la route y passe
+  **Étel** (`EXTRA_SEA_POINTS`). **Une seule requête marine** : Open-Meteo sert plusieurs points par
+  coordonnées séparées de virgules, et renvoie alors un **tableau** (le point principal en tête) —
+  d'où la normalisation `Array.isArray(raw) ? raw : [raw]`. Défaut = zone Port-Tudy (Groix). `400`
   sur coordonnées invalides. `fetchWeather` prend un `fetchImpl` injectable (tests sans réseau).
   Codes WMO traduits (`weatherText`). La carte météo affiche aussi des **liens configurables**
   (`settings.weatherLinks`, cf. Config) avec placeholders `{lat}`/`{lon}` (`lib/weather.resolveLinkUrl`).
@@ -321,7 +325,12 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   quatre tuiles : **Soleil** (lever → coucher, durée du jour et son écart avec la veille, midi
   solaire), **Lune** (phase + illumination, prochaine syzygie ; mention « vives-eaux à suivre »
   **seulement** à ≤ 2 jours de la syzygie, celles-ci la suivant de ~36 h), **Calendrier** (date,
-  quantième, semaine ISO, saint du jour), **Mer** (température de l'eau + indice UV). Repli
+  quantième, semaine ISO, saint du jour), **Mer** (température de l'eau + indice UV). **Les lieux sont
+  nommés** : le soleil est calculé « à Belz » (les marées de la page sont celles de Port-Tudy — l'écart
+  serait d'environ 1 min), et l'eau est étiquetée « Belz (haute ria) » car la grille marine
+  d'Open-Meteo accroche la requête à ~4,6 km au nord-est, en eau peu profonde donc plus chaude ;
+  **Étel** est donnée en dessous, en plus petit (`.ephemeride-aside`), pour ne pas faire passer l'une
+  pour l'autre. Un lieu secondaire sans température est **écarté** plutôt qu'affiché « null ». Repli
   **éphémère** (`ref` local, cf. `ResourcesCard`), masquage **persisté** via `useEphemeride`
   (`localStorage` `marees-ephemeride`, calque de `useMotDuJour`). **Trois tuiles sur quatre sont
   calculées localement** : Soleil, Lune et Calendrier n'ont **aucune dépendance réseau** (si la

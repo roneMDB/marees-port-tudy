@@ -154,6 +154,8 @@ export interface WeatherMarine {
     seaTemperature: number | null;
   } | null;
   daily: { date: string; waveHeightMax: number; wavePeriodMax: number; seaTemperatureMax: number | null }[];
+  /** Température de l'eau de lieux secondaires (ex. Étel), servie par la même requête marine. */
+  extra: { label: string; seaTemperature: number | null }[];
 }
 
 export interface Weather {

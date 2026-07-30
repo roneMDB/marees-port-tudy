@@ -39,7 +39,8 @@ const weather = {
   ],
   marine: {
     current: { time: '2026-07-30T12:00', waveHeight: 0.4, wavePeriod: 5, waveDirection: 270, seaTemperature: 21.3 },
-    daily: [{ date: '2026-07-30', waveHeightMax: 0.5, wavePeriodMax: 5.2, seaTemperatureMax: 21.6 }]
+    daily: [{ date: '2026-07-30', waveHeightMax: 0.5, wavePeriodMax: 5.2, seaTemperatureMax: 21.6 }],
+    extra: [{ label: 'Étel', seaTemperature: 20.2 }]
   }
 } satisfies Weather;
 
@@ -128,6 +129,42 @@ describe('EphemerideCard', () => {
     expect(text).toContain('21.3');
     expect(text).toContain('°C');
     expect(text).toContain('7'); // UV 6,95 arrondi
+  });
+
+  it('nomme le lieu de la température principale', async () => {
+    // La grille marine accroche la requête de Belz en haute ria : le dire évite de faire passer
+    // cette eau peu profonde pour celle de la sortie de ria.
+    expect(tile(await mountCard(), 'mer')).toContain('eau · Belz (haute ria)');
+  });
+
+  it('ajoute la température d’Étel, plus discrète', async () => {
+    const wrapper = await mountCard();
+    const aside = wrapper.get('[data-tile="mer"] .ephemeride-aside');
+    expect(aside.text()).toBe('Étel 20.2 °C');
+  });
+
+  it('n’affiche aucun lieu secondaire quand le serveur n’en fournit pas', async () => {
+    vi.mocked(getWeather).mockResolvedValue({
+      ...weather,
+      marine: { ...weather.marine, extra: [] }
+    });
+    const wrapper = await mountCard();
+    expect(wrapper.find('[data-tile="mer"] .ephemeride-aside').exists()).toBe(false);
+    // La valeur principale reste servie.
+    expect(tile(wrapper, 'mer')).toContain('21.3');
+  });
+
+  it('écarte un lieu secondaire sans température plutôt que d’afficher « null »', async () => {
+    vi.mocked(getWeather).mockResolvedValue({
+      ...weather,
+      marine: { ...weather.marine, extra: [{ label: 'Étel', seaTemperature: null }] }
+    });
+    const wrapper = await mountCard();
+    expect(wrapper.find('[data-tile="mer"] .ephemeride-aside').exists()).toBe(false);
+  });
+
+  it('précise que le soleil est calculé pour Belz', async () => {
+    expect(tile(await mountCard(), 'soleil')).toContain('à Belz');
   });
 
   it('ne charge la météo qu’une fois, même montée en double', async () => {

@@ -78,6 +78,14 @@ const longDate = computed(() => {
 
 /** Température de l'eau : conditions marines du moment, indisponibles pour certains points côtiers. */
 const seaTemperature = computed(() => marine.value?.seaTemperature ?? null);
+/**
+ * Lieux secondaires (Étel). La grille marine d'Open-Meteo accroche la requête de Belz à ~4,6 km au
+ * nord-est, soit en **haute ria** : eau peu profonde, donc plus chaude que la sortie de ria. Les
+ * deux valeurs sont données pour ne pas faire passer l'une pour l'autre.
+ */
+const otherSeaTemperatures = computed(() =>
+  (weather.value?.marine?.extra ?? []).filter(e => e.seaTemperature != null)
+);
 const uvIndex = computed(() => todayForecast.value?.uvIndexMax ?? null);
 const temperatureUnit = computed(() => weather.value?.units.temperature ?? '°C');
 </script>
@@ -118,9 +126,12 @@ const temperatureUnit = computed(() => weather.value?.units.temperature ?? '°C'
                 {{ sunLabel.rise }} <i class="bi bi-arrow-right small text-muted"></i> {{ sunLabel.set }}
               </div>
               <div v-else class="fs-5 fw-semibold">—</div>
-              <div class="small text-body-secondary">
+              <!-- Le lieu est explicite : les marées de la page sont celles de Port-Tudy, mais le
+                   soleil est calculé pour Belz (l'écart avec Groix serait d'environ 1 minute). -->
+              <div class="small text-body-secondary">à Belz</div>
+              <div class="small text-muted">
                 {{ formatDuration(sun.daylightMinutes) }} de jour
-                <span v-if="deltaLabel" class="text-muted">({{ deltaLabel }})</span>
+                <span v-if="deltaLabel">({{ deltaLabel }})</span>
               </div>
               <div class="small text-muted">midi solaire {{ formatTimeInZone(sun.solarNoon) }}</div>
             </div>
@@ -173,8 +184,12 @@ const temperatureUnit = computed(() => weather.value?.units.temperature ?? '°C'
                 </template>
                 <template v-else>—</template>
               </div>
-              <div class="small text-body-secondary">température de l'eau</div>
-              <div class="small text-muted">
+              <div class="small text-body-secondary">eau · Belz (haute ria)</div>
+              <!-- Lieu secondaire, en plus petit : la haute ria chauffe plus que la sortie de ria. -->
+              <div v-for="other in otherSeaTemperatures" :key="other.label" class="text-muted ephemeride-aside">
+                {{ other.label }} {{ other.seaTemperature!.toFixed(1) }} {{ temperatureUnit }}
+              </div>
+              <div class="small text-muted mt-1">
                 indice UV
                 <span class="fw-semibold">{{ uvIndex != null ? Math.round(uvIndex) : '—' }}</span>
               </div>
@@ -202,6 +217,13 @@ const temperatureUnit = computed(() => weather.value?.units.temperature ?? '°C'
 
 .ephemeride-body {
   min-width: 0; /* autorise la troncature du texte long dans une colonne étroite */
+}
+
+/* Valeur d'appoint (température d'un lieu secondaire) : plus petite que le `small` de Bootstrap,
+   pour rester lisible sans concurrencer la valeur principale de la tuile. */
+.ephemeride-aside {
+  font-size: 0.75rem;
+  line-height: 1.3;
 }
 
 /* Pastille d'icône thématique, adaptée au thème clair/sombre (cf. ResourcesCard / MotDuJourCard). */

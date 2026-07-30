@@ -59,6 +59,13 @@ export interface DailyWeather {
   uvIndexMax: number | null; // indice UV maximal du jour, null si indisponible
 }
 
+/** Lieu nommé dont on veut la seule température de l'eau, en plus du point principal. */
+export interface SeaPoint {
+  label: string;
+  latitude: number;
+  longitude: number;
+}
+
 export interface MarineWeather {
   current: {
     time: string;
@@ -74,6 +81,8 @@ export interface MarineWeather {
     wavePeriodMax: number;
     seaTemperatureMax: number | null;
   }[];
+  /** Températures de l'eau des lieux secondaires (`extraSeaPoints`), dans l'ordre demandé. */
+  extra: { label: string; seaTemperature: number | null }[];
 }
 
 export interface WeatherResult {
@@ -105,7 +114,8 @@ export async function fetchWeather(
   latitude: number,
   longitude: number,
   days = 3,
-  fetchImpl: FetchLike = fetch
+  fetchImpl: FetchLike = fetch,
+  extraSeaPoints: SeaPoint[] = []
 ): Promise<WeatherResult> {
   const forecastParams = new URLSearchParams({
     latitude: String(latitude),
@@ -139,17 +149,23 @@ export async function fetchWeather(
   // Conditions marines : optionnelles (peuvent manquer près des côtes → marine = null).
   let marine: MarineWeather | null = null;
   try {
+    // Open-Meteo accepte plusieurs points en une requête (coordonnées séparées par des virgules) :
+    // les lieux secondaires ne coûtent donc aucun aller-retour de plus.
     const marineParams = new URLSearchParams({
-      latitude: String(latitude),
-      longitude: String(longitude),
+      latitude: [latitude, ...extraSeaPoints.map(p => p.latitude)].join(','),
+      longitude: [longitude, ...extraSeaPoints.map(p => p.longitude)].join(','),
       current: 'wave_height,wave_period,wave_direction,sea_surface_temperature',
       daily: 'wave_height_max,wave_period_max,sea_surface_temperature_max',
       timezone: 'auto',
       forecast_days: String(days)
     });
-    const m = await getJson(`https://marine-api.open-meteo.com/v1/marine?${marineParams.toString()}`, fetchImpl);
-    const mc = m.current ?? {};
-    const md = m.daily ?? {};
+    const raw = await getJson(`https://marine-api.open-meteo.com/v1/marine?${marineParams.toString()}`, fetchImpl);
+    // La réponse devient un **tableau** dès qu'on demande plusieurs points ; le principal est en tête.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const points: any[] = Array.isArray(raw) ? raw : [raw];
+    const primary = points[0] ?? {};
+    const mc = primary.current ?? {};
+    const md = primary.daily ?? {};
     marine = {
       current:
         mc.wave_height == null
@@ -166,6 +182,10 @@ export async function fetchWeather(
         waveHeightMax: md.wave_height_max[i],
         wavePeriodMax: md.wave_period_max[i],
         seaTemperatureMax: md.sea_surface_temperature_max?.[i] ?? null
+      })),
+      extra: extraSeaPoints.map((point, i) => ({
+        label: point.label,
+        seaTemperature: points[i + 1]?.current?.sea_surface_temperature ?? null
       }))
     };
   } catch {

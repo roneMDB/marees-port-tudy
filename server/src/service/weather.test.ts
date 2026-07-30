@@ -108,6 +108,55 @@ describe('fetchWeather', () => {
     expect(w.marine?.daily.map(d => d.seaTemperatureMax)).toEqual([21.6, 21.2]);
   });
 
+  it('leaves extra empty when no secondary point is requested', async () => {
+    const w = await fetchWeather(47.6, -3.5, 2, makeFetch());
+    expect(w.marine?.extra).toEqual([]);
+  });
+
+  it('sert les lieux secondaires en une seule requête marine', async () => {
+    // Open-Meteo renvoie un **tableau** dès qu'on demande plusieurs points, le principal en tête.
+    const marineUrls: string[] = [];
+    const multi = (async (url: string | URL) => {
+      const u = String(url);
+      if (u.includes('marine-api')) {
+        marineUrls.push(u);
+        return { ok: true, status: 200, json: async () => [
+          marineJson,
+          { ...marineJson, current: { ...marineJson.current, sea_surface_temperature: 20.2 } }
+        ] } as Response;
+      }
+      return { ok: true, status: 200, json: async () => forecastJson } as Response;
+    }) as unknown as typeof fetch;
+
+    const w = await fetchWeather(47.677, -3.166, 2, multi, [
+      { label: 'Étel', latitude: 47.657, longitude: -3.204 }
+    ]);
+
+    // Une seule requête marine, coordonnées jointes par des virgules.
+    expect(marineUrls).toHaveLength(1);
+    expect(marineUrls[0]).toContain('latitude=47.677%2C47.657');
+    expect(marineUrls[0]).toContain('longitude=-3.166%2C-3.204');
+    // Le point principal reste celui de la houle et du quotidien.
+    expect(w.marine?.current?.seaTemperature).toBe(21.3);
+    expect(w.marine?.current?.waveHeight).toBe(0.66);
+    expect(w.marine?.daily).toHaveLength(2);
+    expect(w.marine?.extra).toEqual([{ label: 'Étel', seaTemperature: 20.2 }]);
+  });
+
+  it('met un lieu secondaire à null si la réponse ne le contient pas', async () => {
+    // Réponse tronquée à un seul point alors que deux étaient demandés.
+    const short = (async (url: string | URL) => {
+      if (String(url).includes('marine-api')) {
+        return { ok: true, status: 200, json: async () => [marineJson] } as Response;
+      }
+      return { ok: true, status: 200, json: async () => forecastJson } as Response;
+    }) as unknown as typeof fetch;
+    const w = await fetchWeather(47.677, -3.166, 2, short, [
+      { label: 'Étel', latitude: 47.657, longitude: -3.204 }
+    ]);
+    expect(w.marine?.extra).toEqual([{ label: 'Étel', seaTemperature: null }]);
+  });
+
   it('sets sea temperatures to null when the marine API omits them', async () => {
     const noSea = (async (url: string | URL) => {
       if (String(url).includes('marine-api')) {
