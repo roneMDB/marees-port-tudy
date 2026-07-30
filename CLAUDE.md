@@ -45,7 +45,14 @@ proche dans le temps** (appariement par proximité, gère le décalage horaire /
   npm préfixe sa ligne `> ts-node …` dans le fichier).
 - Par workspace : `npm -w server run <script>`, `npm -w client run <script>`.
 - Un seul test : `npx vitest run -t "<nom>"` depuis `server/` ou `client/`. Watch : `npx vitest`.
-- `npm -w client run type-check` — `vue-tsc --noEmit` (le build Vite ne type-check pas).
+- `npm run type-check` — **vérification de types des deux workspaces**. À lancer avec `npm test` :
+  **Vitest passe par esbuild et ne vérifie aucun type**, et le build Vite non plus — une erreur de
+  typage peut donc laisser tous les tests au vert (constaté sur l'issue #13 : 210 tests serveur verts
+  alors que le serveur ne compilait pas). Par workspace : `npm -w client run type-check`
+  (`vue-tsc --noEmit`), `npm -w server run type-check` (`tsc -p tsconfig.check.json`). Cette config
+  **existe pour inclure les fichiers de test**, que `server/tsconfig.json` exclut à raison (le build
+  ne doit pas les émettre dans `dist/`) : sans elle, 31 fichiers de test serveur ne seraient vérifiés
+  par personne.
 
 ## Architecture
 

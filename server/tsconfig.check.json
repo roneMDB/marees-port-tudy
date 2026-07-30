@@ -1,0 +1,14 @@
+{
+  // Config de **vérification de types seule** (`npm -w server run type-check`).
+  //
+  // `tsconfig.json` exclut `src/**/*.test.ts` parce que le build ne doit pas émettre les tests
+  // dans `dist/`. Mais Vitest passe par esbuild, qui **ne vérifie pas les types** : sans cette
+  // config, ni le build ni les tests ne regarderaient le typage des fichiers de test.
+  // Elle lève donc l'exclusion, et n'émet rien.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
