@@ -3,11 +3,12 @@
 Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
 conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
-## [0.0.0] — 31/07/2026
+## Non publié
 
 
 ### Fonctionnalités
 
+- **deploy** — Déploiement déclenché par le push d'un tag (#12)
 - **ephemeride** — Nommer les lieux du soleil et de l'eau, ajouter Étel (#13)
 - **meteo** — Vent en km/h et en Beaufort sur une même ligne (#13)
 - **ephemeride** — Carte du jour, Beaufort et météo partagée (#13)
@@ -90,6 +91,7 @@ conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
 ### Documentation
 
+- **deploy** — Procédure de release par tag, rollback et soupapes (#12)
 - **spec** — Déploiement déclenché par le push d'un tag (#12)
 - **ephemeride** — Résumé de l'issue #13
 - **ephemeride** — Corrections trouvées au contrôle visuel (#13)
