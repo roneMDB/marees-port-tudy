@@ -63,6 +63,14 @@ describe('App — gating des fonctions admin', () => {
     expect(wrapper.findComponent({ name: 'UsersPanel' }).exists()).toBe(true);
   });
 
+  it('affiche la version en pied de page, sans requête réseau', async () => {
+    // Injectée au build (define Vite) et non lue depuis /api/health : elle doit donc rester
+    // visible hors-ligne. On vérifie le format, la valeur changeant à chaque release (issue #12).
+    const wrapper = mountApp();
+    await flushPromises();
+    expect(wrapper.find('footer').text()).toMatch(/Marées Navihan\s+v\d+\.\d+\.\d+/);
+  });
+
   it('affiche l’écran de changement de mot de passe forcé', async () => {
     mustChangePassword.value = true;
     const wrapper = mountApp();

@@ -28,7 +28,10 @@ describe('API /api', () => {
   it('GET /api/health returns ok', async () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: 'ok' });
+    // La version accompagne la sonde depuis l'issue #12 (preuve de déploiement) : on vérifie le
+    // format plutôt que la valeur, qui change à chaque release.
+    expect(res.body).toEqual({ status: 'ok', version: expect.any(String) });
+    expect(res.body.version).toMatch(/^\d+\.\d+\.\d+/);
   });
 
   it('GET /api/tides/meta returns available bounds and Navihan offsets', async () => {

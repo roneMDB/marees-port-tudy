@@ -2,9 +2,17 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { VitePWA } from 'vite-plugin-pwa';
+import { createRequire } from 'module';
+
+// Version injectée au build plutôt que demandée à l'API : la carte s'affiche ainsi même hors-ligne
+// (PWA), sans requête. Les trois manifests sont maintenus égaux par le hook pre-push (issue #12).
+const { version } = createRequire(import.meta.url)('./package.json') as { version: string };
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(version)
+  },
   plugins: [
     vue(),
     VitePWA({

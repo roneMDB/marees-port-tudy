@@ -18,6 +18,10 @@
     "start": "npm -w server run start",
     "start:auth": "APP_PASSWORD=${APP_PASSWORD:-marees-dev} APP_USER=${APP_USER:-marees} ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin-dev} ADMIN_USER=${ADMIN_USER:-admin} npm run start",
     "db:pull": "./deploy/pull-db-from-nas.sh",
+    "deploy": "./deploy/release.sh",
+    "changelog": "git-cliff --tag \"v$(node -p \"require('./package.json').version\")\" -o CHANGELOG.md",
+    "hooks:install": "git config core.hooksPath .githooks && echo '✓ hook pre-push actif (déploiement au push d un tag vX.Y.Z)'",
+    "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
     "type-check": "npm -w server run type-check && npm -w client run type-check",
     "test": "npm -w server run test && npm -w client run test",
     "test:e2e": "playwright test",
@@ -40,6 +44,7 @@
     "eslint": "^9.13.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-vue": "^9.29.0",
+    "git-cliff": "^2.13.1",
     "globals": "^15.11.0",
     "prettier": "^3.3.3",
     "typescript-eslint": "^8.11.0"

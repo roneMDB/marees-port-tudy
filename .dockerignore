@@ -13,3 +13,12 @@ data
 .claude
 marees.html
 docs
+# Archives d'image : sans cette ligne, marees-image.tar.gz (~115 Mo) part dans le contexte de build
+# à chaque `docker build` et se retrouve copiée par `COPY . .`.
+*.tar.gz
+# Tests de bout en bout et leurs sorties : inutiles à l'image (le build ne lance que server+client).
+e2e
+playwright.config.ts
+playwright-report
+test-results
+.githooks

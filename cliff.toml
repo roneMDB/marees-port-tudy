@@ -1,0 +1,65 @@
+# Configuration git-cliff — génération de CHANGELOG.md (issue #12).
+#
+# Les commits du dépôt suivent Conventional Commits *en français* (`type(scope): sujet`), avec les
+# types feat / fix / docs / chore / test, plus quelques `merge:` qui ne sont pas un type standard.
+# Les groupes sont donc rédigés en français, et l'ordre des sections est explicite.
+#
+# Usage : npm run changelog   (déduit le tag de la version du package.json)
+
+[changelog]
+header = """
+# Journal des modifications
+
+Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
+conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).\n
+"""
+
+# Un bloc par version. `previous.version` permet le lien de comparaison entre deux tags.
+body = """
+{% if version -%}
+## [{{ version | trim_start_matches(pat="v") }}] — {{ timestamp | date(format="%d/%m/%Y") }}
+{% else -%}
+## Non publié
+{% endif %}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim | upper_first }}
+{% for commit in commits %}
+- {% if commit.scope %}**{{ commit.scope }}** — {% endif %}{{ commit.message | upper_first }}\
+{% endfor %}
+{% endfor %}\n
+"""
+
+footer = ""
+trim = true
+
+[git]
+conventional_commits = true
+# Les commits hors convention (aucun `type:`) sont écartés plutôt que jetés dans un fourre-tout.
+filter_unconventional = true
+protect_breaking_commits = true
+filter_commits = true
+tag_pattern = "v[0-9]*"
+topo_order = false
+sort_commits = "newest"
+
+commit_parsers = [
+  # Bruit de release : le commit de version ne s'annonce pas lui-même.
+  { message = "^chore\\(release\\)", skip = true },
+  { message = "^merge", skip = true },
+  { message = "^Merge ", skip = true },
+
+  # Les commentaires HTML fixent l'ordre des sections : `group_by` trie les clés, et `striptags`
+  # les retire à l'affichage. Sans eux, l'ordre suivrait celui des commits (corrections avant
+  # fonctionnalités, au hasard des versions).
+  { message = "^feat", group = "<!-- 0 -->Fonctionnalités" },
+  { message = "^fix", group = "<!-- 1 -->Corrections" },
+  { message = "^perf", group = "<!-- 2 -->Performances" },
+  { message = "^refactor", group = "<!-- 3 -->Refontes internes" },
+  { message = "^docs", group = "<!-- 4 -->Documentation" },
+  { message = "^test", group = "<!-- 5 -->Tests" },
+  { message = "^chore", group = "<!-- 6 -->Maintenance" },
+]
+
+[bump]
+features_always_bump_minor = true
+breaking_always_bump_major = true

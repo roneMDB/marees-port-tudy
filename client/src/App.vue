@@ -16,6 +16,10 @@ const { isDark, toggle } = useTheme();
 const { clock } = useClock();
 const { sites, siteId, load: loadSites } = useSite();
 
+// Version injectée au build (cf. vite.config.ts) : affichée hors-ligne, sans requête à /api/health.
+// Sert à vérifier d'un coup d'œil quelle version tourne réellement après un déploiement (issue #12).
+const appVersion = __APP_VERSION__;
+
 // Authentification + rôle : la mire s'affiche tant qu'une connexion est requise et non satisfaite ;
 // les fonctions Réglages et Stats sont réservées au rôle admin (verrou serveur réel).
 const { authRequired, authenticated, isAdmin, user, mustChangePassword, checking, checkStatus, logout } = useAuth();
@@ -214,6 +218,13 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
       <Dashboard />
     </main>
 
+    <footer class="bg-body-tertiary border-top py-3 text-center">
+      <small class="text-body-secondary">
+        Marées Navihan
+        <span class="app-version">v{{ appVersion }}</span>
+      </small>
+    </footer>
+
     <StatsPanel v-if="isAdmin" />
     <TidesImportPanel v-if="isAdmin" />
     <UsersPanel v-if="isAdmin" />
@@ -225,6 +236,12 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
 /* Chiffres à chasse fixe : l'horloge ne « saute » pas à chaque seconde. */
 .app-clock {
   font-variant-numeric: tabular-nums;
+}
+
+/* Version : chasse fixe et un cran plus discrète que le nom de l'app. */
+.app-version {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
 }
 
 /* Sélecteur de port compact dans la navbar. */

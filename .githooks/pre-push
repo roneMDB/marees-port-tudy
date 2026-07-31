@@ -1,0 +1,195 @@
+#!/usr/bin/env bash
+# Hook pre-push : déclenche le déploiement sur le NAS au push d'un tag de release `vX.Y.Z`.
+# Activation (une fois par clone, `core.hooksPath` vit dans .git/config qui n'est pas versionné) :
+#   npm run hooks:install     # → git config core.hooksPath .githooks
+#
+# Ne fait que DÉCIDER : détecte le tag, vérifie la cohérence, demande confirmation, puis délègue
+# tout le déploiement à deploy/release.sh (lançable seul pour reprendre après un échec).
+#
+# Soupapes :
+#   SKIP_DEPLOY=1 git push …   pousse sans déployer, en gardant les contrôles de cohérence
+#   git push --no-verify       contourne le hook ENTIÈREMENT (donc aussi les contrôles) — dernier recours
+#   DEPLOY_YES=1               déploie sans confirmation (utile sans terminal ; jamais par défaut)
+#   DRY_RUN=1                  déroule sans aucun effet de bord (transmis à release.sh)
+#   DEPLOY_REMOTE=…            remote qui déclenche le déploiement (défaut : origin)
+#
+# stdin reçoit une ligne par ref poussée : <local ref> <local oid> <remote ref> <remote oid>
+set -euo pipefail
+
+DEPLOY_REMOTE="${DEPLOY_REMOTE:-origin}"
+remote_nom="${1:-}"
+
+# Sous `set -e`, un bug du hook rendrait tout push impossible sans explication.
+trap 'code=$?; [ "$code" -eq 0 ] || {
+  echo "✗ pre-push en échec (code $code)." >&2
+  echo "  Pour pousser sans passer par le déploiement : SKIP_DEPLOY=1 git push …" >&2
+}' EXIT
+
+if [ "${SKIP_DEPLOY:-0}" = 1 ]; then
+  echo "→ pre-push : SKIP_DEPLOY=1 → push sans déploiement." >&2
+  exit 0
+fi
+
+# git exporte ces variables dans les hooks ; laissées en place, elles feraient opérer tout `git`
+# d'un sous-script sur le mauvais dépôt.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_QUARANTINE_PATH
+cd "$(git rev-parse --show-toplevel)"
+
+oid_nul() { [[ "$1" =~ ^0+$ ]]; }
+
+# --- 1. Vider stdin ENTIÈREMENT en collectant les tags de release. -----------------------------
+# Aucune commande susceptible de lire stdin ne doit être appelée ici : un `ssh` sans `-n` avalerait
+# les lignes de refs restantes, silencieusement. La boucle lit stdin directement (pas `cat | while`,
+# qui perdrait le tableau dans un sous-shell).
+tags=()
+while read -r local_ref local_oid remote_ref remote_oid || [ -n "${local_ref:-}" ]; do
+  [ -n "${local_ref:-}" ] || continue
+  # Suppression de ref (`git push --delete`) : rien à déployer.
+  if [ "${local_ref}" = "(delete)" ] || oid_nul "${local_oid}"; then
+    continue
+  fi
+  # Décider sur <remote ref> : <local ref> peut valoir un OID brut ou `(delete)`, et c'est bien la
+  # ref distante qui sera publiée (cas `git push origin v1.0.0:refs/tags/autre`).
+  case "${remote_ref}" in
+    refs/tags/*)
+      tag="${remote_ref#refs/tags/}"
+      # Strictement vX.Y.Z : une pré-version (v1.0.0-rc.1) se pousse donc sans rien déployer.
+      if [[ "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        tags+=("${tag} ${local_oid} ${remote_oid}")
+      fi
+      ;;
+  esac
+done
+
+# --- 2. Sorties précoces. ----------------------------------------------------------------------
+[ "${#tags[@]}" -gt 0 ] || exit 0
+
+if [ "${remote_nom}" != "${DEPLOY_REMOTE}" ]; then
+  echo "→ pre-push : remote « ${remote_nom} » ≠ « ${DEPLOY_REMOTE} » → pas de déploiement." >&2
+  exit 0
+fi
+
+if [ "${#tags[@]}" -gt 1 ]; then
+  echo "✗ ${#tags[@]} tags de release dans le même push :" >&2
+  printf '    %s\n' "${tags[@]%% *}" >&2
+  echo "  Un déploiement porte une seule version : pousser les tags un par un." >&2
+  echo "    git push ${DEPLOY_REMOTE} v1.2.3" >&2
+  exit 1
+fi
+
+read -r tag tag_oid tag_remote_oid <<< "${tags[0]}"
+version="${tag#v}"
+
+echo "→ pre-push : tag de release ${tag} détecté." >&2
+
+# --- 3. Vérifications, AVANT de toucher au NAS. ------------------------------------------------
+# Tag annoté : `--follow-tags` ignore les tags légers, et un tag léger n'a pas de message.
+type_objet="$(git cat-file -t "${tag_oid}" 2>/dev/null || echo inconnu)"
+if [ "${type_objet}" != tag ]; then
+  echo "✗ ${tag} n'est pas un tag annoté (type : ${type_objet})." >&2
+  echo "  Le refaire : git tag -d ${tag} && git tag -a ${tag} -m \"${tag}\"" >&2
+  exit 1
+fi
+
+# La 4ᵉ colonne est autoritaire sur l'état du remote : inutile d'interroger le réseau pour le tag.
+if ! oid_nul "${tag_remote_oid}"; then
+  if [ "${tag_remote_oid}" = "${tag_oid}" ]; then
+    echo "→ ${tag} est déjà publié à l'identique → pas de déploiement." >&2
+    exit 0
+  fi
+  echo "✗ ${tag} existe déjà sur ${DEPLOY_REMOTE} sur un autre objet. Rien n'est déployé." >&2
+  exit 1
+fi
+
+# L'image est construite depuis l'ARBRE DE TRAVAIL (et .dockerignore exclut .git) : sans ces deux
+# contrôles, on déploierait autre chose que ce que le tag publie.
+if [ "$(git rev-parse "${tag_oid}^{commit}")" != "$(git rev-parse HEAD)" ]; then
+  echo "✗ ${tag} ne pointe pas sur HEAD : l'image serait construite depuis un autre état." >&2
+  echo "  Se placer sur le commit tagué, ou refaire le tag sur HEAD." >&2
+  exit 1
+fi
+if ! git diff-index --quiet HEAD -- 2>/dev/null; then
+  echo "✗ Arbre de travail modifié : l'image embarquerait ces changements non tagués." >&2
+  git status --short >&2
+  exit 1
+fi
+
+# Version : le package.json est la source de vérité, le tag doit la refléter — dans les 3 manifests,
+# le client lisant la sienne au build.
+for manifest in package.json server/package.json client/package.json; do
+  v="$(node -p "require('./${manifest}').version")"
+  if [ "${v}" != "${version}" ]; then
+    echo "✗ ${manifest} porte ${v}, mais le tag annonce ${version}." >&2
+    echo "  Aligner : npm version ${version} --no-git-tag-version --workspaces --include-workspace-root" >&2
+    exit 1
+  fi
+done
+
+# CHANGELOG : simple avertissement, il peut légitimement manquer (première release).
+if [ -f CHANGELOG.md ] && ! grep -q "${version}" CHANGELOG.md; then
+  echo "  ⚠ CHANGELOG.md ne mentionne pas ${version} (npm run changelog avant de taguer ?)" >&2
+fi
+
+# Branche : une ligne de branche rejetée n'est PAS transmise au hook. Sans ce contrôle, on déploie
+# puis le push global échoue, laissant la prod en avance sur le remote.
+branche="$(git symbolic-ref --quiet --short HEAD || echo '')"
+if [ -n "${branche}" ]; then
+  if amont="$(git ls-remote --exit-code "${DEPLOY_REMOTE}" "refs/heads/${branche}" 2>/dev/null | cut -f1)"; then
+    if [ -n "${amont}" ] && ! git merge-base --is-ancestor "${amont}" HEAD; then
+      echo "✗ ${DEPLOY_REMOTE}/${branche} a avancé : le push serait rejeté." >&2
+      echo "  git pull --rebase avant de taguer." >&2
+      exit 1
+    fi
+  fi # code 2 = branche absente du remote : rien à vérifier
+fi
+
+echo "  ✓ tag annoté sur HEAD, arbre propre, version ${version} cohérente" >&2
+
+# --- 4. Confirmation. -------------------------------------------------------------------------
+# stdin est à EOF (les refs ont été lues) : la question se pose sur /dev/tty, et l'invite s'y écrit
+# aussi — un client graphique tamponnerait stdout et le push semblerait figé.
+# Présence du tty testée par ouverture réelle dans un SOUS-SHELL : `exec 3</dev/tty` ferait sortir
+# le shell (builtin spécial), et `[ -r /dev/tty ]` réussit même sans terminal de contrôle.
+if ( : < /dev/tty ) 2>/dev/null; then
+  tty_ok=1
+else
+  tty_ok=0
+fi
+
+if [ "${DEPLOY_YES:-0}" != 1 ]; then
+  if [ "${tty_ok}" != 1 ]; then
+    # Sans terminal (script, CI, client graphique) : on s'abstient, mais on laisse passer le push.
+    # Un déploiement en production non confirmé est pire qu'un déploiement oublié, et celui-ci
+    # reste rejouable.
+    echo "⚠ Pas de terminal : déploiement NON déclenché (le tag ${tag} est bien poussé)." >&2
+    echo "  Déployer ensuite : ./deploy/release.sh ${tag}" >&2
+    exit 0
+  fi
+  printf '\n➜ Déployer v%s sur le NAS maintenant ? [o/N] ' "${version}" > /dev/tty
+  reponse=""
+  IFS= read -r reponse < /dev/tty || reponse=""
+  case "${reponse}" in
+    o | O | oui | y | Y) ;;
+    *)
+      echo "✗ Annulé → push interrompu, le tag reste local." >&2
+      echo "  Publier le tag sans déployer : SKIP_DEPLOY=1 git push ${DEPLOY_REMOTE} ${branche} ${tag}" >&2
+      exit 1
+      ;;
+  esac
+fi
+
+# --- 5. Déploiement. --------------------------------------------------------------------------
+# `< /dev/null` : release.sh ne doit pas hériter du stdin du hook.
+if ! ./deploy/release.sh "${tag}" < /dev/null; then
+  cat >&2 <<MSG
+✗ Déploiement de ${tag} échoué → push interrompu, le tag reste local.
+  Le déploiement est idempotent : corriger, puis rejouer l'un des deux.
+    ./deploy/release.sh ${tag}
+    git push --atomic --follow-tags ${DEPLOY_REMOTE} ${branche}
+  Ou publier le tag sans déployer : SKIP_DEPLOY=1 git push ${DEPLOY_REMOTE} ${branche} ${tag}
+MSG
+  exit 1
+fi
+
+echo >&2
+echo "✓ v${version} déployée — publication du tag ${tag}…" >&2

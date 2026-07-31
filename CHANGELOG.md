@@ -1,0 +1,134 @@
+# Journal des modifications
+
+Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
+conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
+
+## [0.0.0] — 31/07/2026
+
+
+### Fonctionnalités
+
+- **ephemeride** — Nommer les lieux du soleil et de l'eau, ajouter Étel (#13)
+- **meteo** — Vent en km/h et en Beaufort sur une même ligne (#13)
+- **ephemeride** — Carte du jour, Beaufort et météo partagée (#13)
+- **ephemeride** — Calcul local du soleil, de la lune et du calendrier (#13)
+- **deploy** — Npm run db:pull + sauvegarde datée de la base sur le NAS (#11)
+- **lexicon** — « Nouveau mot » tire un terme au hasard
+- **tides** — Détecte les journées recopiées + corrige 28/08 et 31/08
+- **tides** — Cible un port (--site) et audite la base servie (--db)
+- **tides** — Sortie markdown du rapport de cohérence (--markdown)
+- **tides** — Ajoute un rapport de cohérence des horaires (check-tides)
+- **lexicon** — Bouton « nouveau mot » sur la carte du mot du jour
+- **lexicon** — Mot du jour typé et persisté en base + panneau admin (issue #4)
+- **aflot** — Saisie des remises à flot constatées (issue #4)
+- **navihan** — Estimation de remise à flot par seuil de hauteur (issue #4)
+- **stats** — Attribuer les connexions aux utilisateurs
+- **users** — Confirmation de suppression par boutons inline
+- **users** — Champ de saisie inline pour réinitialiser un mot de passe
+- **auth** — Gestion d'utilisateurs en base avec rôles (#9)
+- **client** — Mot du jour tiré d'un lexique des marées
+- Import des horaires au runtime (admin) — #8 Phase 2
+- **server** — Persistance SQLite (better-sqlite3) — #8 Phase 1
+- **client** — Choix des types Navihan affichés, persisté en localStorage
+- **client** — Colonne Navihan triée avec icônes dans le tableau des marées
+- **security** — Activer une CSP taillée à la place de contentSecurityPolicy:false
+- **auth** — Rôle côté client (viewer/admin) remplace la notion « local »
+- **auth** — Rôles viewer/admin côté serveur (remplace le verrou LAN)
+- **auth** — Afficher la mire tant que non connecté + bouton déconnexion
+- **auth** — Jolie mire de connexion (LoginScreen.vue)
+- **auth** — API + composable useAuth côté client, dispatch 401
+- **auth** — Routes login/logout/status + rate-limit login + câblage app
+- **auth** — Garde /api cookie-ou-Basic, coquille SPA publique, sans WWW-Authenticate
+- **auth** — Jeton de session signé HMAC (lib/session)
+- **table** — Show one row per day with per-period navigation
+- **settings** — Hide the settings panel when it cannot be edited
+- **stats** — Record and view anonymized access statistics (LAN-only)
+- **settings** — Warn in the UI when a settings save is rejected
+- **security** — Restrict settings writes to the local network
+- **security** — Harden the app for external exposure
+- **settings** — Make weather-card links configurable
+- **weather** — Add daily wind direction and links to weather sites
+- **resources** — Enrich pêche Ria d'Étel links with summaries and sub-links
+- **sites** — Add Étel port with a port selector
+- **dashboard** — Redesign fishing resources as tiles
+- **dashboard** — Move settings into an offcanvas panel
+- **dashboard** — Add Morbihan pêche à pied regulation link
+- **dashboard** — Add fishing resources card for the Ria d'Étel
+- **weather** — Default weather location to Belz instead of Port-Tudy
+- **client** — Add a live date/time clock in the navbar
+- Migrate CLI to client/server monorepo dashboard
+- **output** — Add markdown/print/html formats and column selection
+
+### Corrections
+
+- **lint** — Rétablit `npm run lint` (2 erreurs préexistantes)
+- **data** — Corrige les 3 dernières journées Port-Tudy (27/08, 12/10)
+- **tides** — Pas de fausse rupture sur un jeu non contigu, et chemins relatifs
+- **data** — Ajoute les pleines mers du soir manquantes du 20/08 et 31/08
+- **data** — Corrige 4 journées Port-Tudy depuis l'annuaire officiel
+- **aflot** — Range chaque heure Navihan au jour où elle a réellement lieu
+- **data** — Retire 4 basses mers parasites de la graine Port-Tudy
+- **aflot** — Cartes, marégramme et saisie basés sur la remise à flot fixe
+- **ui** — Menu admin mobile aligné à droite (évite le débordement à gauche)
+- SESSION_SECRET dans le compose NAS + nom d'utilisateur visible sur mobile
+- **security** — Durcir l'auth (revue #9)
+- **db** — Migration v3 idempotente + StatsPanel tolérant
+- **client** — Regrouper les actions admin dans un menu ⋮ sur mobile
+- **docker** — Copier server/node_modules dans l'image runtime
+- **auth** — Durcissements suite à la revue de sécurité (INFO-001/002/003)
+- **auth** — Corriger un contournement du garde via la casse du chemin (/API/…)
+- **sites** — Pair Navihan to nearest Port-Tudy tide, rows follow the port
+- **theme** — Make low coefficient badges readable in dark theme
+- **stat-cards** — Always show the next à-flot, not just before a low tide
+- **readTides** — Validate file read and JSON with clear error messages
+- Remove dist
+- Remove .env file and update .gitignore to exclude it
+
+### Refontes internes
+
+- Read tides from local JSON file instead of scraping
+
+### Documentation
+
+- **spec** — Déploiement déclenché par le push d'un tag (#12)
+- **ephemeride** — Résumé de l'issue #13
+- **ephemeride** — Corrections trouvées au contrôle visuel (#13)
+- **spec** — Éphéméride du jour et force Beaufort (#13)
+- **deploy** — Procédure de sauvegarde/restauration et copie en local (#11)
+- **spec** — Sauvegarde et copie de la base de prod (#11)
+- **deploy** — Procédure de migration vers SQLite (#8)
+- **specs** — Design — import des horaires au runtime (admin, #8 Phase 2)
+- **specs** — Design — choix des types Navihan affichés (localStorage)
+- **specs** — Design issue #6 — Navihan pleine/basse mer dans le tableau
+- **auth** — Rôles viewer/admin + suppression READ_ONLY (compose, install, CLAUDE)
+- **auth** — Spécifier les rôles viewer/admin pour l'édition des réglages
+- **security** — Compléter la revue de sécurité auth (FIX-001 + INFO-003/004)
+- **auth** — Plan d'implémentation de la mire d'authentification
+- **auth** — Spécifier la mire d'authentification (cookie de session signé)
+- **deploy** — Document scripted push-to-nas / update-on-nas workflow
+- **deploy** — Add NAS Synology deployment guide and helper files
+- Add fishing-trip planning context (CONTEXTE.md)
+- Add AGENTS.md and update README.md with project structure and usage instructions
+
+### Tests
+
+- **security** — Verrouille la CSP par des assertions et clarifie la clé exposée
+- **e2e** — Tests Playwright headless (Chromium) + job CI
+- **client** — Couvrir useTides (période/coef/Navihan multi-site) + gating de rôle
+
+### Maintenance
+
+- Repart de 0.0.0 avant le versionnement par tag (#12)
+- **server** — Script type-check, aligné sur le client
+- Ignore les sorties régénérables de check-tides
+- **dev** — Dev:auth/start:auth créent aussi un compte admin (admin/admin-dev)
+- **cleanup** — CLAUDE.md (Étel a des données), engines Node, @types/node 22, LICENSE
+- **tooling** — CI GitHub Actions, ESLint/Prettier, README, .env.example
+- **deploy** — Binder le port sur 127.0.0.1 + COOKIE_SECURE (durcissement NAS)
+- **deploy** — Read auth env from a .env file on the NAS
+- **deploy** — Add PC push + NAS update helper scripts
+- Update package-lock.json
+- Stop tracking node_modules
+- Backup
+
+

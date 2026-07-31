@@ -6,12 +6,13 @@ import { getSiteData, mergeSiteData, replaceSiteData } from '../db/tidesReposito
 import { sanitizeImport } from '../lib/tidesImport';
 import { requestRole } from '../middleware/auth';
 import { SITES, DEFAULT_SITE_ID, getSite } from '../config/sites';
+import { appVersion } from '../lib/version';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * Routeur des marées, monté sous `/api` :
- * - `GET /health` : sonde de vie.
+ * - `GET /health` : sonde de vie + version déployée.
  * - `GET /sites` : liste des ports disponibles (`{ id, label }`).
  * - `GET /tides/meta?site=` : bornes de dates disponibles + offsets Navihan (site par défaut si absent).
  * - `GET /tides?site=&from=&to=` : marées d'un site sur une plage inclusive
@@ -44,8 +45,10 @@ export function createTidesRouter(logger: Logger): Router {
     return getSite(id) ? id : null;
   }
 
+  // La version sert de preuve de déploiement : `deploy/update-on-nas.sh` la compare à celle du tag
+  // pour confirmer que la nouvelle image tourne réellement (cf. issue #12).
   router.get('/health', (_req, res) => {
-    res.json({ status: 'ok' });
+    res.json({ status: 'ok', version: appVersion() });
   });
 
   router.get('/sites', (_req, res) => {

@@ -73,7 +73,14 @@ describe('sécurité — authentification', () => {
   it('laisse /api/health public (sonde)', async () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: 'ok' });
+    expect(res.body.status).toBe('ok');
+  });
+
+  it("n'expose que le statut et la version sur /api/health", async () => {
+    // Route publique (hors authentification) : la version y est assumée comme preuve de
+    // déploiement, mais rien d'autre ne doit fuiter (chemins, environnement, config…).
+    const res = await request(app).get('/api/health');
+    expect(Object.keys(res.body).sort()).toEqual(['status', 'version']);
   });
 });
 
