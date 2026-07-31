@@ -33,7 +33,12 @@ export default tseslint.config(
     // Client : navigateur (ESM).
     files: ['client/**/*.{ts,vue}'],
     languageOptions: {
-      globals: { ...globals.browser }
+      globals: {
+        ...globals.browser,
+        // Constante remplacée au build par Vite (`define`) : la version de l'app (issue #12).
+        // Déclarée pour TypeScript dans `client/src/env.d.ts`, que ce lint ignore (`**/*.d.ts`).
+        __APP_VERSION__: 'readonly'
+      }
     }
   },
   {

@@ -315,7 +315,43 @@ Le journal tourne automatiquement (~1 Mo, une génération conservée) — rien 
 
 ## 9. Mettre à jour l'application
 
-### Méthode rapide (scripts, recommandée)
+### Méthode recommandée : déploiement au push d'un tag (issue #12)
+
+Le push d'un tag `vX.Y.Z` déclenche le déploiement complet (vérifications, sauvegarde de la base,
+transfert, bascule, contrôle de santé **et** de la version servie). Une seule saisie : la
+confirmation, puis le mot de passe `sudo` du NAS.
+
+```bash
+npm run hooks:install     # une fois par clone (core.hooksPath n'est pas versionné)
+
+npm version 0.1.0 --no-git-tag-version --workspaces --include-workspace-root
+npm run changelog
+git commit -am "chore(release): v0.1.0"
+git tag -a v0.1.0 -m "v0.1.0"
+git push --atomic --follow-tags origin main
+```
+
+Détail des garde-fous, des soupapes (`SKIP_DEPLOY=1`, `DRY_RUN=1`…) et de la reprise après échec :
+**[README du dossier deploy](README.md)**.
+
+### Rollback vers la version précédente
+
+L'image est taguée à la version en plus de `:latest`, donc la précédente est encore sur le NAS :
+inutile de re-transférer ~115 Mo.
+
+```bash
+ssh erwan@ds218plus -p 2010
+cd /volume1/docker/marees
+sudo docker images marees-port-tudy                          # versions disponibles
+sudo docker tag marees-port-tudy:0.0.9 marees-port-tudy:latest
+sudo docker-compose up -d
+```
+
+> Les sauvegardes de la base sont datées dans `backups/` (§10) et une sauvegarde est prise
+> **avant chaque bascule** : un rollback d'image peut donc s'accompagner d'une restauration de base
+> si une migration de schéma est passée entre-temps.
+
+### Méthode rapide sans tag (scripts)
 
 Identique à l'installation — voir **[§0](#0-méthode-rapide-scriptée-recommandée)** :
 

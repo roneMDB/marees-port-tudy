@@ -111,7 +111,7 @@ else
   # présent depuis le déploiement précédent ; absent (1re fois), on n'échoue pas pour si peu.
   if run ssh -n -p "${NAS_PORT}" "${NAS_HOST}" \
     "cd ${NAS_DIR} && [ -f backup-db-on-nas.sh ] && bash backup-db-on-nas.sh"; then
-    echo "  ✓ sauvegarde effectuée"
+    [ "${DRY_RUN}" = 1 ] || echo "  ✓ sauvegarde effectuée"
   else
     echo "  ⚠ sauvegarde impossible (script absent du NAS, ou base introuvable) — on continue." >&2
   fi
@@ -140,5 +140,9 @@ fi
 
 trap - ERR INT TERM
 echo
-echo "✓ v${VERSION} déployée et vérifiée sur ${NAS_HOST}."
-echo "  L'app n'écoute que sur la boucle locale du NAS : y accéder via l'URL HTTPS du proxy DSM."
+if [ "${DRY_RUN}" = 1 ]; then
+  echo "✓ Déroulé à blanc de v${VERSION} : rien n'a été déployé (DRY_RUN=1)."
+else
+  echo "✓ v${VERSION} déployée et vérifiée sur ${NAS_HOST}."
+  echo "  L'app n'écoute que sur la boucle locale du NAS : y accéder via l'URL HTTPS du proxy DSM."
+fi

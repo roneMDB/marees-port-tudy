@@ -28,6 +28,29 @@ proche dans le temps** (appariement par proximité, gère le décalage horaire /
 - `docker compose up --build` — build l'image (multi-stage) et lance sur `:3000` avec le volume
   `./data:/data` (config + horaires persistés, auto-seed si vide). `DATA_DIR=/data` dans l'image.
 - `npm test` — tests des deux workspaces (server puis client).
+- **Déploiement au push d'un tag** (issue #12) — `git push --follow-tags` d'un tag `vX.Y.Z` déclenche
+  le déploiement via le hook **`.githooks/pre-push`** (activé par `npm run hooks:install` →
+  `core.hooksPath`, posé aussi par le script `prepare` — **gardé**, sinon le `RUN npm ci` du
+  Dockerfile casse). Le hook ne **décide** que ; tout le déploiement est dans **`deploy/release.sh`**
+  (`npm run deploy`, lançable seul pour reprendre). Séquence : `npm version X --no-git-tag-version
+  --workspaces --include-workspace-root` → `npm run changelog` (git-cliff, `cliff.toml`) → commit →
+  `git tag -a` → push. **La source de vérité de la version est le `package.json`** : le hook refuse
+  si le tag en diverge, si le tag n'est pas annoté ou ne pointe pas sur `HEAD`, si l'arbre est sale
+  (l'image est buildée depuis l'**arbre de travail** et `.dockerignore` exclut `.git`), si la branche
+  n'est pas en fast-forward, ou si plusieurs tags de release sont poussés. **Un déploiement échoué
+  annule le push** (tag local → reprise par push rejoué) ; **sans tty**, le push passe mais rien
+  n'est déployé. Soupapes : `SKIP_DEPLOY=1` (préférable à `--no-verify`, qui saute aussi les
+  contrôles), `DRY_RUN=1`, `DEPLOY_YES=1`, `RUN_E2E=1`, `SKIP_TESTS=1`/`SKIP_BACKUP=1`.
+  Pièges bash à ne pas réintroduire : stdin est **consommé par la liste des refs** → confirmation sur
+  `/dev/tty` et présence du tty testée par **ouverture réelle en sous-shell** (`[ -r /dev/tty ]`
+  réussit même sans terminal de contrôle) ; `ssh` sans `-n` **avale les refs restantes**, sauf
+  l'étape `sudo` qui exige l'inverse (`ssh -t` + stdin sur `/dev/tty`, sinon le prompt échoue).
+  La **version** est servie par `GET /api/health` (`server/src/lib/version.ts`, lit le `package.json`
+  racine **déjà copié dans l'image**) et affichée en **pied de page** du client (injectée au build par
+  Vite `define`, donc lisible hors-ligne). `deploy/update-on-nas.sh` attend `healthy` puis **compare
+  la version servie** à celle attendue (contrôle exécuté **sur le NAS**, l'app n'écoutant que sur
+  `127.0.0.1`). `deploy/save-image.sh` tague l'image à la version en plus de `:latest` → **rollback
+  sans re-transfert** (procédure : `deploy/INSTALLATION-NAS.md` §9).
 - `npm run db:pull` — **rapatrie la base de prod** du NAS dans `server/data/marees.db`
   (`deploy/pull-db-from-nas.sh`). Instantané **à chaud** par `sqlite3 … "VACUUM INTO …"` +
   `PRAGMA integrity_check` **côté NAS**, puis `scp -O` : en mode WAL, copier `marees.db` seul
@@ -95,7 +118,9 @@ Tests : `src/security.test.ts`, `src/routes/auth.test.ts`, `src/middleware/auth.
 `src/db/usersRepository.test.ts`, `src/lib/{session,password}.test.ts`.
 
 Routes tides (`src/routes/tides.ts`) :
-- `GET /api/health` → `{ status: 'ok' }`.
+- `GET /api/health` → `{ status: 'ok', version }` (sonde + **preuve de déploiement**, issue #12 ;
+  `version` vient de `lib/version.ts`). `security.test.ts` fige le fait qu'elle n'expose **que** ces
+  deux champs.
 - `GET /api/sites` → liste des ports `{ id, label }` (depuis `config/sites.ts`).
 - `GET /api/tides/meta?site` → `Maree.getMeta()` (bornes min/max + offsets Navihan).
 - `GET /api/tides?site&from&to` → `Maree.getTidesRange(from, to)` (**plage inclusive**, défaut =
@@ -451,7 +476,9 @@ Actif uniquement en build de prod, pas en dev. Icône : `client/public/favicon.s
 
 ### Déploiement (`deploy/`)
 
-`deploy/save-image.sh` (build + `docker save | gzip` → `marees-image.tar.gz`),
+`deploy/release.sh` (**déploiement d'une version** de bout en bout, appelé par `.githooks/pre-push`,
+cf. §Commandes), `deploy/save-image.sh` (build + `docker save | gzip` → `marees-image.tar.gz` ;
+`APP_VERSION` ajoute le tag d'image versionné + le label OCI),
 `deploy/docker-compose.nas.yml` (image chargée, volume `/volume1/docker/marees/data`),
 `deploy/README.md` (procédure NAS Synology DS218+ par transfert de fichier). Le `docker-compose.yml`
 racine reste pour le local.

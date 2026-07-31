@@ -123,7 +123,8 @@ durcissement) : **[deploy/INSTALLATION-NAS.md](deploy/INSTALLATION-NAS.md)**.
 npm test                  # server (Vitest + supertest) puis client (Vitest + @vue/test-utils)
 npm -w server run test
 npm -w client run test
-npm -w client run type-check   # vue-tsc
+npm run type-check        # les DEUX workspaces (tsc + vue-tsc) — Vitest ne vérifie aucun type
+npm -w client run type-check   # vue-tsc seul
 npm run lint              # ESLint (TS + Vue) sur tout le dépôt
 npm run format            # Prettier (écriture)
 ```
@@ -153,7 +154,28 @@ docker run -p 3000:3000 -v "$(pwd)/data:/data" marees-port-tudy
 
 ### Déploiement NAS Synology (DS218+)
 
-Build sur le PC, transfert de l'image en fichier, exécution sur le NAS (Container Manager) :
+Build sur le PC, transfert de l'image en fichier, exécution sur le NAS.
+
+**Le push d'un tag `vX.Y.Z` déclenche le déploiement** (issue #12) : un hook `pre-push` vérifie le
+tag, lance `lint`/`type-check`/tests, sauvegarde la base, transfère l'image, bascule le conteneur,
+puis attend la sonde de vie et confirme la version servie.
+
+```bash
+npm run hooks:install     # une fois par clone (core.hooksPath n'est pas versionné)
+
+npm version 0.1.0 --no-git-tag-version --workspaces --include-workspace-root
+npm run changelog                              # CHANGELOG.md via git-cliff
+git commit -am "chore(release): v0.1.0"
+git tag -a v0.1.0 -m "v0.1.0"
+git push --atomic --follow-tags origin main    # → confirmation, puis déploiement
+```
+
+Un déploiement échoué **annule le push** (le tag reste local, la reprise est un push rejoué).
+Soupapes : `SKIP_DEPLOY=1` pour pousser sans déployer, `DRY_RUN=1` pour dérouler à blanc.
+Reprise seule : `npm run deploy -- v0.1.0`. La version tourne visible en **pied de page** de l'app
+et sur `GET /api/health`.
+
+Transfert manuel, sans tag :
 
 ```bash
 ./deploy/save-image.sh      # → marees-image.tar.gz (à transférer sur le NAS)
