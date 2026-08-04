@@ -130,7 +130,39 @@ npm run format            # Prettier (écriture)
 ```
 
 Une **CI GitHub Actions** (`.github/workflows/ci.yml`) exécute lint + type-check + tests + build sur
-chaque push/PR.
+chaque push/PR, plus un job **e2e Playwright** séparé (`npm run test:e2e`). Attention : la CI ne
+lance que `npm -w client run type-check` — le type-check **serveur** n'est couvert que par la
+vérification locale ci-dessus.
+
+## Workflow de contribution
+
+Il n'y a **pas de relecture obligatoire** : `main` est la branche de travail et le déploiement part
+d'un tag posé dessus. La validation repose donc sur les vérifications locales, la CI, puis le
+contrôle de version en fin de déploiement.
+
+1. **Brancher** sur `main` : `feat/<n°issue>-<slug>` (ou `fix/<slug>`). Pour un sujet non trivial,
+   poser d'abord le spec dans `docs/superpowers/specs/AAAA-MM-JJ-<sujet>-design.md`.
+2. **Valider en local, avant de pousser** — les deux commandes, pas seulement les tests :
+
+   ```bash
+   npm test            # server puis client
+   npm run type-check  # les DEUX workspaces — Vitest passe par esbuild et ne vérifie AUCUN type
+   npm run lint
+   ```
+
+   Le type-check est le contrôle qu'on oublie : sur l'issue #13, 210 tests serveur étaient verts
+   alors que le serveur ne compilait pas.
+3. **Intégrer** dans `main` (merge de la branche, ou commits directs pour un changement court), puis
+   pousser. La CI rejoue tout ; un `main` rouge se corrige tout de suite.
+   Ouvrir une **PR** reste possible et préférable quand le diff mérite une relecture : la CI tourne
+   alors sur la PR, avant que `main` ne soit touché.
+4. **Publier** en poussant un tag `vX.Y.Z` : le hook `.githooks/pre-push` (activé par
+   `npm run hooks:install`) vérifie la cohérence du tag puis déclenche le déploiement NAS, qui
+   termine en **comparant la version servie par `/api/health`** à celle attendue. Un push **sans**
+   tag de release ne déclenche rien. Séquence exacte (aligner le `package.json`, changelog, commit,
+   tag annoté, push) : **[deploy/INSTALLATION-NAS.md](deploy/INSTALLATION-NAS.md#méthode-recommandée--déploiement-au-push-dun-tag-issue-12)**.
+   `npm run deploy` lance le même déploiement sans repasser par un tag — c'est la **reprise** après
+   un échec, pas le point d'entrée normal.
 
 ## Docker
 
