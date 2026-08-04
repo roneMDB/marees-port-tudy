@@ -156,13 +156,11 @@ contrôle de version en fin de déploiement.
    pousser. La CI rejoue tout ; un `main` rouge se corrige tout de suite.
    Ouvrir une **PR** reste possible et préférable quand le diff mérite une relecture : la CI tourne
    alors sur la PR, avant que `main` ne soit touché.
-4. **Publier** en poussant un tag `vX.Y.Z` : le hook `.githooks/pre-push` (activé par
-   `npm run hooks:install`) vérifie la cohérence du tag puis déclenche le déploiement NAS, qui
-   termine en **comparant la version servie par `/api/health`** à celle attendue. Un push **sans**
-   tag de release ne déclenche rien. Séquence exacte (aligner le `package.json`, changelog, commit,
-   tag annoté, push) : **[deploy/INSTALLATION-NAS.md](deploy/INSTALLATION-NAS.md#méthode-recommandée--déploiement-au-push-dun-tag-issue-12)**.
-   `npm run deploy` lance le même déploiement sans repasser par un tag — c'est la **reprise** après
-   un échec, pas le point d'entrée normal.
+4. **Publier** en poussant un tag `vX.Y.Z` : le hook `.githooks/pre-push` vérifie la cohérence du
+   tag puis déclenche le déploiement NAS, qui termine en **comparant la version servie par
+   `/api/health`** à celle attendue. Un push **sans** tag de release ne déclenche rien. Les
+   commandes (version, changelog, commit, tag annoté, push) et les soupapes sont dans
+   [Déploiement NAS Synology](#déploiement-nas-synology-ds218) ci-dessous.
 
 ## Docker
 
