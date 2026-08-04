@@ -3,7 +3,7 @@
 Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
 conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
-## Non publié
+## [1.0.0] — 04/08/2026
 
 
 ### Fonctionnalités
@@ -91,6 +91,7 @@ conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
 ### Documentation
 
+- **changelog** — Section « Non publié » tant qu'aucun tag n'existe (#12)
 - **deploy** — Procédure de release par tag, rollback et soupapes (#12)
 - **spec** — Déploiement déclenché par le push d'un tag (#12)
 - **ephemeride** — Résumé de l'issue #13
