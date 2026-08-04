@@ -3,6 +3,11 @@
 Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
 conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [1.2.0] — 04/08/2026
+
+### Fonctionnalités
+
+- **deploy** — Script de release, npm run release -- patch|minor|major
 ## [1.1.0] — 04/08/2026
 
 ### Fonctionnalités
