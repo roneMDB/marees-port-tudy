@@ -71,6 +71,17 @@ describe('App — gating des fonctions admin', () => {
     expect(wrapper.find('footer').text()).toMatch(/Marées Navihan\s+v\d+\.\d+\.\d+/);
   });
 
+  it('affiche un lien vers le dépôt GitHub en pied de page (#15)', async () => {
+    const wrapper = mountApp();
+    await flushPromises();
+    const link = wrapper.find('footer a');
+    expect(link.attributes('href')).toBe('https://github.com/roneMDB/marees-port-tudy');
+    // Ouverture externe depuis une PWA : nouvel onglet, et pas d'accès à window.opener.
+    expect(link.attributes('target')).toBe('_blank');
+    expect(link.attributes('rel')).toContain('noopener');
+    expect(link.text()).toContain('GitHub');
+  });
+
   it('affiche l’écran de changement de mot de passe forcé', async () => {
     mustChangePassword.value = true;
     const wrapper = mountApp();

@@ -20,6 +20,10 @@ const { sites, siteId, load: loadSites } = useSite();
 // Sert à vérifier d'un coup d'œil quelle version tourne réellement après un déploiement (issue #12).
 const appVersion = __APP_VERSION__;
 
+// URL en dur, contrairement à la version : le dépôt ne change pas et le package.json racine n'a pas
+// de champ « repository » — un second define Vite pour une valeur figée n'apporterait rien (#15).
+const REPO_URL = 'https://github.com/roneMDB/marees-port-tudy';
+
 // Authentification + rôle : la mire s'affiche tant qu'une connexion est requise et non satisfaite ;
 // les fonctions Réglages et Stats sont réservées au rôle admin (verrou serveur réel).
 const { authRequired, authenticated, isAdmin, user, mustChangePassword, checking, checkStatus, logout } = useAuth();
@@ -222,6 +226,10 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
       <small class="text-body-secondary">
         Marées Navihan
         <span class="app-version">v{{ appVersion }}</span>
+        <span class="mx-1" aria-hidden="true">·</span>
+        <a :href="REPO_URL" target="_blank" rel="noopener noreferrer" class="link-secondary text-decoration-none">
+          <i class="bi bi-github me-1" aria-hidden="true"></i>GitHub
+        </a>
       </small>
     </footer>
 
