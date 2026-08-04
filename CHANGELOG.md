@@ -5,7 +5,6 @@ conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
 ## [1.0.0] — 04/08/2026
 
-
 ### Fonctionnalités
 
 - **deploy** — Déploiement déclenché par le push d'un tag (#12)
@@ -62,6 +61,7 @@ conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
 ### Corrections
 
+- **deploy** — Résout docker via le PATH sur le NAS (#12)
 - **lint** — Rétablit `npm run lint` (2 erreurs préexistantes)
 - **data** — Corrige les 3 dernières journées Port-Tudy (27/08, 12/10)
 - **tides** — Pas de fausse rupture sur un jeu non contigu, et chemins relatifs
@@ -133,5 +133,4 @@ conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 - Update package-lock.json
 - Stop tracking node_modules
 - Backup
-
 

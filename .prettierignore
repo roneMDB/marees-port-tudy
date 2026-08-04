@@ -1,0 +1,5 @@
+# CHANGELOG.md est **généré** par git-cliff (`npm run changelog`, cf. cliff.toml) : le formater à la
+# main serait défait à la prochaine release, et contorsionner le gabarit Tera pour satisfaire
+# Prettier le rendrait fragile (la séparation entre blocs de version est plus importante qu'une
+# ligne vide finale).
+CHANGELOG.md
