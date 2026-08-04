@@ -1,4 +1,7 @@
-# syntax=docker/dockerfile:1
+# Pas de directive `# syntax=docker/dockerfile:1` : elle ferait télécharger le frontend Dockerfile
+# depuis Docker Hub À CHAQUE build (tag mutable, donc revérifié), ce qui a déjà fait échouer un
+# déploiement sur un simple timeout DNS. Le frontend intégré à BuildKit suffit : ce fichier n'utilise
+# aucune fonctionnalité qui l'exige (ni heredoc, ni `--mount`, ni `COPY --link`).
 
 # ---- build : installe tout, build serveur + client, puis élague les devDeps ----
 FROM node:22-alpine AS build
