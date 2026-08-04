@@ -11,6 +11,15 @@
 #   deploy/release.sh. Sans elle, seule la sonde de vie est contrôlée.
 set -euo pipefail
 
+# PATH : sur DSM, `docker` et `docker-compose` vivent dans /usr/local/bin (liens vers
+# /volume1/@appstore/Docker/usr/bin). Or ce dossier n'est ajouté que par /etc/profile, donc absent
+# d'un `ssh nas "commande"` — shell NON-login, PATH réduit à /usr/bin:/bin:/usr/sbin:/sbin — et
+# `sudo` peut de son côté le réécrire (secure_path). D'où une définition ICI, la seule qui survive
+# aux deux : sans elle, le script marche en session interactive et échoue en `command not found`
+# quand deploy/release.sh l'appelle.
+PATH="/usr/local/bin:/volume1/@appstore/Docker/usr/bin:${PATH}"
+export PATH
+
 NAS_DIR="${NAS_DIR:-/volume1/docker/marees}"
 IMAGE_ARCHIVE="${IMAGE_ARCHIVE:-marees-image.tar.gz}"
 CONTAINER="${CONTAINER:-marees-port-tudy}"
@@ -24,6 +33,17 @@ SUDO=""
 [ "$(id -u)" -ne 0 ] && SUDO="sudo"
 
 cd "${NAS_DIR}"
+
+# Échouer tout de suite, et en disant quoi faire, plutôt qu'un « command not found » au milieu
+# d'un `docker load` de 115 Mo. ⚠️ DSM 7.1 = Compose v1 : `docker-compose`, pas `docker compose`.
+for outil in docker docker-compose; do
+  if ! command -v "${outil}" >/dev/null 2>&1; then
+    echo "✗ « ${outil} » introuvable (PATH=${PATH})." >&2
+    echo "  Le paquet Docker de DSM est-il installé et démarré ?" >&2
+    echo "  Chemin attendu : /usr/local/bin/${outil}" >&2
+    exit 1
+  fi
+done
 
 if [ ! -f "${IMAGE_ARCHIVE}" ]; then
   echo "✗ ${IMAGE_ARCHIVE} introuvable dans ${NAS_DIR}." >&2
