@@ -324,6 +324,15 @@ confirmation, puis le mot de passe `sudo` du NAS.
 ```bash
 npm run hooks:install     # une fois par clone (core.hooksPath n'est pas versionné)
 
+npm run release -- minor  # patch | minor | major | X.Y.Z
+```
+
+`npm run release` (`deploy/new-version.sh`) enchaîne le pré-vol, le bump des **3 manifests**, le
+changelog, l'affichage des notes de version, la confirmation, puis commit + tag annoté + push. Une
+étape ratée avant le push est défaite automatiquement ; `DRY_RUN=1` déroule sans rien publier. La
+séquence équivalente à la main :
+
+```bash
 npm version 0.1.0 --no-git-tag-version --workspaces --include-workspace-root
 npm run changelog
 git commit -am "chore(release): v0.1.0"

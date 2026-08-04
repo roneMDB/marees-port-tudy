@@ -9,6 +9,7 @@ DSM 7.2+.
 | --- | --- |
 | [`INSTALLATION-NAS.md`](INSTALLATION-NAS.md) | **Guide d'installation complet** (prérequis, chargement de l'image, Container Manager, reverse proxy, mises à jour, sauvegarde, dépannage). |
 | [`MIGRATION-SQLITE.md`](MIGRATION-SQLITE.md) | **Migration vers SQLite** (#8) : passage des fichiers plats à `marees.db`. Migration auto au 1er démarrage, procédure NAS, exploitation, rollback. |
+| [`new-version.sh`](new-version.sh) | **Côté PC** (`npm run release -- <patch\|minor\|major\|X.Y.Z>`) : **pose et publie une version**. Pré-vol, bump des 3 manifests, changelog, confirmation avec les notes sous les yeux, commit + tag + push (qui déclenche le déploiement). Toute étape ratée **avant** le push est défaite. Ne pas confondre avec `release.sh`, qui déploie une version déjà taguée. |
 | [`release.sh`](release.sh) | **Côté PC** (`npm run deploy`) : **déploiement complet d'une version**. Pré-vol, `lint`/`type-check`/tests, sauvegarde de la base, transfert, bascule du conteneur, contrôle de santé et de version. Appelé automatiquement par le hook `pre-push` au push d'un tag `vX.Y.Z` (#12). |
 | [`push-to-nas.sh`](push-to-nas.sh) | **Côté PC** : build + export de l'image, puis transfert (`scp`) de l'image, du compose et du script de mise à jour vers le NAS. Ne redémarre pas le conteneur. |
 | [`update-on-nas.sh`](update-on-nas.sh) | **Côté NAS** : recharge l'image transférée et recrée le conteneur (`docker load` + `docker-compose up -d` + prune), puis **attend la sonde de vie** et **compare la version servie** à celle attendue. Volume `data/` conservé (base `marees.db`). |
@@ -19,8 +20,20 @@ DSM 7.2+.
 
 ## Déployer une version (recommandé, issue #12)
 
-Le **push d'un tag `vX.Y.Z` déclenche le déploiement**. Une seule commande enchaîne tout, la seule
-saisie étant la confirmation puis le mot de passe `sudo` du NAS :
+Le **push d'un tag `vX.Y.Z` déclenche le déploiement**. Tout est dans **un script** — la seule saisie
+étant la confirmation puis le mot de passe `sudo` du NAS :
+
+```bash
+npm run release -- minor      # patch | minor | major | X.Y.Z
+```
+
+Il enchaîne : pré-vol (branche `main`, arbre propre, à jour avec `origin`) → `npm version` sur les
+**3 manifests** → `npm run changelog` → affichage des notes de la version → confirmation `[o/N]` →
+commit `chore(release): vX.Y.Z` + tag annoté + push. Toute étape ratée **avant** le push est défaite
+(ni commit ni tag ne subsistent) ; après, le commit et le tag sont conservés et le script affiche les
+reprises possibles. `DRY_RUN=1 npm run release -- minor` déroule sans rien publier.
+
+La séquence à la main reste possible — pour réparer un état bancal, par exemple :
 
 ```bash
 # 1. Version (met à jour les 3 package.json d'un coup)
@@ -33,6 +46,11 @@ git tag -a v0.1.0 -m "v0.1.0"
 # 4. Push → le hook pre-push vérifie, demande confirmation et déploie
 git push --atomic --follow-tags origin main
 ```
+
+⚠️ Les trois drapeaux de `npm version` ne sont pas optionnels : sans `--workspaces`, `server/` et
+`client/` restent en arrière et le hook refuse le tag ; sans `--no-git-tag-version`, npm pose
+lui-même un tag, sur le commit précédent. C'est ce qui est arrivé en v1.1.0, et la raison d'être du
+script.
 
 Prérequis, **une fois par clone** (`core.hooksPath` vit dans `.git/config`, non versionné) :
 

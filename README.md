@@ -156,11 +156,10 @@ contrôle de version en fin de déploiement.
    pousser. La CI rejoue tout ; un `main` rouge se corrige tout de suite.
    Ouvrir une **PR** reste possible et préférable quand le diff mérite une relecture : la CI tourne
    alors sur la PR, avant que `main` ne soit touché.
-4. **Publier** en poussant un tag `vX.Y.Z` : le hook `.githooks/pre-push` vérifie la cohérence du
-   tag puis déclenche le déploiement NAS, qui termine en **comparant la version servie par
-   `/api/health`** à celle attendue. Un push **sans** tag de release ne déclenche rien. Les
-   commandes (version, changelog, commit, tag annoté, push) et les soupapes sont dans
-   [Déploiement NAS Synology](#déploiement-nas-synology-ds218) ci-dessous.
+4. **Publier** avec `npm run release -- <patch|minor|major>` : le script pose la version et le tag,
+   et son push déclenche le déploiement NAS, qui termine en **comparant la version servie par
+   `/api/health`** à celle attendue. Un push **sans** tag de release ne déclenche rien. Détail et
+   soupapes : [Déploiement NAS Synology](#déploiement-nas-synology-ds218) ci-dessous.
 
 ## Docker
 
@@ -191,14 +190,19 @@ tag, lance `lint`/`type-check`/tests, sauvegarde la base, transfère l'image, ba
 puis attend la sonde de vie et confirme la version servie.
 
 ```bash
-npm run hooks:install     # une fois par clone (core.hooksPath n'est pas versionné)
+npm run hooks:install         # une fois par clone (core.hooksPath n'est pas versionné)
 
-npm version 0.1.0 --no-git-tag-version --workspaces --include-workspace-root
-npm run changelog                              # CHANGELOG.md via git-cliff
-git commit -am "chore(release): v0.1.0"
-git tag -a v0.1.0 -m "v0.1.0"
-git push --atomic --follow-tags origin main    # → confirmation, puis déploiement
+npm run release -- minor      # patch | minor | major | X.Y.Z
 ```
+
+`npm run release` (`deploy/new-version.sh`) fait tout : pré-vol (branche `main`, arbre propre, à jour
+avec `origin`), `npm version` sur les **3 manifests**, `npm run changelog`, affichage des notes de la
+version, confirmation `[o/N]`, puis commit + tag annoté + push. Une étape ratée **avant** le push est
+défaite automatiquement. `DRY_RUN=1 npm run release -- minor` déroule sans rien publier.
+
+À ne pas confondre : `npm run release` **crée** la version ; `npm run deploy` **rejoue** le
+déploiement d'une version déjà taguée. La séquence à la main (utile pour réparer un état bancal) est
+dans **[deploy/README.md](deploy/README.md)**.
 
 Un déploiement échoué **annule le push** (le tag reste local, la reprise est un push rejoué).
 Soupapes : `SKIP_DEPLOY=1` pour pousser sans déployer, `DRY_RUN=1` pour dérouler à blanc.

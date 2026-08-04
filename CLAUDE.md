@@ -34,7 +34,17 @@ proche dans le temps** (appariement par proximité, gère le décalage horaire /
   Dockerfile casse). Le hook ne **décide** que ; tout le déploiement est dans **`deploy/release.sh`**
   (`npm run deploy`, lançable seul pour reprendre). Séquence : `npm version X --no-git-tag-version
   --workspaces --include-workspace-root` → `npm run changelog` (git-cliff, `cliff.toml`) → commit →
-  `git tag -a` → push. **La source de vérité de la version est le `package.json`** : le hook refuse
+  `git tag -a` → push — **scriptée** dans **`deploy/new-version.sh`** (`npm run release --
+  <patch|minor|major|X.Y.Z>`). ⚠️ **`new-version.sh` crée la version, `release.sh` la déploie** : deux
+  scripts, deux rôles, noms proches. Le script fait le pré-vol (branche `main`, arbre propre, en
+  fast-forward, tag libre) **avant** d'écrire, affiche les notes de version, demande confirmation puis
+  pousse avec **`DEPLOY_YES=1`** (le hook redemanderait sinon) et des **refs explicites** plutôt que
+  `--follow-tags` (un vieux tag local ne part pas avec, sinon le hook refuse « 2 tags de release »).
+  Tout échec **avant** le push est défait (`git reset --hard` sur le point de départ, légitime car le
+  pré-vol a exigé un arbre propre) ; **après**, commit et tag sont conservés et les reprises
+  affichées. L'argument est validé sur du SemVer **sans zéro superflu** (`[0-9]+` accepterait
+  « 01.1.0 », la faute exacte de la v1.1.0). **La source de vérité de la version est le
+  `package.json`** : le hook refuse
   si le tag en diverge, si le tag n'est pas annoté ou ne pointe pas sur `HEAD`, si l'arbre est sale
   (l'image est buildée depuis l'**arbre de travail** et `.dockerignore` exclut `.git`), si la branche
   n'est pas en fast-forward, ou si plusieurs tags de release sont poussés. **Un déploiement échoué
