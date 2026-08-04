@@ -3,6 +3,17 @@
 Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
 conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [1.1.0] — 04/08/2026
+
+### Fonctionnalités
+
+- **client** — Lien vers le dépôt GitHub dans le pied de page (#15)
+
+### Documentation
+
+- **readme** — Renvoie vers la section interne pour la séquence de release
+- **readme** — Documente le workflow de contribution et de validation
+- **specs** — Lien vers le dépôt GitHub dans le pied de page (#15)
 ## [1.0.0] — 04/08/2026
 
 ### Fonctionnalités
@@ -61,6 +72,7 @@ conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
 ### Corrections
 
+- **docker** — Retire la directive syntax, qui rendait le build dépendant du réseau
 - **deploy** — Résout docker via le PATH sur le NAS (#12)
 - **lint** — Rétablit `npm run lint` (2 erreurs préexistantes)
 - **data** — Corrige les 3 dernières journées Port-Tudy (27/08, 12/10)
@@ -121,6 +133,7 @@ conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
 ### Maintenance
 
+- **changelog** — Gabarit sans ligne vide superflue, fichier généré non formaté
 - Repart de 0.0.0 avant le versionnement par tag (#12)
 - **server** — Script type-check, aligné sur le client
 - Ignore les sorties régénérables de check-tides
