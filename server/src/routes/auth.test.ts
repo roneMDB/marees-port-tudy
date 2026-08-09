@@ -123,11 +123,19 @@ describe('routes auth — droits par rôle', () => {
     expect(ra.status).toBe(200);
   });
 
-  it('les connexions sont attribuées à l’utilisateur dans /api/stats', async () => {
+  it('les visites sont attribuées à l’utilisateur de la session dans /api/stats', async () => {
+    // La balise ne transmet aucun identifiant : le serveur le résout depuis le cookie de session.
+    // C'est ce qui répond à « qui accède ? » — les connexions, elles, sont trop rares (cookie 30 j).
+    expect((await request(app).post('/api/visit').set('Cookie', adminCookie)).status).toBe(204);
+    expect((await request(app).post('/api/visit').set('Cookie', viewerCookie)).status).toBe(204);
+
     const res = await request(app).get('/api/stats').set('Cookie', adminCookie);
-    const names = (res.body.users ?? []).map((u: { name: string }) => u.name);
-    // admin et marees se sont connectés (beforeAll + tests) → présents dans la répartition.
-    expect(names).toContain('admin');
-    expect(names).toContain('marees');
+    const users = (res.body.users ?? []) as { name: string; count: number; lastTs: string }[];
+    expect(users.map(u => u.name)).toEqual(expect.arrayContaining(['admin', 'marees']));
+    expect(users.find(u => u.name === 'marees')?.lastTs).toBeTruthy();
+  });
+
+  it('la balise de visite exige une session (401 sans cookie)', async () => {
+    expect((await request(app).post('/api/visit')).status).toBe(401);
   });
 });

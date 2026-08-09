@@ -6,7 +6,7 @@ import { DATA_DIR } from '../config/dataDir';
 export type DB = Database.Database;
 
 /** Version courante du schéma (incrémentée à chaque migration). */
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 /** Chemin du fichier SQLite runtime (dans le volume `DATA_DIR`). */
 export function dbPath(): string {
@@ -20,6 +20,7 @@ export function dbPath(): string {
  * v3 : colonne `login` sur `access_log` (attribution des connexions à un utilisateur).
  * v4 : table `aflot_observations` (heures de remise à flot réellement constatées, issue #4).
  * v5 : table `lexicon` (mot du jour éditable en base, issue #4 suite).
+ * v6 : colonne `kind` sur `access_log` (visite / chargement de page / connexion, issue #16).
  */
 export function migrate(db: DB): void {
   const version = db.pragma('user_version', { simple: true }) as number;
@@ -102,6 +103,16 @@ export function migrate(db: DB): void {
         sort_order INTEGER NOT NULL DEFAULT 0
       );
     `);
+  }
+  if (version < 6) {
+    // Nature de l'accès (issue #16) : `visit` = ouverture réelle de l'app signalée par le client,
+    // `page` = chargement de la coquille / sonde externe, `login` = connexion réussie. Les lignes
+    // antérieures restent à NULL et sont lues comme `page` — c'est exactement ce qu'elles sont.
+    // Même précaution qu'en v3 : `ADD COLUMN` n'est pas idempotent en SQLite.
+    const cols = db.prepare('PRAGMA table_info(access_log)').all() as { name: string }[];
+    if (!cols.some(c => c.name === 'kind')) {
+      db.exec('ALTER TABLE access_log ADD COLUMN kind TEXT;');
+    }
   }
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

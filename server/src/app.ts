@@ -63,6 +63,9 @@ export function createApp(logger: Logger): Application {
   app.use('/api/weather', rateLimit({ windowMs: FIVE_MINUTES, max: 60, standardHeaders: true, legacyHeaders: false }));
   // Anti-brute-force sur la connexion (endpoint public) : 10 tentatives / 5 min par IP.
   app.use('/api/login', rateLimit({ windowMs: FIVE_MINUTES, max: 10, standardHeaders: true, legacyHeaders: false }));
+  // Balise de visite : une ouverture d'app légitime en émet une, plus une par reprise après 30 min.
+  // Le plafond empêche qu'un client bavard ou une boucle ne gonfle le journal d'accès (issue #16).
+  app.use('/api/visit', rateLimit({ windowMs: FIVE_MINUTES, max: 60, standardHeaders: true, legacyHeaders: false }));
 
   // Limite relevée à 2 Mo pour autoriser l'import d'horaires (une année ≈ 150 ko).
   app.use(express.json({ limit: '2mb' }));

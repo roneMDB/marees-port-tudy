@@ -5,7 +5,7 @@ describe('db migrations', () => {
   it('creates the schema and sets user_version to the current version', () => {
     const db = openDb(':memory:');
     const version = db.pragma('user_version', { simple: true });
-    expect(version).toBe(5);
+    expect(version).toBe(6);
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -24,6 +24,8 @@ describe('db migrations', () => {
     expect(tables).toContain('aflot_observations');
     // v5 : table du lexique du mot du jour (éditable).
     expect(tables).toContain('lexicon');
+    // v6 : colonne `kind` sur access_log (visite / chargement de page / connexion, issue #16).
+    expect(cols).toContain('kind');
     db.close();
   });
 
@@ -40,14 +42,16 @@ describe('db migrations', () => {
     db.close();
   });
 
-  it('migration v3 idempotente même si user_version a été remis à 1 (rollback puis re-upgrade)', () => {
-    const db = openDb(':memory:'); // déjà en v3, colonne login présente
+  it('migrations ALTER idempotentes même si user_version a été remis à 1 (rollback puis re-upgrade)', () => {
+    const db = openDb(':memory:'); // déjà à jour, colonnes login (v3) et kind (v6) présentes
     // Simule un rollback (ancien binaire remet user_version=1) puis un re-upgrade.
     db.pragma('user_version = 1');
     expect(() => migrate(db)).not.toThrow();
-    expect(db.pragma('user_version', { simple: true })).toBe(5);
+    expect(db.pragma('user_version', { simple: true })).toBe(6);
     const cols = db.prepare('PRAGMA table_info(access_log)').all().map((c: any) => c.name);
+    // `ADD COLUMN` n'est pas idempotent en SQLite : chaque colonne doit rester unique.
     expect(cols.filter((c: string) => c === 'login')).toHaveLength(1);
+    expect(cols.filter((c: string) => c === 'kind')).toHaveLength(1);
     db.close();
   });
 
@@ -55,7 +59,7 @@ describe('db migrations', () => {
     const db = openDb(':memory:');
     migrate(db);
     migrate(db);
-    expect(db.pragma('user_version', { simple: true })).toBe(5);
+    expect(db.pragma('user_version', { simple: true })).toBe(6);
     // La table settings impose une ligne unique (id = 1).
     db.prepare("INSERT INTO settings (id, data) VALUES (1, '{}')").run();
     expect(() => db.prepare("INSERT INTO settings (id, data) VALUES (2, '{}')").run()).toThrow();

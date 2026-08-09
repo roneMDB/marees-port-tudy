@@ -52,7 +52,7 @@ export function createAuthRouter(): Router {
         ...(remember ? { maxAge: SESSION_TTL_MS } : {}) // sinon cookie de session
       });
       // Journalise la connexion (attribuée à l'utilisateur) pour les statistiques d'accès.
-      recordAccess(req, undefined, resolved.login);
+      recordAccess(req, undefined, { kind: 'login', login: resolved.login });
       res.json({ ok: true, role: resolved.role, mustChangePassword: resolved.mustChangePassword });
     } catch (err) {
       next(err);
