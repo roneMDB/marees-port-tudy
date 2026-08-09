@@ -3,6 +3,17 @@
 Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
 conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [1.3.0] — 09/08/2026
+
+### Fonctionnalités
+
+- **stats** — Détail dépliable du rythme de chaque utilisateur (#16)
+- **stats** — Panneau d'accès par période, heure et utilisateur (#16)
+- **stats** — Compter les vraies visites, les attribuer et les dater (#16)
+
+### Documentation
+
+- **specs** — Design des statistiques d'accès plus fines (#16)
 ## [1.2.0] — 04/08/2026
 
 ### Fonctionnalités
