@@ -193,14 +193,31 @@ Routes lexique du « mot du jour » (`src/routes/lexicon.ts`, issue #4 suite) :
 - `PUT /api/lexicon/:id` / `DELETE /api/lexicon/:id` → met à jour / supprime (**admin**, 404 si absent).
 - `POST /api/lexicon/reset` → rétablit les termes par défaut depuis `service/lexiconSeed.ts` (**admin**).
 
-Routes accès/stats (`src/routes/stats.ts` + `src/middleware/accessLog.ts`) :
-- `GET /api/stats` → agrégats d'accès (`lib/stats.ts` `aggregateAccess`), **réservé au rôle `admin`**
-  (403 sinon). Le middleware `accessLog` journalise chaque **ouverture de page** (requête de document
-  HTML, hors `/api`/assets) dans la table **`access_log`** de la base — anonymisé : IP **tronquée**
-  (`net.truncateIp`), pays via **`geoip-lite`** (hors-ligne), User-Agent, `login` **null**. En plus,
-  la route `POST /login` enregistre une entrée par **connexion réussie** avec le `login` de
-  l'utilisateur (`recordAccess(req, db, login)`) → `aggregateAccess` expose `users` (connexions **par
-  utilisateur**). `readAccessEntries(db)` lit la table ; `aggregateAccess` reste une fonction pure.
+Routes accès/stats (`src/routes/stats.ts` + `src/middleware/accessLog.ts`, refondues issue #16) :
+- `GET /api/stats?days=7|30|90|all` → agrégats d'accès (`lib/stats.ts` `aggregateAccess`), **réservé
+  au rôle `admin`** (403 sinon ; `days` invalide → 400). `resolveSince` convertit `days` en borne
+  passée à `readAccessEntries(db, sinceIso)` : **il n'y a pas de purge**, c'est la **lecture** qui est
+  bornée (décision assumée).
+- `POST /api/visit` → **balise d'ouverture de l'app** (tout utilisateur authentifié, 204),
+  rate-limitée à 60 / 5 min. **Elle existe parce que le comptage par document HTML est faussé** : la
+  PWA précache la coquille (`navigateFallback`), donc passé le premier chargement d'un appareil, le
+  service worker sert les navigations **sans toucher au serveur** et le compteur cessait de bouger.
+  Ne pas « simplifier » en revenant au comptage des documents.
+- Chaque ligne d'`access_log` porte un **`kind`** : `visit` (balise, **le chiffre de tête**), `page`
+  (chargement de coquille, sonde externe — ce que journalise encore le middleware `accessLog`) ou
+  `login`. Les lignes antérieures à la v6 (`kind` NULL) sont relues comme `page`.
+- **`recordAccess(req, db, { kind, login? })` résout le `login` depuis le cookie de session** quand
+  l'appelant n'en fournit pas : sans cela, une ouverture authentifiée s'enregistrait en anonyme et la
+  question « qui accède ? » restait sans réponse. Garde sur `authEnabled()` — hors auth, `requestUser`
+  renvoie un admin **synthétique** (`dev`) qui n'est l'identité de personne. Reste anonymisé par
+  ailleurs : IP **tronquée** (`net.truncateIp`), pays via **`geoip-lite`** (hors-ligne), User-Agent.
+- `aggregateAccess` reste **pure** et expose `visits`/`pageLoads`/`logins`, `uniqueVisitors`,
+  `perDay`, **`perHour[24]`**, **`perWeekday[7]`** (lundi = 0) et `users` = visites **par utilisateur
+  avec `lastTs`**. Les répartitions ne portent que sur les **visites**.
+- ⚠️ **`ts` est un instant UTC** : jour, heure et jour de semaine passent tous par **`localParts`**
+  (`Intl.DateTimeFormat`, `Europe/Paris`). Le `ts.slice(0, 10)` d'origine plaçait une visite de
+  01 h 30 locale **la veille**, et un histogramme horaire en UTC serait décalé de 1 à 2 h selon la
+  saison. Les tests figent le comportement **en été et en hiver**.
 
 Service `src/service/Maree.ts` (données uniquement, aucun rendu) :
 - `getTidesRange(from?, to?)` — filtre `[from, to]` **inclusif** ; sans bornes → tout le fichier.
@@ -222,15 +239,18 @@ sur `DATA_DIR/marees.db` ; `openDb` crée le dossier parent ; `openDb(':memory:'
 (`getLexicon`/`addEntry`/`updateEntry`/`deleteEntry`/`resetLexicon`/`seedLexiconIfEmpty`),
 `bootstrap.ts` (`initStorage(logger?, db?)`,
 **async** : le seed admin hache un mot de passe ; amorce aussi le lexique via `seedLexiconIfEmpty`).
-Schéma **v5** : tables `tides` (par site),
-`settings` (document JSON, ligne unique `id=1`), `access_log` (dont colonne **`login`** nullable,
-v3), **`users`** (login unique
+Schéma **v6** : tables `tides` (par site),
+`settings` (document JSON, ligne unique `id=1`), `access_log` (dont colonne **`login`** nullable
+(v3) et **`kind`** nullable (v6, issue #16 : `visit`/`page`/`login`, NULL relu comme `page`)),
+**`users`** (login unique
 `COLLATE NOCASE`, `password_hash` argon2id, `role`, `must_change_password`, timestamps),
 **`app_secret`** (secret de session persisté, ligne unique), **`aflot_observations`** (v4, issue #4 :
 heures de remise à flot **constatées** — clé primaire `(date, time)` de la basse mer Port-Tudy,
 colonne `observed`) et **`lexicon`** (v5 : lexique éditable du « mot du jour » — `id`, `term`,
 `definition`, `type` marée/pêche, `sort_order` ; amorcé depuis `service/lexiconSeed.ts`). Migration
-additive par palier `if (version < N)`.
+additive par palier `if (version < N)`. ⚠️ `ALTER TABLE … ADD COLUMN` **n'est pas idempotent** en
+SQLite : les paliers v3 et v6 testent d'abord `PRAGMA table_info` (robustesse à un rollback ayant
+remis `user_version` en arrière puis re-migré).
 
 **Amorçage/migration** : `initStorage()` (appelé au boot par `src/index.ts`, remplace les anciens
 `ensureDataDir`/`ensureSettingsFile`) crée `DATA_DIR`, ouvre la base et l'amorce **si vide** — par
@@ -264,7 +284,9 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
 
 - `src/types.ts` — miroir du contrat REST (`Extreme`, `TideOutput`, `TidesMeta`, `FlatTide`,
   `TideFilters`) ; découplage via le JSON, **pas de package partagé**.
-- `src/api/tides.ts` — `getTides(from,to,site)`, `getMeta`, `getSites` (`fetch`, chemins `/api/...`).
+- `src/api/tides.ts` — `getTides(from,to,site)`, `getMeta`, `getSites` (`fetch`, chemins `/api/...`)
+  et le helper partagé `fetchJson`. Les statistiques ont leur propre module `src/api/stats.ts`
+  (`getStats(days)`, `pingVisit()`).
 - `src/lib/tides.ts` — `flatten()` (aplatit `days` en `FlatTide[]` triés), `filterTides()`
   (plage de dates inclusive, type, coef min) et `matchNavihanReference(site, reference)` (annote
   chaque marée du port sélectionné d'un `refTime` = heure Port-Tudy de même type la plus proche,
@@ -386,11 +408,23 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   affichée **qu'une fois** (tuile Calendrier, pas dans l'en-tête) et sa majuscule est posée en JS —
   `text-capitalize` en mettrait une à chaque mot (« Jeudi 30 Juillet », or les mois s'écrivent en
   minuscules). `EphemerideCard.test.ts`.
-- `components/StatsPanel.vue` — **panneau « Statistiques d'accès »** (offcanvas) : KPIs (visites,
-  LAN/externe), graphe visites/jour, pays/navigateurs/appareils. Charge `getStats()` à l'ouverture.
+- `components/StatsPanel.vue` — **panneau « Statistiques d'accès »** (offcanvas, remanié issue #16) :
+  **sélecteur de période** (7 / 30 / 90 j / tout, **30 par défaut**), KPIs (visites · visiteurs
+  uniques · local · externe), graphe visites/jour, **histogramme par heure**, **par jour de semaine**,
+  **visites par utilisateur avec dernière visite**, puis pays/navigateurs/appareils. Chargements de
+  coquille et connexions sont relégués en ligne secondaire : ce sont des diagnostics, pas le chiffre
+  de tête. Charge `getStats(days)` (`api/stats.ts`) à l'ouverture et à chaque changement de période.
   Le bouton (navbar, `App.vue`) et le panneau ne sont montés que si `useAuth().isAdmin` ; le verrou
-  réel est côté serveur (`/api/stats` → 403 hors rôle admin). `SettingsPanel` affiche un
-  avertissement (`useSettings.saveError`) quand un enregistrement est refusé.
+  réel est côté serveur (`/api/stats` → 403 hors rôle admin). `StatsPanel.test.ts`. `SettingsPanel`
+  affiche un avertissement (`useSettings.saveError`) quand un enregistrement est refusé.
+- `composables/useVisitPing.ts` + `api/stats.ts` — **balise de visite** (issue #16). `start()` émet
+  `POST /api/visit` à l'ouverture, puis à chaque retour au premier plan (`visibilitychange`) espacé de
+  plus de **30 min** — c'est la définition opérationnelle d'une « visite », l'app restant volontiers
+  ouverte des heures. Émission **best-effort et silencieuse** (`pingVisit` avale ses erreurs et
+  n'utilise **pas** `fetchJson`, dont le 401 renverrait à la mire pour une simple balise). Branchée
+  dans `App.vue` sur `canCountVisit` (`showApp && !needsPasswordChange`) — condition **observée** et
+  non appel unique, sinon la visite serait perdue pour qui doit d'abord changer son mot de passe
+  (le garde renvoie alors 403 sur tout `/api`). `useVisitPing.test.ts`.
 - `components/TidesImportPanel.vue` — **panneau « Import des horaires »** (offcanvas, **admin-only**,
   #8 Phase 2) : import en lot pour le port sélectionné (zone JSON + fichier, mode fusionner/remplacer)
   via `api/tidesAdmin.importTides` → `POST /api/tides/import`. Succès → `useDataRefresh().bump()`

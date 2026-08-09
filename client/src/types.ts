@@ -66,17 +66,31 @@ export interface AccessCount {
   count: number;
 }
 
+/** Activité d'un utilisateur : visites et date de la dernière. */
+export interface AccessUser extends AccessCount {
+  lastTs: string;
+}
+
+/** Fenêtre d'analyse demandée à `/api/stats` (nombre de jours, ou tout l'historique). */
+export type StatsPeriod = 7 | 30 | 90 | 'all';
+
 export interface AccessStats {
-  total: number;
+  total: number; // toutes natures confondues
+  visits: number; // ouvertures réelles de l'app (balise) — le chiffre de tête
+  pageLoads: number; // chargements de coquille / sondes externes
+  logins: number; // connexions réussies
+  uniqueVisitors: number;
   lan: number;
   external: number;
   firstTs: string | null;
   lastTs: string | null;
   perDay: { date: string; count: number }[];
+  perHour: number[]; // 24 cases, heure locale
+  perWeekday: number[]; // 7 cases, lundi = 0
   countries: AccessCount[];
   browsers: AccessCount[];
   devices: AccessCount[];
-  users: AccessCount[]; // connexions par utilisateur (login)
+  users: AccessUser[]; // visites par utilisateur
 }
 
 /** Décalages Navihan (en minutes) appliqués aux heures de Port-Tudy. */

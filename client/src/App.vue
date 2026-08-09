@@ -11,6 +11,7 @@ import { useTheme } from './composables/useTheme';
 import { useClock } from './composables/useClock';
 import { useSite } from './composables/useSite';
 import { useAuth } from './composables/useAuth';
+import { useVisitPing } from './composables/useVisitPing';
 
 const { isDark, toggle } = useTheme();
 const { clock } = useClock();
@@ -32,6 +33,13 @@ const showApp = computed(() => !authRequired.value || authenticated.value);
 // l'écran dédié tant qu'il ne l'a pas fait.
 const needsPasswordChange = computed(() => showApp.value && mustChangePassword.value);
 
+// Balise d'ouverture pour les statistiques d'accès (issue #16). Conditionnée à un accès réellement
+// ouvert : pendant un changement de mot de passe forcé, le garde renvoie 403 sur tout /api et la
+// visite serait perdue — d'où une condition **observée**, qui balise dès que le mot de passe change.
+const { start: startVisitPing } = useVisitPing();
+const canCountVisit = computed(() => showApp.value && !needsPasswordChange.value);
+watch(canCountVisit, ok => { if (ok) startVisitPing(); });
+
 let appDataLoaded = false;
 function ensureAppData() {
   if (appDataLoaded) return;
@@ -42,6 +50,7 @@ function ensureAppData() {
 onMounted(async () => {
   await checkStatus();
   if (showApp.value) ensureAppData();
+  if (canCountVisit.value) startVisitPing();
 });
 
 // Après une connexion réussie, charger les données de l'app.
