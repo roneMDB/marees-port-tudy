@@ -144,12 +144,53 @@ describe('aggregateAccess — qui', () => {
     visit({ ts: '2026-07-20T11:00:00.000Z' }) // visite anonyme (auth désactivée)
   ];
 
-  it('compte les visites par utilisateur et retient la dernière', () => {
+  it('compte les visites par utilisateur, avec première et dernière', () => {
     const s = aggregateAccess(withUsers);
-    expect(s.users).toEqual([
-      { name: 'admin', count: 2, lastTs: '2026-07-20T09:00:00.000Z' },
-      { name: 'bob', count: 1, lastTs: '2026-07-20T10:00:00.000Z' }
+    expect(s.users.map(u => ({ name: u.name, count: u.count, firstTs: u.firstTs, lastTs: u.lastTs }))).toEqual([
+      { name: 'admin', count: 2, firstTs: '2026-07-20T08:00:00.000Z', lastTs: '2026-07-20T09:00:00.000Z' },
+      { name: 'bob', count: 1, firstTs: '2026-07-20T10:00:00.000Z', lastTs: '2026-07-20T10:00:00.000Z' }
     ]);
+  });
+
+  it('donne à chaque utilisateur son propre rythme (heures et jours locaux)', () => {
+    const s = aggregateAccess([
+      visit({ ts: '2026-07-20T06:00:00.000Z', login: 'admin' }), // lundi 08 h à Paris
+      visit({ ts: '2026-07-20T06:30:00.000Z', login: 'admin' }), // lundi 08 h aussi
+      visit({ ts: '2026-07-26T17:00:00.000Z', login: 'bob' }) // dimanche 19 h
+    ]);
+    const admin = s.users.find(u => u.name === 'admin')!;
+    const bob = s.users.find(u => u.name === 'bob')!;
+
+    expect(admin.perHour[8]).toBe(2);
+    expect(admin.perWeekday[0]).toBe(2); // lundi
+    expect(bob.perHour[19]).toBe(1);
+    expect(bob.perWeekday[6]).toBe(1); // dimanche
+    // Le rythme de l'un ne déborde pas sur l'autre.
+    expect(admin.perHour[19]).toBe(0);
+    expect(bob.perHour[8]).toBe(0);
+  });
+
+  it('liste les dernières visites de chacun, la plus récente en tête', () => {
+    const s = aggregateAccess([
+      visit({ ts: '2026-07-20T08:00:00.000Z', login: 'admin' }),
+      visit({ ts: '2026-07-21T08:00:00.000Z', login: 'admin' }),
+      visit({ ts: '2026-07-22T08:00:00.000Z', login: 'admin' })
+    ]);
+    expect(s.users[0].recent).toEqual([
+      '2026-07-22T08:00:00.000Z',
+      '2026-07-21T08:00:00.000Z',
+      '2026-07-20T08:00:00.000Z'
+    ]);
+  });
+
+  it('plafonne la liste des dernières visites (charge utile bornée)', () => {
+    const many = Array.from({ length: 25 }, (_, i) =>
+      visit({ ts: `2026-07-${String(i + 1).padStart(2, '0')}T08:00:00.000Z`, login: 'admin' })
+    );
+    const recent = aggregateAccess(many).users[0].recent;
+    expect(recent).toHaveLength(10);
+    expect(recent[0]).toBe('2026-07-25T08:00:00.000Z'); // la plus récente
+    expect(recent[9]).toBe('2026-07-16T08:00:00.000Z'); // 10ᵉ en remontant
   });
 
   it('ne compte pas les connexions comme des visites dans le décompte par utilisateur', () => {
@@ -157,7 +198,9 @@ describe('aggregateAccess — qui', () => {
       visit({ ts: '2026-07-20T08:00:00.000Z', kind: 'login', login: 'admin' }),
       visit({ ts: '2026-07-20T09:00:00.000Z', login: 'admin' })
     ]);
-    expect(s.users).toEqual([{ name: 'admin', count: 1, lastTs: '2026-07-20T09:00:00.000Z' }]);
+    expect(s.users).toHaveLength(1);
+    expect(s.users[0]).toMatchObject({ name: 'admin', count: 1, lastTs: '2026-07-20T09:00:00.000Z' });
+    expect(s.users[0].recent).toEqual(['2026-07-20T09:00:00.000Z']);
   });
 
   it('compte les visiteurs uniques : logins distincts, plus les anonymes par IP + navigateur', () => {

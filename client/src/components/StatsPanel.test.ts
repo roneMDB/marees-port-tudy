@@ -29,7 +29,17 @@ function statsFixture(overrides: Partial<AccessStats> = {}): AccessStats {
     countries: [{ name: 'FR', count: 5 }],
     browsers: [{ name: 'Chrome', count: 9 }],
     devices: [{ name: 'Mobile', count: 9 }],
-    users: [{ name: 'erwan', count: 9, lastTs: '2026-08-09T18:30:00.000Z' }],
+    users: [
+      {
+        name: 'erwan',
+        count: 9,
+        firstTs: '2026-08-01T08:00:00.000Z',
+        lastTs: '2026-08-09T18:30:00.000Z',
+        perHour: Array.from({ length: 24 }, (_, h) => (h === 8 ? 9 : 0)),
+        perWeekday: [9, 0, 0, 0, 0, 0, 0],
+        recent: ['2026-08-09T18:30:00.000Z', '2026-08-08T07:15:00.000Z']
+      }
+    ],
     ...overrides
   };
 }
@@ -74,6 +84,45 @@ describe('StatsPanel', () => {
 
     expect(wrapper.text()).toContain('erwan');
     expect(wrapper.text()).toContain('dernière :');
+    wrapper.unmount();
+  });
+
+  it('garde le détail d’un utilisateur replié tant qu’on ne le demande pas', async () => {
+    const wrapper = mount(StatsPanel, { attachTo: document.body });
+    await open(wrapper);
+
+    expect(wrapper.text()).not.toContain('Ses heures');
+    expect(wrapper.findAll('.mini-bars')).toHaveLength(0);
+    wrapper.unmount();
+  });
+
+  it('déplie le rythme et les dernières visites d’un utilisateur', async () => {
+    const wrapper = mount(StatsPanel, { attachTo: document.body });
+    await open(wrapper);
+
+    const toggle = wrapper.findAll('button').find(b => b.text().includes('erwan'))!;
+    await toggle.trigger('click');
+
+    const text = wrapper.text();
+    expect(text).toContain('Ses heures');
+    expect(text).toContain('Ses jours');
+    expect(text).toContain('Première visite :');
+    // Deux strips (heures + jours) propres à ce compte.
+    expect(wrapper.findAll('.mini-bars')).toHaveLength(2);
+    // Les dates de `recent` sont listées telles quelles.
+    expect(wrapper.findAll('li').some(li => li.text().includes('08 août'))).toBe(true);
+    wrapper.unmount();
+  });
+
+  it('replie au second clic', async () => {
+    const wrapper = mount(StatsPanel, { attachTo: document.body });
+    await open(wrapper);
+
+    const toggle = wrapper.findAll('button').find(b => b.text().includes('erwan'))!;
+    await toggle.trigger('click');
+    await toggle.trigger('click');
+
+    expect(wrapper.findAll('.mini-bars')).toHaveLength(0);
     wrapper.unmount();
   });
 

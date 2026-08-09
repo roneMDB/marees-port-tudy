@@ -23,10 +23,24 @@ export interface Count {
   count: number;
 }
 
-/** Activité d'un utilisateur : nombre de visites et date de la dernière. */
+/**
+ * Activité d'un utilisateur : son volume, ses bornes, **son propre rythme** et ses dernières
+ * visites. Les répartitions globales mêlent tout le monde ; celles-ci disent quand **cette
+ * personne** consulte l'app.
+ */
 export interface UserActivity extends Count {
+  firstTs: string;
   lastTs: string;
+  perHour: number[]; // 24 cases, heure locale
+  perWeekday: number[]; // 7 cases, lundi = 0
+  recent: string[]; // dernières visites, la plus récente en tête
 }
+
+/**
+ * Nombre de visites détaillées conservées par utilisateur. Plafond volontaire : sans lui, une
+ * requête `days=all` embarquerait tout l'historique de chacun dans la réponse.
+ */
+const RECENT_VISITS = 10;
 
 /** Agrégats d'accès exposés par `GET /api/stats`. */
 export interface AccessStats {
@@ -132,9 +146,25 @@ export function aggregateAccess(entries: AccessEntry[]): AccessStats {
     perWeekday[weekday] += 1;
 
     if (e.login) {
-      const current = userMap.get(e.login);
-      // Les entrées sont triées : la dernière vue est la plus récente.
-      userMap.set(e.login, { name: e.login, count: (current?.count ?? 0) + 1, lastTs: e.ts });
+      let user = userMap.get(e.login);
+      if (!user) {
+        user = {
+          name: e.login,
+          count: 0,
+          firstTs: e.ts,
+          lastTs: e.ts,
+          perHour: new Array<number>(24).fill(0),
+          perWeekday: new Array<number>(7).fill(0),
+          recent: []
+        };
+        userMap.set(e.login, user);
+      }
+      user.count += 1;
+      user.lastTs = e.ts; // les entrées sont triées : la dernière vue est la plus récente
+      user.perHour[hour] += 1;
+      user.perWeekday[weekday] += 1;
+      user.recent.unshift(e.ts); // plus récente en tête…
+      if (user.recent.length > RECENT_VISITS) user.recent.pop(); // …et on lâche la plus ancienne
       visitorKeys.add(`user:${e.login}`);
     } else {
       // Un visiteur anonyme n'a pas d'identité : IP tronquée + navigateur en tient lieu, ce qui

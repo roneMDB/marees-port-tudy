@@ -5,6 +5,7 @@ import type { ChartData, ChartOptions } from 'chart.js';
 import { getStats } from '../api/stats';
 import { formatDate } from '../lib/format';
 import { useTheme } from '../composables/useTheme';
+import MiniBars from './MiniBars.vue';
 import type { AccessStats, StatsPeriod } from '../types';
 
 const { isDark } = useTheme();
@@ -16,6 +17,11 @@ const PERIODS: { value: StatsPeriod; label: string }[] = [
   { value: 'all', label: 'Tout' }
 ];
 const WEEKDAYS = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+const WEEKDAYS_LONG = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+const HOUR_LABELS = Array.from({ length: 24 }, (_, h) => `${h} h`);
+// Quelques repères seulement : une étiquette sous chacune des 24 barres serait illisible.
+const HOUR_TICKS = [0, 6, 12, 18].map(index => ({ index, text: `${index} h` }));
+const WEEKDAY_TICKS = WEEKDAYS.map((text, index) => ({ index, text }));
 
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -61,6 +67,15 @@ function formatMoment(ts: string): string {
   const date = formatDate(ts.slice(0, 10));
   const time = new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   return `${date}, ${time}`;
+}
+
+// Détail par utilisateur : repli **éphémère** (état local, non persisté), plusieurs comptes
+// dépliables à la fois pour pouvoir comparer deux rythmes.
+const expanded = ref<Set<string>>(new Set());
+function toggleUser(name: string): void {
+  const next = new Set(expanded.value);
+  if (!next.delete(name)) next.add(name);
+  expanded.value = next;
 }
 
 const axisColors = computed(() => ({
@@ -208,12 +223,56 @@ const perWeekdayOptions = computed(() => barOptions(7));
           <!-- Qui -->
           <h6 class="text-uppercase text-muted small fw-bold mb-2">Visites par utilisateur</h6>
           <ul class="list-unstyled small mb-4">
-            <li v-for="u in stats.users" :key="u.name" class="d-flex justify-content-between border-bottom py-1">
-              <span><i class="bi bi-person me-1"></i>{{ u.name }}</span>
-              <span class="text-muted text-end">
-                {{ u.count }}
-                <span class="d-block" style="font-size: 0.75rem">dernière : {{ formatMoment(u.lastTs) }}</span>
-              </span>
+            <li v-for="u in stats.users" :key="u.name" class="border-bottom py-1">
+              <button
+                type="button"
+                class="btn btn-link btn-sm text-decoration-none w-100 p-0 d-flex justify-content-between align-items-start text-start"
+                :aria-expanded="expanded.has(u.name)"
+                @click="toggleUser(u.name)"
+              >
+                <span class="text-body">
+                  <i class="bi me-1" :class="expanded.has(u.name) ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
+                  <i class="bi bi-person me-1"></i>{{ u.name }}
+                </span>
+                <span class="text-muted text-end">
+                  {{ u.count }} visite<span v-if="u.count > 1">s</span>
+                  <span class="d-block" style="font-size: 0.75rem">dernière : {{ formatMoment(u.lastTs) }}</span>
+                </span>
+              </button>
+
+              <!-- Rythme propre à ce compte : les répartitions du haut mêlent tous les visiteurs. -->
+              <div v-if="expanded.has(u.name)" class="ps-3 pt-2 pb-1">
+                <p class="text-muted mb-2" style="font-size: 0.75rem">
+                  Première visite : {{ formatMoment(u.firstTs) }}
+                </p>
+
+                <div class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.7rem">Ses heures</div>
+                <MiniBars
+                  class="mb-3"
+                  :values="u.perHour"
+                  :labels="HOUR_LABELS"
+                  :ticks="HOUR_TICKS"
+                  :caption="`Visites de ${u.name} par heure de la journée`"
+                />
+
+                <div class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.7rem">Ses jours</div>
+                <MiniBars
+                  class="mb-3"
+                  :values="u.perWeekday"
+                  :labels="WEEKDAYS_LONG"
+                  :ticks="WEEKDAY_TICKS"
+                  :caption="`Visites de ${u.name} par jour de la semaine`"
+                />
+
+                <div class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.7rem">
+                  Ses dernières visites
+                </div>
+                <ul class="list-unstyled mb-0" style="font-size: 0.75rem">
+                  <li v-for="ts in u.recent" :key="ts" class="text-muted">
+                    <i class="bi bi-dot"></i>{{ formatMoment(ts) }}
+                  </li>
+                </ul>
+              </div>
             </li>
             <li v-if="!stats.users.length" class="text-muted fst-italic">
               Aucune visite attribuée (authentification désactivée ou visiteurs anonymes).

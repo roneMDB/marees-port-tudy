@@ -212,8 +212,13 @@ Routes accès/stats (`src/routes/stats.ts` + `src/middleware/accessLog.ts`, refo
   renvoie un admin **synthétique** (`dev`) qui n'est l'identité de personne. Reste anonymisé par
   ailleurs : IP **tronquée** (`net.truncateIp`), pays via **`geoip-lite`** (hors-ligne), User-Agent.
 - `aggregateAccess` reste **pure** et expose `visits`/`pageLoads`/`logins`, `uniqueVisitors`,
-  `perDay`, **`perHour[24]`**, **`perWeekday[7]`** (lundi = 0) et `users` = visites **par utilisateur
-  avec `lastTs`**. Les répartitions ne portent que sur les **visites**.
+  `perDay`, **`perHour[24]`**, **`perWeekday[7]`** (lundi = 0) et `users`. Les répartitions ne
+  portent que sur les **visites**.
+- Chaque entrée de `users` porte **le rythme propre du compte** : `count`, `firstTs`, `lastTs`, ses
+  **`perHour`/`perWeekday`** et `recent` (ses dernières visites, la plus récente en tête). Les
+  répartitions globales mêlent tous les visiteurs et ne disent donc pas quand **une personne
+  donnée** consulte l'app. `recent` est **plafonné à 10** (`RECENT_VISITS`) : sans ce plafond, un
+  `days=all` embarquerait tout l'historique de chacun dans la réponse.
 - ⚠️ **`ts` est un instant UTC** : jour, heure et jour de semaine passent tous par **`localParts`**
   (`Intl.DateTimeFormat`, `Europe/Paris`). Le `ts.slice(0, 10)` d'origine plaçait une visite de
   01 h 30 locale **la veille**, et un histogramme horaire en UTC serait décalé de 1 à 2 h selon la
@@ -411,12 +416,22 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
 - `components/StatsPanel.vue` — **panneau « Statistiques d'accès »** (offcanvas, remanié issue #16) :
   **sélecteur de période** (7 / 30 / 90 j / tout, **30 par défaut**), KPIs (visites · visiteurs
   uniques · local · externe), graphe visites/jour, **histogramme par heure**, **par jour de semaine**,
-  **visites par utilisateur avec dernière visite**, puis pays/navigateurs/appareils. Chargements de
+  **visites par utilisateur** (chaque ligne se **déplie** sur *ses* heures, *ses* jours et *ses*
+  dernières visites — repli **éphémère**, plusieurs comptes ouvrables à la fois pour comparer deux
+  rythmes ; bouton `btn btn-link` + chevron, aucun JS Bootstrap), puis pays/navigateurs/appareils. Chargements de
   coquille et connexions sont relégués en ligne secondaire : ce sont des diagnostics, pas le chiffre
   de tête. Charge `getStats(days)` (`api/stats.ts`) à l'ouverture et à chaque changement de période.
   Le bouton (navbar, `App.vue`) et le panneau ne sont montés que si `useAuth().isAdmin` ; le verrou
   réel est côté serveur (`/api/stats` → 403 hors rôle admin). `StatsPanel.test.ts`. `SettingsPanel`
   affiche un avertissement (`useSettings.saveError`) quand un enregistrement est refusé.
+- `components/MiniBars.vue` — **mini-répartition** (barres CSS, `values`/`labels`/`ticks`/`caption`),
+  utilisée pour les heures et les jours d'un compte déplié. **Pas un Chart.js à dessein** : ces strips
+  sont rendus une fois par utilisateur ouvert, et un graphe complet pour 7 ou 24 valeurs coûterait
+  plus qu'il n'apporte. Série unique → **une seule teinte et pas de légende** (`#0d6efd`, contraste
+  validé sur les deux surfaces ; les `#0dcaf0`/`#20c997` des grands graphes tombent sous 3:1 et sont
+  trop faibles pour des micro-barres). Piste `var(--bs-tertiary-bg)` : une case vide reste une case.
+  Plancher de hauteur à 6 % pour qu'un 1 face à un 100 reste visible. Détail chiffré en infobulle
+  native (`title`), donc sans JS. `MiniBars.test.ts`.
 - `composables/useVisitPing.ts` + `api/stats.ts` — **balise de visite** (issue #16). `start()` émet
   `POST /api/visit` à l'ouverture, puis à chaque retour au premier plan (`visibilitychange`) espacé de
   plus de **30 min** — c'est la définition opérationnelle d'une « visite », l'app restant volontiers

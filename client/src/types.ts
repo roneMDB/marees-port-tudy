@@ -66,9 +66,17 @@ export interface AccessCount {
   count: number;
 }
 
-/** Activité d'un utilisateur : visites et date de la dernière. */
+/**
+ * Activité d'un utilisateur : son volume, ses bornes, **son propre rythme** et ses dernières
+ * visites. Les répartitions globales mêlent tous les visiteurs ; celles-ci disent quand **cette
+ * personne** consulte l'app.
+ */
 export interface AccessUser extends AccessCount {
+  firstTs: string;
   lastTs: string;
+  perHour: number[]; // 24 cases, heure locale
+  perWeekday: number[]; // 7 cases, lundi = 0
+  recent: string[]; // dernières visites, la plus récente en tête
 }
 
 /** Fenêtre d'analyse demandée à `/api/stats` (nombre de jours, ou tout l'historique). */
