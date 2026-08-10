@@ -5,7 +5,7 @@ describe('db migrations', () => {
   it('creates the schema and sets user_version to the current version', () => {
     const db = openDb(':memory:');
     const version = db.pragma('user_version', { simple: true });
-    expect(version).toBe(6);
+    expect(version).toBe(7);
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -26,6 +26,10 @@ describe('db migrations', () => {
     expect(tables).toContain('lexicon');
     // v6 : colonne `kind` sur access_log (visite / chargement de page / connexion, issue #16).
     expect(cols).toContain('kind');
+    // v7 : carnet de pêche (issue #3).
+    expect(tables).toContain('fishing_trips');
+    expect(tables).toContain('fishing_catches');
+    expect(tables).toContain('fishing_refs');
     db.close();
   });
 
@@ -47,7 +51,7 @@ describe('db migrations', () => {
     // Simule un rollback (ancien binaire remet user_version=1) puis un re-upgrade.
     db.pragma('user_version = 1');
     expect(() => migrate(db)).not.toThrow();
-    expect(db.pragma('user_version', { simple: true })).toBe(6);
+    expect(db.pragma('user_version', { simple: true })).toBe(7);
     const cols = db.prepare('PRAGMA table_info(access_log)').all().map((c: any) => c.name);
     // `ADD COLUMN` n'est pas idempotent en SQLite : chaque colonne doit rester unique.
     expect(cols.filter((c: string) => c === 'login')).toHaveLength(1);
@@ -59,10 +63,51 @@ describe('db migrations', () => {
     const db = openDb(':memory:');
     migrate(db);
     migrate(db);
-    expect(db.pragma('user_version', { simple: true })).toBe(6);
+    expect(db.pragma('user_version', { simple: true })).toBe(7);
     // La table settings impose une ligne unique (id = 1).
     db.prepare("INSERT INTO settings (id, data) VALUES (1, '{}')").run();
     expect(() => db.prepare("INSERT INTO settings (id, data) VALUES (2, '{}')").run()).toThrow();
+    db.close();
+  });
+
+  it('crée les tables du carnet de pêche en v7', () => {
+    const db = openDb(':memory:');
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+      .all()
+      .map((r: any) => r.name);
+    expect(tables).toContain('fishing_trips');
+    expect(tables).toContain('fishing_catches');
+    expect(tables).toContain('fishing_refs');
+    expect(db.pragma('user_version', { simple: true })).toBe(7);
+    db.close();
+  });
+
+  it('active les clés étrangères (sans quoi ON DELETE CASCADE serait inopérant)', () => {
+    const db = openDb(':memory:');
+    expect(db.pragma('foreign_keys', { simple: true })).toBe(1);
+    db.close();
+  });
+
+  it('supprime les prises en cascade avec leur sortie', () => {
+    const db = openDb(':memory:');
+    db.prepare(
+      "INSERT INTO fishing_trips (id, date, created_at, updated_at) VALUES (1, '2026-08-10', 'x', 'x')"
+    ).run();
+    db.prepare(
+      "INSERT INTO fishing_catches (trip_id, species_id, gear_id, quantity) VALUES (1, 'bar', 'ligne', 2)"
+    ).run();
+    db.prepare('DELETE FROM fishing_trips WHERE id = 1').run();
+    const rest = db.prepare('SELECT count(*) AS c FROM fishing_catches').get() as { c: number };
+    expect(rest.c).toBe(0);
+    db.close();
+  });
+
+  it('rejoue la migration v7 sans erreur (idempotence)', () => {
+    const db = openDb(':memory:');
+    db.pragma('user_version = 6');
+    expect(() => migrate(db)).not.toThrow();
+    expect(db.pragma('user_version', { simple: true })).toBe(7);
     db.close();
   });
 });

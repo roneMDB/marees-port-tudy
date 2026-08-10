@@ -6,7 +6,7 @@ import { DATA_DIR } from '../config/dataDir';
 export type DB = Database.Database;
 
 /** Version courante du schéma (incrémentée à chaque migration). */
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 /** Chemin du fichier SQLite runtime (dans le volume `DATA_DIR`). */
 export function dbPath(): string {
@@ -21,6 +21,7 @@ export function dbPath(): string {
  * v4 : table `aflot_observations` (heures de remise à flot réellement constatées, issue #4).
  * v5 : table `lexicon` (mot du jour éditable en base, issue #4 suite).
  * v6 : colonne `kind` sur `access_log` (visite / chargement de page / connexion, issue #16).
+ * v7 : carnet de pêche (`fishing_trips`, `fishing_catches`, `fishing_refs`, issue #3).
  */
 export function migrate(db: DB): void {
   const version = db.pragma('user_version', { simple: true }) as number;
@@ -114,6 +115,44 @@ export function migrate(db: DB): void {
       db.exec('ALTER TABLE access_log ADD COLUMN kind TEXT;');
     }
   }
+  if (version < 7) {
+    // Carnet de pêche (issue #3). Une sortie porte N prises ; la météo est un instantané JSON
+    // figé à la création (observation non reproductible), le contexte marée n'est **pas** stocké
+    // — il est recalculé à l'affichage, pour qu'une graine corrigée profite aux sorties passées.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS fishing_trips (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        date       TEXT NOT NULL,
+        start_time TEXT,
+        end_time   TEXT,
+        notes      TEXT,
+        weather    TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_fishing_trips_date ON fishing_trips(date);
+
+      CREATE TABLE IF NOT EXISTS fishing_catches (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        trip_id    INTEGER NOT NULL REFERENCES fishing_trips(id) ON DELETE CASCADE,
+        species_id TEXT NOT NULL,
+        gear_id    TEXT NOT NULL,
+        quantity   INTEGER NOT NULL,
+        size_cm    REAL,
+        weight_g   INTEGER,
+        kept       INTEGER NOT NULL DEFAULT 1,
+        sort_order INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS idx_fishing_catches_trip ON fishing_catches(trip_id);
+
+      CREATE TABLE IF NOT EXISTS fishing_refs (
+        id         TEXT PRIMARY KEY,
+        kind       TEXT NOT NULL,
+        label      TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0
+      );
+    `);
+  }
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
 
@@ -125,6 +164,9 @@ export function openDb(file: string): DB {
   }
   const db = new Database(file);
   db.pragma('journal_mode = WAL');
+  // better-sqlite3 laisse `foreign_keys` à OFF : sans cette ligne, le ON DELETE CASCADE de
+  // `fishing_catches` ne s'appliquerait jamais et laisserait des prises orphelines (issue #3).
+  db.pragma('foreign_keys = ON');
   migrate(db);
   return db;
 }
