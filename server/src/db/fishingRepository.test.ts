@@ -32,7 +32,7 @@ describe('fishingRepository', () => {
     db.close();
   });
 
-  it('cree une sortie avec ses prises, dans l ordre de saisie', () => {
+  it('crée une sortie avec ses prises, dans l’ordre de saisie', () => {
     const db = openDb(':memory:');
     const trip = createTrip(db, input(), null, NOW);
     expect(trip.id).toBeGreaterThan(0);
@@ -59,7 +59,7 @@ describe('fishingRepository', () => {
     db.close();
   });
 
-  it('conserve l instantane meteo tel quel', () => {
+  it('conserve l’instantané météo tel quel', () => {
     const db = openDb(':memory:');
     const weather = { tempMin: 14, tempMax: 22, windMax: 18, windDir: 250, weatherCode: 3, seaTemperature: 19.5 };
     const trip = createTrip(db, input(), weather, NOW);
@@ -67,7 +67,7 @@ describe('fishingRepository', () => {
     db.close();
   });
 
-  it('liste les sorties de la plus recente a la plus ancienne', () => {
+  it('liste les sorties de la plus récente à la plus ancienne', () => {
     const db = openDb(':memory:');
     createTrip(db, input({ date: '2026-08-01' }), null, NOW);
     createTrip(db, input({ date: '2026-08-09' }), null, NOW);
@@ -86,14 +86,14 @@ describe('fishingRepository', () => {
     db.close();
   });
 
-  it('remplace toutes les prises a la mise a jour', () => {
+  it('remplace toutes les prises à la mise à jour', () => {
     const db = openDb(':memory:');
     const trip = createTrip(db, input(), null, NOW);
     const updated = updateTrip(
       db,
       trip.id,
       input({
-        notes: 'Vent d ouest',
+        notes: 'Vent d’ouest',
         catches: [
           { speciesId: 'seiche', gearId: 'ligne', quantity: 2, sizeCm: null, weightG: 900, kept: false }
         ]
@@ -102,7 +102,7 @@ describe('fishingRepository', () => {
     );
     expect(updated!.catches).toHaveLength(1);
     expect(updated!.catches[0]).toMatchObject({ speciesId: 'seiche', kept: false, weightG: 900 });
-    expect(updated!.notes).toBe('Vent d ouest');
+    expect(updated!.notes).toBe('Vent d’ouest');
     expect(updated!.updatedAt).toBe('2026-08-11T09:00:00.000Z');
     expect(updated!.createdAt).toBe(NOW);
     const orphans = db.prepare('SELECT count(*) AS c FROM fishing_catches').get() as { c: number };
@@ -110,11 +110,11 @@ describe('fishingRepository', () => {
     db.close();
   });
 
-  it('ne touche pas a la meteo lors d une mise a jour', () => {
+  it('ne touche pas à la météo lors d’une mise à jour', () => {
     const db = openDb(':memory:');
     const weather = { tempMin: 14, tempMax: 22, windMax: 18, windDir: 250, weatherCode: 3, seaTemperature: 19.5 };
     const trip = createTrip(db, input(), weather, NOW);
-    const updated = updateTrip(db, trip.id, input({ notes: 'corrige' }), NOW);
+    const updated = updateTrip(db, trip.id, input({ notes: 'corrigé' }), NOW);
     expect(updated!.weather).toEqual(weather);
     db.close();
   });
