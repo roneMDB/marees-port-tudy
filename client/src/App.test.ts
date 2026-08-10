@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { ref } from 'vue';
+import router from './router';
 
 // Rôle pilotable pour vérifier le gating des fonctions admin.
 const isAdmin = ref(false);
@@ -26,9 +27,14 @@ vi.mock('./composables/useSite', () => ({
 
 import App from './App.vue';
 
+// App.vue s'appuie sur $route (lien de navigation, RouterView) : le routeur réel doit être
+// installé, sinon `$route` est undefined dans le test.
 function mountApp() {
   return mount(App, {
-    global: { stubs: { Dashboard: true, StatsPanel: true, TidesImportPanel: true, UsersPanel: true, LoginScreen: true, ForcePasswordChange: true } }
+    global: {
+      plugins: [router],
+      stubs: { Dashboard: true, StatsPanel: true, TidesImportPanel: true, UsersPanel: true, LoginScreen: true, ForcePasswordChange: true }
+    }
   });
 }
 

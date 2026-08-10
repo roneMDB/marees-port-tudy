@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue';
-import Dashboard from './views/Dashboard.vue';
 import StatsPanel from './components/StatsPanel.vue';
 import TidesImportPanel from './components/TidesImportPanel.vue';
 import UsersPanel from './components/UsersPanel.vue';
@@ -96,6 +95,25 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
               <option v-for="s in sites" :key="s.id" :value="s.id">{{ s.label }}</option>
             </select>
           </div>
+          <!-- Navigation entre les deux pages (lecture ouverte : visible de tous). -->
+          <RouterLink
+            v-if="$route.name === 'fishing'"
+            class="btn btn-outline-light btn-sm d-inline-flex align-items-center"
+            :to="{ name: 'dashboard' }"
+            title="Marées"
+            aria-label="Marées"
+          >
+            <i class="bi bi-water"></i>
+          </RouterLink>
+          <RouterLink
+            v-else
+            class="btn btn-outline-light btn-sm d-inline-flex align-items-center"
+            :to="{ name: 'fishing' }"
+            title="Carnet de pêche"
+            aria-label="Carnet de pêche"
+          >
+            <i class="bi bi-bucket"></i>
+          </RouterLink>
           <!-- ≥ sm : actions admin en ligne dans la navbar. -->
           <button
             v-if="isAdmin"
@@ -228,7 +246,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
     </nav>
 
     <main class="bg-body-tertiary min-vh-100 overflow-x-hidden">
-      <Dashboard />
+      <RouterView />
     </main>
 
     <footer class="bg-body-tertiary border-top py-3 text-center">
