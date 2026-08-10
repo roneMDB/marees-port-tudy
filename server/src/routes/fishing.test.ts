@@ -13,6 +13,15 @@ vi.mock('../service/fishingWeather', () => ({
   captureTripWeather: vi.fn(async () => null)
 }));
 
+// Rôle pilotable test par test. `vi.hoisted` est nécessaire : les factories `vi.mock` sont hissées
+// au-dessus des déclarations du fichier. On ne remplace que `requestRole` — `basicAuth` et le reste
+// du module doivent rester réels, `app.ts` les monte.
+const roleState = vi.hoisted(() => ({ role: 'admin' as 'admin' | 'viewer' }));
+vi.mock('../middleware/auth', async () => {
+  const actual = await vi.importActual<typeof import('../middleware/auth')>('../middleware/auth');
+  return { ...actual, requestRole: () => roleState.role };
+});
+
 const fakeLogger = { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() } as any;
 
 let app: Application;
@@ -125,5 +134,46 @@ describe('API /api/fishing/trips', () => {
     const res = await request(app).delete('/api/fishing/refs/bar');
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/utilisé/i);
+  });
+});
+
+describe('API /api/fishing — écritures réservées au rôle admin', () => {
+  const REFUS = { error: 'Modification réservée au rôle administrateur.' };
+
+  beforeAll(() => {
+    roleState.role = 'viewer';
+  });
+
+  afterAll(() => {
+    roleState.role = 'admin';
+  });
+
+  it('refuse les quatre écritures sur les référentiels', async () => {
+    const post = await request(app).post('/api/fishing/refs').send({ kind: 'species', label: 'Congre royal' });
+    expect(post.status).toBe(403);
+    expect(post.body).toEqual(REFUS);
+
+    expect((await request(app).put('/api/fishing/refs/bar').send({ label: 'Bar rayé' })).status).toBe(403);
+    expect((await request(app).delete('/api/fishing/refs/bar')).status).toBe(403);
+    expect((await request(app).post('/api/fishing/refs/reset')).status).toBe(403);
+  });
+
+  it('refuse les trois écritures sur les sorties', async () => {
+    const post = await request(app).post('/api/fishing/trips').send(validTrip);
+    expect(post.status).toBe(403);
+    expect(post.body).toEqual(REFUS);
+
+    expect((await request(app).put('/api/fishing/trips/1').send(validTrip)).status).toBe(403);
+    expect((await request(app).delete('/api/fishing/trips/1')).status).toBe(403);
+  });
+
+  it('laisse la lecture ouverte à un compte non administrateur', async () => {
+    expect((await request(app).get('/api/fishing/trips')).status).toBe(200);
+    expect((await request(app).get('/api/fishing/refs')).status).toBe(200);
+  });
+
+  it('ne laisse rien passer : le référentiel « bar » est toujours là', async () => {
+    const refs = await request(app).get('/api/fishing/refs');
+    expect(refs.body.some((r: any) => r.id === 'bar')).toBe(true);
   });
 });
