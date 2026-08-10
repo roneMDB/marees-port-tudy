@@ -205,3 +205,57 @@ export const DEFAULT_WEATHER_LINKS: WeatherLink[] = [
   { label: 'Météo-France', url: 'https://meteofrance.com/previsions-meteo-france/belz/56550' },
   { label: 'Open-Meteo', url: 'https://open-meteo.com' }
 ];
+
+/** Référentiel du carnet de pêche : espèce ou engin (miroir du contrat `/api/fishing/refs`). */
+export type FishingRefKind = 'species' | 'gear';
+
+export interface FishingRef {
+  id: string;
+  kind: FishingRefKind;
+  label: string;
+}
+
+/** Une ligne de prise. `sizeCm`/`weightG` sont optionnels : sans objet pour 40 crevettes. */
+export interface FishingCatch {
+  speciesId: string;
+  gearId: string;
+  quantity: number;
+  sizeCm: number | null;
+  weightG: number | null;
+  kept: boolean;
+}
+
+/**
+ * Instantané météo d'une sortie, **figé à la création côté serveur**. À l'inverse, le contexte
+ * marée n'est jamais stocké : il est recalculé à l'affichage (`lib/fishing.tripTideContext`).
+ */
+export interface TripWeather {
+  tempMin: number | null;
+  tempMax: number | null;
+  windMax: number | null;
+  windDir: number | null;
+  weatherCode: number | null;
+  seaTemperature: number | null;
+}
+
+/** Une sortie de pêche (miroir du contrat `/api/fishing/trips`). */
+export interface FishingTrip {
+  id: number;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  notes: string | null;
+  weather: TripWeather | null;
+  catches: FishingCatch[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Champs saisis d'une sortie (l'id, les horodatages et la météo viennent du serveur). */
+export interface FishingTripInput {
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  notes: string | null;
+  catches: FishingCatch[];
+}

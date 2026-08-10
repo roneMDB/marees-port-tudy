@@ -1,0 +1,67 @@
+import { computed, ref } from 'vue';
+import {
+  addRef as apiAdd,
+  deleteRef as apiDelete,
+  getRefs,
+  resetRefs as apiReset,
+  updateRef as apiUpdate
+} from '../api/fishing';
+import type { FishingRef, FishingRefKind } from '../types';
+
+/**
+ * Référentiels espèces/engins du carnet de pêche (issue #3), partagés (singleton) entre la vue
+ * (libellés des prises, listes déroulantes du formulaire) et le panneau d'administration.
+ */
+const refs = ref<FishingRef[]>([]);
+let loadPromise: Promise<void> | null = null;
+
+/** Remet le singleton à zéro (tests uniquement). */
+export function resetFishingRefsForTests(): void {
+  refs.value = [];
+  loadPromise = null;
+}
+
+export function useFishingRefs() {
+  async function load(force = false): Promise<void> {
+    if (loadPromise && !force) return loadPromise;
+    loadPromise = (async () => {
+      try {
+        refs.value = await getRefs();
+      } catch {
+        /* serveur indisponible : la vue affichera les ids bruts plutôt que rien */
+      }
+    })();
+    return loadPromise;
+  }
+
+  const species = computed(() => refs.value.filter(r => r.kind === 'species'));
+  const gears = computed(() => refs.value.filter(r => r.kind === 'gear'));
+
+  /**
+   * Libellé d'un référentiel. Repli sur l'**id brut** si l'entrée a disparu : une prise de 2026
+   * doit rester lisible même après un nettoyage du référentiel.
+   */
+  function labelOf(id: string): string {
+    return refs.value.find(r => r.id === id)?.label ?? id;
+  }
+
+  async function add(kind: FishingRefKind, label: string): Promise<void> {
+    refs.value = [...refs.value, await apiAdd(kind, label)];
+  }
+
+  async function update(id: string, label: string): Promise<void> {
+    const updated = await apiUpdate(id, label);
+    refs.value = refs.value.map(r => (r.id === id ? updated : r));
+  }
+
+  async function remove(id: string): Promise<void> {
+    await apiDelete(id);
+    refs.value = refs.value.filter(r => r.id !== id);
+  }
+
+  async function reset(): Promise<void> {
+    refs.value = await apiReset();
+  }
+
+  return { refs, species, gears, labelOf, load, add, update, remove, reset };
+}
