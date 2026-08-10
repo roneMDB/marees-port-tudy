@@ -66,13 +66,43 @@ describe('fishingRefsRepository', () => {
     db.close();
   });
 
-  it("rétablit la graine en écrasant les ajouts", () => {
+  it("rétablit la graine en écrasant les ajouts non utilisés", () => {
     const db = openDb(':memory:');
     seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
     addRef(db, 'species', 'Homard');
     resetFishingRefs(db, FISHING_REFS_SEED);
     expect(getRefs(db)).toHaveLength(FISHING_REFS_SEED.length);
     expect(getRefs(db).some(r => r.id === 'homard')).toBe(false);
+    db.close();
+  });
+
+  it('conserve au reset une entrée personnalisée encore utilisée par une prise', () => {
+    const db = openDb(':memory:');
+    seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+    addRef(db, 'species', 'Homard');
+    db.prepare(
+      "INSERT INTO fishing_trips (id, date, created_at, updated_at) VALUES (1, '2026-08-10', 'x', 'x')"
+    ).run();
+    db.prepare(
+      "INSERT INTO fishing_catches (trip_id, species_id, gear_id, quantity) VALUES (1, 'homard', 'ligne', 1)"
+    ).run();
+
+    resetFishingRefs(db, FISHING_REFS_SEED);
+
+    const refs = getRefs(db);
+    expect(refs.some(r => r.id === 'homard')).toBe(true);
+    // Rangée après la graine, pas au milieu.
+    expect(refs.at(-1)!.id).toBe('homard');
+    expect(refs).toHaveLength(FISHING_REFS_SEED.length + 1);
+    db.close();
+  });
+
+  it('rétablit le libellé d\'une entrée de graine renommée', () => {
+    const db = openDb(':memory:');
+    seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+    updateRef(db, 'bar', 'Bar moucheté');
+    resetFishingRefs(db, FISHING_REFS_SEED);
+    expect(getRefs(db).find(r => r.id === 'bar')!.label).toBe('Bar');
     db.close();
   });
 
