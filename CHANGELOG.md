@@ -3,6 +3,20 @@
 Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
 conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [1.4.0] — 10/08/2026
+
+### Fonctionnalités
+
+- **filtres** — La plage horaire masque les remises à flot, sans supprimer de jour (#10)
+- **filtres** — Barre de filtres du tableau, au grain du jour et ouverte à tous (#10)
+
+### Documentation
+
+- **specs** — Filtres d'affichage sortis des réglages, au grain du jour (#10)
+
+### Maintenance
+
+- **ci** — Câbler le type-check serveur en CI (#14)
 ## [1.3.0] — 09/08/2026
 
 ### Fonctionnalités
