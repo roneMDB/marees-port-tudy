@@ -2848,10 +2848,14 @@ const slot = computed(() => {
 
 const summary = computed(() => summarizeCatches(props.trip.catches, props.refs));
 
-/** Libellé d'un engin (repli sur l'id : une prise ancienne doit rester lisible). */
-function gearLabel(id: string): string {
-  return props.refs.find(r => r.id === id)?.label ?? id;
-}
+/**
+ * Engins employés, **dédoublonnés** : une ligne par prise répéterait « Casier à crabes » autant de
+ * fois qu'il y a d'espèces, sans rien apprendre. Repli sur l'id si le référentiel a disparu.
+ */
+const gearsUsed = computed(() => {
+  const labelOf = (id: string) => props.refs.find(r => r.id === id)?.label ?? id;
+  return [...new Set(props.trip.catches.map(c => labelOf(c.gearId)))];
+});
 
 /** Températures avec la virgule décimale française. */
 function num(value: number): string {
@@ -2912,11 +2916,9 @@ function num(value: number): string {
 
       <p class="mb-2 fw-semibold trip-summary">{{ summary }}</p>
 
-      <ul v-if="trip.catches.length" class="list-unstyled small text-muted mb-2 trip-catches">
-        <li v-for="(c, i) in trip.catches" :key="i">
-          <i class="bi bi-dot"></i>{{ gearLabel(c.gearId) }}
-        </li>
-      </ul>
+      <p v-if="gearsUsed.length" class="small text-muted mb-2 trip-gears">
+        <i class="bi bi-tools me-1"></i>{{ gearsUsed.join(' \u00b7 ') }}
+      </p>
 
       <p v-if="trip.notes" class="mb-2 small trip-notes">
         <i class="bi bi-journal-text me-1"></i>{{ trip.notes }}

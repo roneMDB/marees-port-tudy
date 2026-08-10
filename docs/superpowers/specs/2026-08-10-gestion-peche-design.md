@@ -87,7 +87,7 @@ prises ligne à ligne n'apporterait rien : une sortie s'édite comme un formulai
 
 - **engins** : casier à crabes, casier à crevettes, ligne ;
 - **espèces** : tourteau, étrille, araignée, crevette bouquet, crevette grise, bar, dorade grise,
-  dorade royale, vieille, lieu jaune, maquereau.
+  dorade royale, vieille, lieu jaune, maquereau, congre, seiche, mulet.
 
 ## API (`server/src/routes/fishing.ts`, montée sous `/api`)
 
