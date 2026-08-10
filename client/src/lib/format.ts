@@ -32,6 +32,14 @@ export function coefBand(coef: number | null | undefined): CoefBand {
   return { label: 'Morte-eau', badgeClass: 'bg-secondary-subtle text-secondary-emphasis', icon: null };
 }
 
+/**
+ * Jour de la semaine d'une date `YYYY-MM-DD`, **lundi = 0** (convention des statistiques serveur).
+ * Midi local comme `formatDate`/`addDays` : à minuit, un changement d'heure décalerait la date.
+ */
+export function weekdayIndex(dateKey: string): number {
+  return (new Date(`${dateKey}T12:00:00`).getDay() + 6) % 7;
+}
+
 /** Renvoie la date du jour en heure locale au format `YYYY-MM-DD`. */
 export function todayKey(): string {
   const d = new Date();

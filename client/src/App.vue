@@ -152,8 +152,8 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
             data-bs-toggle="offcanvas"
             data-bs-target="#settingsOffcanvas"
             aria-controls="settingsOffcanvas"
-            title="Réglages & filtres"
-            aria-label="Réglages & filtres"
+            title="Réglages"
+            aria-label="Réglages"
           >
             <i class="bi bi-sliders"></i>
           </button>
@@ -218,7 +218,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
               </li>
               <li>
                 <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#settingsOffcanvas">
-                  <i class="bi bi-sliders me-2"></i>Réglages &amp; filtres
+                  <i class="bi bi-sliders me-2"></i>Réglages
                 </button>
               </li>
             </ul>

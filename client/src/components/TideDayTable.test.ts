@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import TideDayTable from './TideDayTable.vue';
 import { useNavihanDisplay } from '../composables/useNavihanDisplay';
+import { useTideFilters } from '../composables/useTideFilters';
 import type { FlatTide } from '../types';
 
 // Contrôle de l'admin (saisie) et espions sur l'enregistrement des observations.
@@ -59,6 +60,8 @@ describe('TideDayTable', () => {
     visible.flotEst = true;
     visible.flotObs = true;
     visible.pm = true;
+    // Les filtres d'affichage sont eux aussi un singleton persisté : on repart de « rien de posé ».
+    useTideFilters().reset();
     authState.admin = false;
     obs.save.mockClear();
     obs.remove.mockClear();
@@ -270,6 +273,7 @@ describe('TideDayTable — heures Navihan reportées au jour où elles ont lieu'
     const { visible } = useNavihanDisplay();
     visible.bm = true; visible.flot = true; visible.flotEst = false;
     visible.flotObs = true; visible.pm = true;
+    useTideFilters().reset();
   });
 
   it('rend la remise à flot d’après minuit sur la ligne du lendemain', () => {
@@ -306,5 +310,93 @@ describe('TideDayTable — heures Navihan reportées au jour où elles ont lieu'
     expect(days.some(t => t.includes('27 juil.'))).toBe(false);
     // …mais le 28 hérite bien des heures issues de la basse mer du 27, hors fenêtre.
     expect(days.join(' ')).toContain('01:32');
+  });
+});
+
+describe('TideDayTable — filtres d’affichage au grain du jour', () => {
+  // 22/07/2026 = mercredi (coef 71, à-flot 04:19 et 16:27) · 23/07 = jeudi (coef 35, à-flot 09:02).
+  const rowLabels = (wrapper: ReturnType<typeof mount>) =>
+    wrapper.findAll('tbody tr').filter(r => !r.classes('hidden-days-row')).map(r => r.text());
+
+  beforeEach(() => {
+    const { visible } = useNavihanDisplay();
+    visible.bm = true; visible.flot = true; visible.flotEst = true;
+    visible.flotObs = true; visible.pm = true;
+    useTideFilters().reset();
+  });
+
+  it('masque les jours hors des bornes de coefficient', () => {
+    useTideFilters().filters.minCoef = 50;
+    const wrapper = mount(TideDayTable, { props: { tides } });
+    const labels = rowLabels(wrapper);
+    expect(labels.some(t => t.includes('22 juil.'))).toBe(true);
+    expect(labels.some(t => t.includes('23 juil.'))).toBe(false);
+  });
+
+  it('garde les basses mers et les pastilles Navihan des jours retenus', () => {
+    // Régression : filtrer marée par marée sur le coefficient supprimait toutes les basses mers.
+    useTideFilters().filters.minCoef = 50;
+    const wrapper = mount(TideDayTable, { props: { tides } });
+    const row = wrapper.findAll('tbody tr').find(r => r.text().includes('22 juil.'))!;
+    expect(row.find('td[data-label="Basses mers"]').text()).toContain('01:39');
+    expect(row.find('td[data-label="Navihan"]').text()).toContain('04:19'); // remise à flot
+    expect(row.find('td[data-label="Coef"]').text()).toContain('71');
+  });
+
+  it('annonce le nombre de jours masqués et permet de réinitialiser', async () => {
+    const { filters } = useTideFilters();
+    filters.minCoef = 50;
+    const wrapper = mount(TideDayTable, { props: { tides } });
+
+    const footer = wrapper.find('.hidden-days-row');
+    expect(footer.text()).toContain('1 jour masqué');
+
+    await footer.find('button').trigger('click');
+    expect(filters.minCoef).toBeNull();
+    expect(rowLabels(wrapper).some(t => t.includes('23 juil.'))).toBe(true);
+  });
+
+  it('ne montre aucun pied « masqués » quand rien n’est filtré', () => {
+    const wrapper = mount(TideDayTable, { props: { tides } });
+    expect(wrapper.find('.hidden-days-row').exists()).toBe(false);
+  });
+
+  it('ne garde que les jours dont une remise à flot tombe dans la plage horaire', () => {
+    const { filters } = useTideFilters();
+    filters.aflotFrom = '15:00';
+    filters.aflotTo = '20:00';
+    const wrapper = mount(TideDayTable, { props: { tides } });
+    const labels = rowLabels(wrapper);
+    expect(labels.some(t => t.includes('22 juil.'))).toBe(true); // à-flot 16:27
+    expect(labels.some(t => t.includes('23 juil.'))).toBe(false); // à-flot 09:02
+  });
+
+  it('ne garde que les jours de la semaine sélectionnés (lundi = 0)', () => {
+    useTideFilters().filters.weekdays = [3]; // jeudi
+    const wrapper = mount(TideDayTable, { props: { tides } });
+    const labels = rowLabels(wrapper);
+    expect(labels.some(t => t.includes('23 juil.'))).toBe(true); // jeudi
+    expect(labels.some(t => t.includes('22 juil.'))).toBe(false); // mercredi
+  });
+
+  it('rend encore les heures Navihan héritées d’un jour masqué (franchissement de minuit)', () => {
+    // Basse mer tardive le lundi 27 → remise à flot 01:32 le mardi 28. Filtrer sur le mardi ne doit
+    // pas faire disparaître cette heure : la liste plate n'est pas filtrée en amont.
+    const acrossMidnight: FlatTide[] = [
+      {
+        date: '2026-07-27', time: '22:52', height: 1.74, type: 'low', coefficient: null,
+        refDate: '2026-07-27', refTime: '22:52', navihan: {}
+      },
+      {
+        date: '2026-07-28', time: '11:07', height: 1.68, type: 'low', coefficient: null,
+        refDate: '2026-07-28', refTime: '11:07', navihan: {}
+      }
+    ];
+    useTideFilters().filters.weekdays = [1]; // mardi
+    const wrapper = mount(TideDayTable, { props: { tides: acrossMidnight } });
+    const labels = rowLabels(wrapper);
+
+    expect(labels.some(t => t.includes('27 juil.'))).toBe(false);
+    expect(labels.join(' ')).toContain('01:32');
   });
 });

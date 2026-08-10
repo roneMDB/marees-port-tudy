@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { useTides } from '../composables/useTides';
 import { useSite } from '../composables/useSite';
 import { useAuth } from '../composables/useAuth';
 import { useMotDuJour } from '../composables/useMotDuJour';
+import { useTideFilters } from '../composables/useTideFilters';
 import { formatDate } from '../lib/format';
 import SettingsPanel from '../components/SettingsPanel.vue';
+import TideFiltersBar from '../components/TideFiltersBar.vue';
 import StatCards from '../components/StatCards.vue';
 import EphemerideCard from '../components/EphemerideCard.vue';
 import MotDuJourCard from '../components/MotDuJourCard.vue';
@@ -15,7 +18,7 @@ import HeightChart from '../components/HeightChart.vue';
 import CoefChart from '../components/CoefChart.vue';
 
 const {
-  loading, error, meta, filters, coefTides, coefDaysView, setCoefDaysView, allTides, reload,
+  loading, error, meta, coefTides, coefDaysView, setCoefDaysView, allTides, reload,
   tableTides, tablePeriod, prevPeriod, nextPeriod, resetPeriod, canPrevPeriod, canNextPeriod, periodOffset
 } = useTides();
 const { current, isReference } = useSite();
@@ -24,10 +27,10 @@ const { isAdmin: canEditSettings } = useAuth();
 // Affichage du mot du jour : quand il est masqué, la météo passe en pleine largeur.
 const { visible: motDuJourVisible } = useMotDuJour();
 
-function resetFilters(): void {
-  filters.type = 'all';
-  filters.minCoef = null;
-}
+// Filtres d'affichage : ouverts à tous les rôles. Le repli est éphémère (comme `ResourcesCard`), mais
+// les filtres eux-mêmes sont persistés — d'où le badge, qui garde l'état visible barre repliée.
+const filtersOpen = ref(false);
+const { activeCount: activeFilterCount } = useTideFilters();
 </script>
 
 <template>
@@ -56,7 +59,7 @@ function resetFilters(): void {
 
       <ResourcesCard />
 
-      <SettingsPanel v-if="canEditSettings" :filters="filters" :meta="meta" @reset="resetFilters" />
+      <SettingsPanel v-if="canEditSettings" :meta="meta" />
 
       <StatCards :all-tides="allTides" />
 
@@ -89,7 +92,20 @@ function resetFilters(): void {
             <i class="bi bi-calendar-week me-1"></i> Horaires par jour
             <span class="text-muted fw-normal small">· {{ current.label }}</span>
           </span>
-          <div class="d-flex align-items-center gap-2">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <button
+              type="button"
+              class="btn btn-sm"
+              :class="activeFilterCount ? 'btn-primary' : 'btn-outline-secondary'"
+              :aria-expanded="filtersOpen"
+              :title="filtersOpen ? 'Masquer les filtres' : 'Afficher les filtres'"
+              @click="filtersOpen = !filtersOpen"
+            >
+              <i class="bi bi-funnel me-1"></i> Filtres
+              <span v-if="activeFilterCount" class="badge rounded-pill text-bg-light ms-1">
+                {{ activeFilterCount }}
+              </span>
+            </button>
             <span class="text-muted small text-nowrap">
               {{ formatDate(tablePeriod.from, { day: '2-digit', month: 'short' }) }}
               → {{ formatDate(tablePeriod.to, { day: '2-digit', month: 'short' }) }}
@@ -127,6 +143,7 @@ function resetFilters(): void {
             </div>
           </div>
         </div>
+        <TideFiltersBar v-if="filtersOpen" />
         <TideDayTable :tides="tableTides" :from="tablePeriod.from" :site-label="current.label" />
       </div>
     </template>

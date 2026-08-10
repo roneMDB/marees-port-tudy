@@ -47,3 +47,23 @@ test('le bouton de thème bascule data-bs-theme', async ({ page }) => {
   const expected = before === 'dark' ? 'light' : 'dark';
   await expect(html).toHaveAttribute('data-bs-theme', expected);
 });
+
+test('la barre de filtres réduit le tableau et persiste (issue #10)', async ({ page }) => {
+  const rows = page.locator('table.tide-day-table tbody tr:not(.hidden-days-row)');
+  await expect(rows.first()).toBeVisible();
+  const before = await rows.count();
+
+  await page.getByRole('button', { name: 'Filtres' }).click();
+  await page.getByLabel('Coefficient minimum').fill('95');
+  await page.getByLabel('Coefficient minimum').blur();
+
+  // Des jours sont masqués, et le tableau le dit plutôt que de se tronquer en silence.
+  await expect(page.locator('.hidden-days-row')).toContainText('masqué');
+  expect(await rows.count()).toBeLessThan(before);
+  // Les basses mers restent : le filtre porte sur le jour, pas sur chaque marée.
+  await expect(rows.first().locator('td[data-label="Basses mers"]')).not.toHaveText('—');
+
+  // Préférence personnelle par navigateur, comme le thème ou la légende Navihan.
+  const stored = await page.evaluate(() => localStorage.getItem('marees-tide-filters'));
+  expect(stored).toContain('"minCoef":95');
+});

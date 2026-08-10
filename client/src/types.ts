@@ -108,19 +108,23 @@ export interface NavihanOffsets {
   aFlot: number;
 }
 
-export type TideTypeFilter = 'all' | 'high' | 'low';
-
+/** Fenêtre de dates (bornes inclusives, vides = ignorées). */
 export interface TideFilters {
   from: string;
   to: string;
-  type: TideTypeFilter;
-  minCoef: number | null;
 }
 
-/** Filtres éphémères (non persistés) : type de marée et coefficient minimum. */
-export interface TideDisplayFilters {
-  type: TideTypeFilter;
-  minCoef: number | null;
+/**
+ * Filtres d'affichage du tableau, au **grain du jour** (issue #10) — préférence personnelle par
+ * navigateur, persistée en `localStorage` par `useTideFilters`. Le tableau affichant une ligne par
+ * jour, filtrer marée par marée mutilait les cellules au lieu de sélectionner des lignes.
+ */
+export interface TideDayFilters {
+  minCoef: number | null; // bornes inclusives sur le coefficient du jour
+  maxCoef: number | null;
+  weekdays: number[]; // lundi = 0 ; liste vide (ou les 7 jours) = pas de filtre
+  aflotFrom: string | null; // plage horaire `HH:MM` de la remise à flot (décalage fixe)
+  aflotTo: string | null;
 }
 
 /** Lien externe affiché sous la météo. L'URL accepte les placeholders `{lat}`/`{lon}`. */

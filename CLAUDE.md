@@ -293,14 +293,25 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   et le helper partagé `fetchJson`. Les statistiques ont leur propre module `src/api/stats.ts`
   (`getStats(days)`, `pingVisit()`).
 - `src/lib/tides.ts` — `flatten()` (aplatit `days` en `FlatTide[]` triés), `filterTides()`
-  (plage de dates inclusive, type, coef min) et `matchNavihanReference(site, reference)` (annote
+  (**plage de dates inclusive uniquement**) et `matchNavihanReference(site, reference)` (annote
   chaque marée du port sélectionné d'un `refTime` = heure Port-Tudy de même type la plus proche,
   tolérance 3 h, sinon `null`), `groupByDay(tides)` (regroupe par jour → `DayTides` : pleines/
   basses mers triées + coef du jour), `tidalRange(day)` (**marnage** du jour = plus haute pleine mer
   − plus basse basse mer, `null` s'il manque un type ; utilisé par la carte « Marnage du jour » de
-  `StatCards`) et `periodWindow(from, rangeDays, offset, min, max)` (fenêtre
+  `StatCards`), `matchesDayFilters(facts, filters)` (filtres d'affichage **au grain du jour**,
+  cf. ci-dessous) et `periodWindow(from, rangeDays, offset, min, max)` (fenêtre
   du tableau décalée de `offset` périodes, bornée) — **fonctions pures, testées**.
+  ⚠️ **Les filtres portent sur le jour, jamais sur la marée** (issue #10). Le tableau affiche une
+  ligne par jour : filtrer `FlatTide` par `type`/`minCoef` — ce que faisait `filterTides` — vidait
+  des **cellules** au lieu de sélectionner des lignes. Les basses mers n'ayant **pas** de
+  coefficient, un « Coef min » les supprimait toutes, emportant les pastilles Navihan et la colonne
+  « Constaté ». `matchesDayFilters` prend donc des `DayFacts` (`coefficient` du jour, `weekday`
+  lundi = 0, `aflotTimes` = remises à flot **à décalage fixe** ayant lieu ce jour-là) : bornes de
+  coef inclusives, jour **sans** coefficient écarté dès qu'une borne est posée, sélection de jours
+  neutre à 0 **comme** à 7 valeurs, et plage horaire traitée en **union** si `from > to` (22:00 →
+  06:00), sinon une plage de nuit renverrait un tableau vide sans explication.
 - `src/lib/format.ts` — `formatDate`, `formatHeight`, `todayKey`, `addDays`, `coefBand`,
+  `weekdayIndex` (jour de la semaine, **lundi = 0** comme les stats serveur),
   `relativeDayLabel` (« aujourd'hui »/« demain »/date — lève l'ambiguïté d'une heure seule).
 - `src/lib/ephemeride.ts` + `src/lib/saints.ts` — **éphéméride du jour** (issue #13), **calculée
   localement** donc disponible hors-ligne : `sunTimes` (lever/coucher/midi solaire, série NOAA,
@@ -324,13 +335,22 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
 - `src/composables/useSite.ts` — **port sélectionné** (singleton, persisté en `localStorage`
   `marees-site`, comme le thème) : `sites` (hydraté via `getSites()`), `siteId`, `current`,
   `isReference` (= `port-tudy`, référence Navihan), `setSite`, `load`. Sélecteur dans `App.vue`.
+- `src/composables/useTideFilters.ts` — **filtres d'affichage du tableau** (singleton, persisté en
+  `localStorage` `marees-tide-filters`, issue #9→#10) : `filters` (`minCoef`/`maxCoef`, `weekdays`
+  lundi = 0, `aflotFrom`/`aflotTo`), `activeCount`, `reset`. **Ouverts à tous les rôles** — ce sont
+  des préférences personnelles, pas de la configuration serveur : ils ont donc quitté `SettingsPanel`
+  (admin-only) pour la barre `TideFiltersBar` de l'en-tête du tableau. Lecture initiale **validée clé
+  par clé** (un stockage ancien ou trafiqué retombe sur les défauts). `activeCount` compte des
+  **critères** et non des champs (les deux bornes de coef = 1) : c'est le badge du bouton.
 - `src/composables/useTides.ts` — charge config + sites + meta + marées au montage, expose `loading/
-  error/meta/settings/filters/dateWindow/coefTides/tableTides/allTides` (+ nav période). `allTides` =
+  error/meta/settings/dateWindow/coefTides/tableTides/allTides` (+ nav période). `allTides` =
   **référence Port-Tudy** (marégramme, carte à flot). Les **lignes** (via `windowedTides`) sont les
   marées du **port sélectionné** : pour la référence, `refTime = time` ; sinon
   `matchNavihanReference(siteTides, allTides)` ; le Navihan est (re)calculé par
   `computeNavihan(refTime, …)`, « — » si `refTime` null. `watch(siteId)` recharge à la bascule.
-  `filters` = **filtres éphémères** (`type`, `minCoef`). La fenêtre configurée dérive de
+  `windowedTides` ne pose plus que la **fenêtre de dates** : les filtres d'affichage sont passés au
+  grain du jour et ne concernent que le tableau (`useTideFilters`, issue #10), donc le graphe des
+  coefficients garde sa **série complète**. La fenêtre configurée dérive de
   `resolveWindow(settings, minDate, maxDate)` (début = `today`/`startDate`, fin = début+`rangeDays`).
   Filtrage **côté client**. Le **tableau** utilise `tableTides`/`tablePeriod` (`periodWindow` +
   `periodOffset` transitoire) : `prevPeriod`/`nextPeriod`/`resetPeriod` + `canPrevPeriod`/
@@ -363,14 +383,26 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   secondaire. `src/composables/useAflotObservations.ts` (singleton : map `date+heure Port-Tudy →
   constaté`, `load`/`get`/`save`/`remove` via `api/aflotObservations.ts`) alimente `aflotObserved` et
   la saisie du tableau. `lib/navihan.test.ts`.
-- `components/SettingsPanel.vue` — **un seul panneau repliable « Réglages & filtres »** (props
-  `filters` + `meta`, émet `reset`) regroupant 4 sections : **Période** (config : `startMode`
-  `today`/`date` + `startDate` + `rangeDays` + `coefDays`), **Décalages Navihan** (config : basse/pleine
+- `components/SettingsPanel.vue` — **un seul panneau repliable « Réglages »** (prop `meta`)
+  regroupant 3 sections, **toutes de la configuration serveur** : **Période** (`startMode`
+  `today`/`date` + `startDate` + `rangeDays` + `coefDays`), **Décalages Navihan** (basse/pleine
   mer en minutes + **seuil de remise à flot** `aFlotThreshold` en m + `aFlotDays`, bouton défauts),
-  **Liens météo** (config : liste éditable `settings.weatherLinks` — libellé + URL,
-  ajout/suppression, bouton défauts), **Filtres d'affichage** (éphémères : `Type`, `Coef min`, reset).
-  Remplace les anciens `TideFilters.vue` / `NavihanSettings.vue`. **Bouton + panneau masqués si le
-  rôle n'est pas `admin`** (`useAuth().isAdmin`) : on ne montre pas des réglages non modifiables.
+  **Liens météo** (liste éditable `settings.weatherLinks` — libellé + URL, ajout/suppression, bouton
+  défauts). Remplace les anciens `TideFilters.vue` / `NavihanSettings.vue`. **Bouton + panneau masqués
+  si le rôle n'est pas `admin`** (`useAuth().isAdmin`) : on ne montre pas des réglages non modifiables.
+  ⚠️ La 4ᵉ section « Filtres d'affichage » **en est sortie** (issue #10) : elle était de fait
+  inaccessible aux lecteurs, alors qu'un filtre d'affichage est une préférence personnelle. Ne pas
+  l'y remettre — sa place est `TideFiltersBar`.
+- `components/TideFiltersBar.vue` — **barre de filtres du tableau** (issue #10), rendue entre
+  l'en-tête de la carte « Horaires par jour » et le tableau, **ouverte à tous les rôles**, adossée au
+  singleton `useTideFilters` (ni prop ni emit) : bornes de **coefficient** (bornées **en JS**, les
+  attributs HTML `min`/`max` n'empêchent pas de taper 999), 7 pastilles **L M M J V S D** sur le
+  patron de la légende Navihan (`aria-pressed`, `aria-label` = le jour en toutes lettres, sinon un
+  bouton « S » n'a pas de nom accessible), et une **plage horaire de remise à flot**. Modèle
+  « chips » : **aucun jour sélectionné = tous les jours**, donc désélectionner le dernier ne vide
+  jamais le tableau. Le bouton bascule vit dans l'en-tête de carte (`Dashboard.vue`, repli
+  **éphémère**) et passe en `btn-primary` avec le badge `activeCount` dès qu'un filtre est posé :
+  les filtres étant **persistés**, l'état doit rester lisible barre repliée. `TideFiltersBar.test.ts`.
   `StatCards.vue` — carte « Prochaine remise à flot » : heure **Remise à flot** suivie du **jour de
   l'à-flot lui-même** (`relativeDayLabel(nextAflot().date, …)` → « aujourd'hui »/« demain ») — pas
   celui de la basse mer, qui diffère quand le décalage franchit minuit (une remise à flot à 00:49 se
@@ -488,7 +520,7 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   préférence système. Bascule via le bouton de la navbar ; les graphiques Chart.js lisent
   `isDark` pour adapter ticks/grilles.
 - `src/views/Dashboard.vue` — assemble `SettingsPanel` + `StatCards` + `HeightChart`/`CoefChart`
-  + `TideDayTable` ; états loading (spinner) / error (alert).
+  + `TideFiltersBar`/`TideDayTable` ; états loading (spinner) / error (alert).
 - `HeightChart.vue` — **marégramme Navihan du jour** (jour **navigable** : boutons précédent/suivant
   + « Auj. » + sélecteur de date dans l'en-tête, borné aux dates dispo ; repère « maintenant »
   seulement aujourd'hui) : courbe de hauteur reconstruite
@@ -521,10 +553,16 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   tri des lignes : `<input type="time">` **si `useAuth().isAdmin`**
   (→ `useAflotObservations.save`/`remove`), sinon pastille/lecture. Responsive : pile de cartes sur mobile (`.tide-day-table`
   + `data-label`, cf. `assets/app.css`). Repère « aujourd'hui »,
-  `table-responsive` (défilement horizontal mobile). Purement présentationnel : il rend la période
+  `table-responsive` (défilement horizontal mobile). Il rend la période
   qu'on lui passe (`tableTides`) ; la **navigation Précédent/Suivant/Début** (par période, cf.
   `useTides`) est dans l'en-tête de carte du `Dashboard`. Remplace l'ancien `TideTable`
   (une-ligne-par-marée, retiré).
+  Les **filtres d'affichage** (`useTideFilters`, issue #10) s'appliquent ici, sur `allRows` — donc
+  **après** `groupByDay` et **jamais** sur `props.tides` : `navihanByDate`/`constateByDate` se
+  construisent sur la liste plate complète, ce qui garde les heures d'un jour masqué (ou du jour
+  d'amorce) qui franchissent minuit sur le jour visible suivant. Un pied de tableau
+  (`.hidden-days-row`) annonce « N jour(s) masqué(s) par les filtres · Réinitialiser » : les filtres
+  sont **persistés**, un tableau tronqué sans explication au retour serait incompréhensible.
 
 Le proxy Vite (`vite.config.ts`) redirige `/api` vers `:3000` en dev.
 

@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  clampDate, filterTides, flatten, groupByDay, matchNavihanReference, periodWindow, resolveWindow,
-  tidalRange
+  clampDate, filterTides, flatten, groupByDay, matchNavihanReference, matchesDayFilters,
+  periodWindow, resolveWindow, tidalRange
 } from './tides';
-import type { DayTides } from './tides';
+import type { DayFacts, DayTides } from './tides';
 import { addDays } from './format';
-import type { FlatTide, Settings, TideOutput } from '../types';
+import type { FlatTide, Settings, TideDayFilters, TideOutput } from '../types';
 
 const baseSettings: Settings = {
   startMode: 'today',
@@ -116,26 +116,96 @@ describe('filterTides', () => {
   const flat: FlatTide[] = flatten(sample);
 
   it('filters by inclusive date range', () => {
-    const res = filterTides(flat, { from: '2026-06-02', to: '2026-06-02', type: 'all', minCoef: null });
+    const res = filterTides(flat, { from: '2026-06-02', to: '2026-06-02' });
     expect(res).toHaveLength(1);
     expect(res[0].date).toBe('2026-06-02');
   });
 
-  it('filters by tide type', () => {
-    const res = filterTides(flat, { from: '', to: '', type: 'low', minCoef: null });
-    expect(res).toHaveLength(1);
-    expect(res[0].type).toBe('low');
+  it('keeps a tide sitting exactly on either bound', () => {
+    expect(filterTides(flat, { from: '2026-06-01', to: '2026-06-02' })).toHaveLength(3);
   });
 
-  it('filters by minimum coefficient, excluding entries without a coefficient', () => {
-    const res = filterTides(flat, { from: '', to: '', type: 'all', minCoef: 90 });
-    expect(res).toHaveLength(1);
-    expect(res[0].coefficient).toBe(95);
+  it('returns everything with empty bounds', () => {
+    expect(filterTides(flat, { from: '', to: '' })).toHaveLength(3);
+  });
+});
+
+describe('matchesDayFilters', () => {
+  const NEUTRAL: TideDayFilters = {
+    minCoef: null, maxCoef: null, weekdays: [], aflotFrom: null, aflotTo: null
+  };
+  const facts = (over: Partial<DayFacts> = {}): DayFacts => ({
+    coefficient: 70,
+    weekday: 0, // lundi
+    aflotTimes: ['09:30'],
+    ...over
   });
 
-  it('returns everything with empty/neutral filters', () => {
-    const res = filterTides(flat, { from: '', to: '', type: 'all', minCoef: null });
-    expect(res).toHaveLength(3);
+  it('garde tout quand aucun filtre n’est posé', () => {
+    expect(matchesDayFilters(facts({ coefficient: null, aflotTimes: [] }), NEUTRAL)).toBe(true);
+  });
+
+  it('borne le coefficient de façon inclusive', () => {
+    expect(matchesDayFilters(facts({ coefficient: 70 }), { ...NEUTRAL, minCoef: 70 })).toBe(true);
+    expect(matchesDayFilters(facts({ coefficient: 69 }), { ...NEUTRAL, minCoef: 70 })).toBe(false);
+    expect(matchesDayFilters(facts({ coefficient: 70 }), { ...NEUTRAL, maxCoef: 70 })).toBe(true);
+    expect(matchesDayFilters(facts({ coefficient: 71 }), { ...NEUTRAL, maxCoef: 70 })).toBe(false);
+    expect(matchesDayFilters(facts({ coefficient: 60 }), { ...NEUTRAL, minCoef: 45, maxCoef: 70 })).toBe(true);
+  });
+
+  it('écarte un jour sans coefficient dès qu’une borne est posée, le garde sinon', () => {
+    expect(matchesDayFilters(facts({ coefficient: null }), { ...NEUTRAL, minCoef: 40 })).toBe(false);
+    expect(matchesDayFilters(facts({ coefficient: null }), { ...NEUTRAL, maxCoef: 120 })).toBe(false);
+    expect(matchesDayFilters(facts({ coefficient: null }), NEUTRAL)).toBe(true);
+  });
+
+  it('traite la sélection de jours comme neutre à 0 et à 7 valeurs', () => {
+    const all = [0, 1, 2, 3, 4, 5, 6];
+    expect(matchesDayFilters(facts({ weekday: 2 }), { ...NEUTRAL, weekdays: [] })).toBe(true);
+    expect(matchesDayFilters(facts({ weekday: 2 }), { ...NEUTRAL, weekdays: all })).toBe(true);
+  });
+
+  it('ne garde que les jours de semaine sélectionnés (lundi = 0)', () => {
+    const weekend = { ...NEUTRAL, weekdays: [5, 6] };
+    expect(matchesDayFilters(facts({ weekday: 5 }), weekend)).toBe(true); // samedi
+    expect(matchesDayFilters(facts({ weekday: 6 }), weekend)).toBe(true); // dimanche
+    expect(matchesDayFilters(facts({ weekday: 0 }), weekend)).toBe(false); // lundi
+  });
+
+  it('garde le jour dès qu’une remise à flot tombe dans la plage horaire', () => {
+    const window = { ...NEUTRAL, aflotFrom: '09:00', aflotTo: '19:00' };
+    expect(matchesDayFilters(facts({ aflotTimes: ['05:10', '17:40'] }), window)).toBe(true);
+    expect(matchesDayFilters(facts({ aflotTimes: ['05:10', '22:40'] }), window)).toBe(false);
+    // Bornes inclusives.
+    expect(matchesDayFilters(facts({ aflotTimes: ['09:00'] }), window)).toBe(true);
+    expect(matchesDayFilters(facts({ aflotTimes: ['19:00'] }), window)).toBe(true);
+  });
+
+  it('accepte une borne seule', () => {
+    expect(matchesDayFilters(facts({ aflotTimes: ['08:00'] }), { ...NEUTRAL, aflotFrom: '09:00' })).toBe(false);
+    expect(matchesDayFilters(facts({ aflotTimes: ['10:00'] }), { ...NEUTRAL, aflotFrom: '09:00' })).toBe(true);
+    expect(matchesDayFilters(facts({ aflotTimes: ['10:00'] }), { ...NEUTRAL, aflotTo: '09:00' })).toBe(false);
+    expect(matchesDayFilters(facts({ aflotTimes: ['08:00'] }), { ...NEUTRAL, aflotTo: '09:00' })).toBe(true);
+  });
+
+  it('traite une plage franchissant minuit comme une union', () => {
+    const night = { ...NEUTRAL, aflotFrom: '22:00', aflotTo: '06:00' };
+    expect(matchesDayFilters(facts({ aflotTimes: ['23:10'] }), night)).toBe(true);
+    expect(matchesDayFilters(facts({ aflotTimes: ['04:30'] }), night)).toBe(true);
+    expect(matchesDayFilters(facts({ aflotTimes: ['12:00'] }), night)).toBe(false);
+  });
+
+  it('écarte un jour sans aucune remise à flot dès qu’une plage est posée', () => {
+    expect(matchesDayFilters(facts({ aflotTimes: [] }), { ...NEUTRAL, aflotFrom: '09:00' })).toBe(false);
+    expect(matchesDayFilters(facts({ aflotTimes: [] }), NEUTRAL)).toBe(true);
+  });
+
+  it('exige que tous les critères posés soient satisfaits', () => {
+    const f: TideDayFilters = { minCoef: 80, maxCoef: null, weekdays: [5, 6], aflotFrom: '09:00', aflotTo: '19:00' };
+    expect(matchesDayFilters(facts({ coefficient: 90, weekday: 5, aflotTimes: ['10:00'] }), f)).toBe(true);
+    expect(matchesDayFilters(facts({ coefficient: 90, weekday: 5, aflotTimes: ['20:00'] }), f)).toBe(false);
+    expect(matchesDayFilters(facts({ coefficient: 70, weekday: 5, aflotTimes: ['10:00'] }), f)).toBe(false);
+    expect(matchesDayFilters(facts({ coefficient: 90, weekday: 1, aflotTimes: ['10:00'] }), f)).toBe(false);
   });
 });
 

@@ -32,7 +32,7 @@ function mountApp() {
   });
 }
 
-const SETTINGS_BTN = '[aria-label="Réglages & filtres"]';
+const SETTINGS_BTN = '[aria-label="Réglages"]';
 const STATS_BTN = '[aria-label="Statistiques d\'accès"]';
 const USERS_BTN = '[aria-label="Utilisateurs"]';
 

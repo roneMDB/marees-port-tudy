@@ -2,11 +2,12 @@
 import { computed } from 'vue';
 import type { FlatTide } from '../types';
 import type { DayTides } from '../lib/tides';
-import { groupByDay } from '../lib/tides';
-import { addDays, formatDate, formatHeight, todayKey, coefBand } from '../lib/format';
+import { groupByDay, matchesDayFilters } from '../lib/tides';
+import { addDays, formatDate, formatHeight, todayKey, coefBand, weekdayIndex } from '../lib/format';
 import { shiftMoment } from '../lib/navihan';
 import { useNavihan } from '../composables/useNavihan';
 import { useNavihanDisplay, type NavihanKey } from '../composables/useNavihanDisplay';
+import { useTideFilters } from '../composables/useTideFilters';
 import { useAuth } from '../composables/useAuth';
 import { useAflotObservations } from '../composables/useAflotObservations';
 
@@ -30,6 +31,8 @@ const today = todayKey();
 
 // Choix d'affichage des types Navihan (persisté localStorage, préférence par navigateur).
 const { visible, toggle } = useNavihanDisplay();
+// Filtres d'affichage au grain du jour (persistés localStorage, ouverts à tous les rôles).
+const { filters, reset: resetFilters } = useTideFilters();
 // Saisie des remises à flot constatées : réservée à l'admin (le verrou réel est côté serveur).
 const { isAdmin } = useAuth();
 const { save, remove, load: reloadObservations } = useAflotObservations();
@@ -62,10 +65,8 @@ async function onObserved(low: FlatTide, event: Event): Promise<void> {
 
 // Une ligne par jour. Le jour d'amorce (cf. prop `from`) est écarté : il n'est là que pour fournir
 // à la première ligne les heures Navihan de la veille qui franchissent minuit.
-const rows = computed(() =>
-  groupByDay(props.tides)
-    .filter(day => !props.from || day.date >= props.from)
-    .map(day => ({ day, band: coefBand(day.coefficient) }))
+const allRows = computed(() =>
+  groupByDay(props.tides).filter(day => !props.from || day.date >= props.from)
 );
 
 /** Une pastille Navihan : heure + type (clé, icône, couleur, libellé). */
@@ -153,6 +154,33 @@ const constateByDate = computed(() => {
 function constateRows(day: DayTides): { low: FlatTide; flot: string }[] {
   return constateByDate.value.get(day.date) ?? [];
 }
+
+/**
+ * Lignes réellement affichées : les filtres d'affichage s'appliquent **au grain du jour** (issue
+ * #10). La liste plate `props.tides` n'est volontairement **pas** filtrée en amont — `navihanByDate`
+ * et `constateByDate` s'y construisent, donc les heures d'un jour masqué (ou du jour d'amorce) qui
+ * franchissent minuit restent rendues sur le jour visible suivant.
+ * L'heure retenue pour le filtre horaire est la **remise à flot à décalage fixe**, jamais
+ * l'estimation par seuil — même règle que les cartes, le marégramme et la colonne « Constaté ».
+ */
+const rows = computed(() =>
+  allRows.value
+    .filter(day =>
+      matchesDayFilters(
+        {
+          coefficient: day.coefficient,
+          weekday: weekdayIndex(day.date),
+          aflotTimes: constateRows(day).map(r => r.flot)
+        },
+        filters
+      )
+    )
+    .map(day => ({ day, band: coefBand(day.coefficient) }))
+);
+
+// Un filtre est **persisté** : sans ce compteur, on reviendrait sur un tableau tronqué sans savoir
+// pourquoi. Il n'apparaît que lorsque des jours de la période sont effectivement masqués.
+const hiddenCount = computed(() => allRows.value.length - rows.value.length);
 </script>
 
 <template>
@@ -288,6 +316,16 @@ function constateRows(day: DayTides): { low: FlatTide; flot: string }[] {
                 <span v-else class="text-muted small">—</span>
               </div>
             </div>
+          </td>
+        </tr>
+        <tr v-if="hiddenCount > 0" class="hidden-days-row">
+          <td :colspan="visible.flotObs ? 6 : 5" class="text-center text-muted small py-2">
+            <i class="bi bi-funnel me-1"></i>
+            {{ hiddenCount }} jour{{ hiddenCount > 1 ? 's' : '' }} masqué{{ hiddenCount > 1 ? 's' : '' }}
+            par les filtres
+            <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline" @click="resetFilters">
+              Réinitialiser
+            </button>
           </td>
         </tr>
       </tbody>

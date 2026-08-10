@@ -1,4 +1,4 @@
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { getMeta, getTides } from '../api/tides';
 import { filterTides, flatten, matchNavihanReference, periodWindow, resolveWindow } from '../lib/tides';
 import { addDays } from '../lib/format';
@@ -7,7 +7,7 @@ import { useSettings } from './useSettings';
 import { useSite } from './useSite';
 import { useDataRefresh } from './useDataRefresh';
 import { useAflotObservations } from './useAflotObservations';
-import type { FlatTide, TideDisplayFilters, TidesMeta } from '../types';
+import type { FlatTide, TidesMeta } from '../types';
 
 /**
  * Charge la config, les métadonnées et l'ensemble des marées au montage, puis
@@ -29,9 +29,6 @@ export function useTides() {
   const { siteId, isReference, load: loadSites } = useSite();
   const { token: refreshToken } = useDataRefresh();
   const { get: observedFor, load: loadObservations } = useAflotObservations();
-
-  // Filtres éphémères (non persistés).
-  const filters = reactive<TideDisplayFilters>({ type: 'all', minCoef: null });
 
   // Décalage de période transitoire du tableau (navigation Précédent/Suivant, non persisté).
   const periodOffset = ref(0);
@@ -69,12 +66,15 @@ export function useTides() {
     return low ? aflotTimeByThreshold(allTides.value, low, settings.navihan, settings.aFlotThreshold) : null;
   }
 
-  // Filtrage (fenêtre + filtres éphémères) + Navihan. Par basse mer, on expose trois heures de remise
-  // à flot : `A flot` = décalage fixe (historique, `computeNavihan`) ; `aflotEstimate` = modèle seuil
-  // (issue #4) ; `aflotObserved` = heure réellement constatée (saisie). Estimation et constaté sont
-  // toujours dérivés des hauteurs / de la basse mer **Port-Tudy** (`refDate`/`refTime`).
+  // Fenêtre de dates + Navihan. Les **filtres d'affichage** ne passent plus par ici : ils portent sur
+  // le jour et ne concernent que le tableau (`useTideFilters`, issue #10) — le graphe des
+  // coefficients garde donc sa série complète.
+  // Par basse mer, on expose trois heures de remise à flot : `A flot` = décalage fixe (historique,
+  // `computeNavihan`) ; `aflotEstimate` = modèle seuil (issue #4) ; `aflotObserved` = heure
+  // réellement constatée (saisie). Estimation et constaté sont toujours dérivés des hauteurs / de la
+  // basse mer **Port-Tudy** (`refDate`/`refTime`).
   function windowedTides(from: string, to: string): FlatTide[] {
-    return filterTides(rows.value, { from, to, type: filters.type, minCoef: filters.minCoef }).map(t => {
+    return filterTides(rows.value, { from, to }).map(t => {
       const navihan = t.refTime ? computeNavihan({ time: t.refTime, type: t.type }, settings.navihan) : {};
       if (t.type !== 'low') return { ...t, navihan };
       return {
@@ -191,7 +191,6 @@ export function useTides() {
     error,
     meta,
     settings,
-    filters,
     dateWindow,
     coefTides,
     coefDaysView,

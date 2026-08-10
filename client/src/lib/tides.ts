@@ -1,4 +1,4 @@
-import type { FlatTide, Settings, TideFilters, TideOutput } from '../types';
+import type { FlatTide, Settings, TideDayFilters, TideFilters, TideOutput } from '../types';
 import { addDays, todayKey } from './format';
 
 /** Aplatit `TideOutput.days` en une liste d'extrêmes portant leur date, triée par date+heure. */
@@ -124,13 +124,53 @@ export function periodWindow(
   return { from, to };
 }
 
-/** Applique les filtres (plage de dates inclusive, type, coefficient minimum). */
+/** Restreint une liste d'extrêmes à une plage de dates inclusive (bornes vides ignorées). */
 export function filterTides(tides: FlatTide[], f: TideFilters): FlatTide[] {
   return tides.filter(t => {
     if (f.from && t.date < f.from) return false;
     if (f.to && t.date > f.to) return false;
-    if (f.type !== 'all' && t.type !== f.type) return false;
-    if (f.minCoef != null && (t.coefficient == null || t.coefficient < f.minCoef)) return false;
     return true;
   });
+}
+
+/**
+ * Ce qu'on sait d'un jour pour le filtrer (issue #10). Extrait une fois par ligne du tableau, qui
+ * affiche **une ligne par jour** : filtrer marée par marée viderait des cellules (les basses mers
+ * n'ont pas de coefficient) au lieu de sélectionner des lignes.
+ */
+export interface DayFacts {
+  coefficient: number | null; // coef du jour (max des pleines mers)
+  weekday: number; // lundi = 0
+  aflotTimes: string[]; // heures de remise à flot (décalage fixe) ayant lieu ce jour-là
+}
+
+/** Vrai si l'heure `HH:MM` tombe dans `[from, to]` (bornes inclusives, l'une des deux peut manquer). */
+function inTimeWindow(time: string, from: string | null, to: string | null): boolean {
+  if (from && to) {
+    // `from > to` = plage franchissant minuit (ex. 22:00 → 06:00) : union, et non intervalle vide.
+    return from <= to ? time >= from && time <= to : time >= from || time <= to;
+  }
+  if (from) return time >= from;
+  if (to) return time <= to;
+  return true;
+}
+
+/**
+ * Applique les filtres d'affichage à un jour : toutes les conditions **posées** doivent être
+ * satisfaites. Un jour sans coefficient est écarté dès qu'une borne de coefficient est posée (on ne
+ * peut pas affirmer qu'il la satisfait) ; de même, un jour sans remise à flot est écarté dès qu'une
+ * plage horaire est posée. Fonction pure.
+ */
+export function matchesDayFilters(facts: DayFacts, f: TideDayFilters): boolean {
+  if (f.minCoef != null || f.maxCoef != null) {
+    if (facts.coefficient == null) return false;
+    if (f.minCoef != null && facts.coefficient < f.minCoef) return false;
+    if (f.maxCoef != null && facts.coefficient > f.maxCoef) return false;
+  }
+  // Sélection neutre à 0 comme à 7 jours : on ne filtre que sur un sous-ensemble strict.
+  if (f.weekdays.length > 0 && f.weekdays.length < 7 && !f.weekdays.includes(facts.weekday)) return false;
+  if (f.aflotFrom || f.aflotTo) {
+    if (!facts.aflotTimes.some(t => inTimeWindow(t, f.aflotFrom, f.aflotTo))) return false;
+  }
+  return true;
 }

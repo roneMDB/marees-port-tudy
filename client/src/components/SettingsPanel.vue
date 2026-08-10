@@ -3,14 +3,13 @@ import { useSettings } from '../composables/useSettings';
 import { useNavihan } from '../composables/useNavihan';
 import { formatOffset } from '../lib/navihan';
 import { DEFAULT_WEATHER_LINKS } from '../types';
-import type { NavihanOffsets, TideDisplayFilters, TidesMeta } from '../types';
+import type { NavihanOffsets, TidesMeta } from '../types';
 
-const props = defineProps<{
-  filters: TideDisplayFilters;
+// Configuration **serveur** uniquement (rôle `admin`). Les filtres d'affichage, qui sont une
+// préférence personnelle par navigateur, ont leur propre barre ouverte à tous (`TideFiltersBar`).
+defineProps<{
   meta: TidesMeta | null;
 }>();
-
-const emit = defineEmits<{ (e: 'reset'): void }>();
 
 const { settings, saveError } = useSettings();
 const { offsets, reset: resetNavihan } = useNavihan();
@@ -63,11 +62,6 @@ function onCoefDays(event: Event): void {
   }
 }
 
-function onMinCoef(event: Event): void {
-  const value = (event.target as HTMLInputElement).value;
-  props.filters.minCoef = value === '' ? null : Number(value);
-}
-
 function addWeatherLink(): void {
   settings.weatherLinks.push({ label: '', url: '' });
 }
@@ -89,7 +83,7 @@ function resetWeatherLinks(): void {
     <div class="offcanvas-header border-bottom">
       <div>
         <h5 id="settingsOffcanvasLabel" class="offcanvas-title mb-0">
-          <i class="bi bi-sliders me-1"></i> Réglages &amp; filtres
+          <i class="bi bi-sliders me-1"></i> Réglages
         </h5>
         <span class="text-muted small">
           Remise à flot +{{ formatOffset(offsets.aFlot) }} · estim. ≥ {{ settings.aFlotThreshold }} m ·
@@ -258,46 +252,13 @@ function resetWeatherLinks(): void {
         </div>
       </div>
       <p v-if="!settings.weatherLinks.length" class="text-muted small fst-italic">Aucun lien.</p>
-      <div class="d-flex gap-2 mt-2 mb-4">
+      <div class="d-flex gap-2 mt-2">
         <button type="button" class="btn btn-sm btn-outline-secondary" @click="addWeatherLink">
           <i class="bi bi-plus-lg me-1"></i> Ajouter un lien
         </button>
         <button type="button" class="btn btn-sm btn-outline-secondary" @click="resetWeatherLinks">
           <i class="bi bi-arrow-counterclockwise me-1"></i> Liens par défaut
         </button>
-      </div>
-
-      <!-- Filtres d'affichage (non enregistrés) -->
-      <h6 class="text-uppercase text-muted small fw-bold mb-2">Filtres d'affichage</h6>
-      <p class="text-muted small mb-3">
-        N'affectent que ce qui est affiché (tableau, graphiques) — non enregistrés.
-      </p>
-      <div class="row g-3 align-items-end">
-        <div class="col-6">
-          <label class="form-label small text-muted mb-1">Type de marée</label>
-          <select class="form-select" v-model="filters.type">
-            <option value="all">Toutes</option>
-            <option value="high">Pleine mer</option>
-            <option value="low">Basse mer</option>
-          </select>
-        </div>
-        <div class="col-6">
-          <label class="form-label small text-muted mb-1">Coef. min</label>
-          <input
-            type="number"
-            class="form-control"
-            min="0"
-            max="120"
-            placeholder="—"
-            :value="filters.minCoef ?? ''"
-            @input="onMinCoef"
-          />
-        </div>
-        <div class="col-12 d-grid">
-          <button type="button" class="btn btn-outline-secondary" @click="emit('reset')">
-            <i class="bi bi-arrow-counterclockwise me-1"></i> Réinitialiser les filtres
-          </button>
-        </div>
       </div>
     </div>
   </div>
