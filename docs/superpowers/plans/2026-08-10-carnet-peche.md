@@ -1799,8 +1799,10 @@ describe('router', () => {
     expect(router.resolve({ name: 'dashboard' }).path).toBe('/');
   });
 
-  it('renvoie une URL inconnue vers le dashboard plutôt que sur une page blanche', () => {
-    expect(router.resolve('/nawak').matched.at(-1)?.name).toBe('dashboard');
+  it('renvoie une URL inconnue vers le dashboard plutôt que sur une page blanche', async () => {
+    // Navigation réelle et non `resolve()` : `resolve()` ne suit jamais les redirections.
+    await router.push('/nawak');
+    expect(router.currentRoute.value.name).toBe('dashboard');
   });
 });
 ```
@@ -1830,7 +1832,9 @@ const router = createRouter({
     // Chargée à la demande : le carnet n'est pas nécessaire pour afficher les marées.
     { path: '/peche', name: 'fishing', component: () => import('./views/FishingView.vue') },
     // Une URL inconnue (ancien favori, faute de frappe) revient au dashboard, pas sur du vide.
-    { path: '/:pathMatch(.*)*', redirect: { name: 'dashboard' } }
+    // Redirection par **chemin** et non par nom : vers une route nommée, Vue Router tenterait de
+    // lui transmettre le `pathMatch` capturé ici et avertirait « Discarded invalid param(s) ».
+    { path: '/:pathMatch(.*)*', redirect: '/' }
   ]
 });
 

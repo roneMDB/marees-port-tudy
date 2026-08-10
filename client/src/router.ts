@@ -13,7 +13,9 @@ const router = createRouter({
     // Chargée à la demande : le carnet n'est pas nécessaire pour afficher les marées.
     { path: '/peche', name: 'fishing', component: () => import('./views/FishingView.vue') },
     // Une URL inconnue (ancien favori, faute de frappe) revient au dashboard, pas sur du vide.
-    { path: '/:pathMatch(.*)*', redirect: { name: 'dashboard' } }
+    // Redirection par **chemin** et non par nom : vers une route nommée, Vue Router tenterait de
+    // lui transmettre le `pathMatch` capturé ici et avertirait « Discarded invalid param(s) ».
+    { path: '/:pathMatch(.*)*', redirect: '/' }
   ]
 });
 
