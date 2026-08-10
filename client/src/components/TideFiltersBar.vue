@@ -105,7 +105,7 @@ function isOn(index: number): boolean {
           Remise à flot entre
           <i
             class="bi bi-info-circle"
-            title="Ne garde que les jours dont une remise à flot (décalage fixe) tombe dans la plage"
+            title="Masque les remises à flot hors de la plage — estimation et « Constaté » suivent. Les jours restent affichés."
           ></i>
         </label>
         <div class="d-flex align-items-center gap-1">

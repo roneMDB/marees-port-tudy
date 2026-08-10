@@ -45,7 +45,7 @@ les reprendre **au grain du jour**, qui est le grain du tableau.
 | Emplacement | Barre repliable sous l'en-tête de la carte « Horaires par jour », ouverte par un bouton **Filtres** posé à côté de la navigation par période |
 | Portée | **Le tableau seul.** Le graphe des coefficients garde sa série complète — un graphe de barres troué se lit mal et son axe des dates deviendrait irrégulier |
 | Persistance | `localStorage`, clé `marees-tide-filters` |
-| Filtres retenus | Coefficient **min/max**, **jours de la semaine**, **remise à flot dans une plage horaire** |
+| Filtres retenus | Coefficient **min/max** et **jours de la semaine** (filtres de **lignes**) ; **plage horaire de remise à flot** (masque des **heures**, garde les lignes) |
 | Filtres supprimés | « Type de marée » et le `minCoef` marée-par-marée |
 
 Le choix des filtres suit la question métier de l'app : *quand puis-je repartir à une heure
@@ -81,38 +81,48 @@ export interface TideDayFilters {
 ```ts
 export interface DayFacts {
   coefficient: number | null;
-  weekday: number;      // lundi = 0
-  aflotTimes: string[]; // heures de remise à flot ayant lieu ce jour-là
+  weekday: number; // lundi = 0
 }
 export function matchesDayFilters(facts: DayFacts, f: TideDayFilters): boolean
+export function matchesAflotWindow(time: string, f: TideDayFilters): boolean
 ```
+
+**Deux natures de filtre, à ne pas confondre.**
+
+*Filtres de ligne* — `matchesDayFilters` :
 
 - Bornes de coefficient **inclusives**. Un jour **sans** coefficient est écarté dès qu'une borne est
   posée — comportement explicite : on ne peut pas affirmer qu'il satisfait le critère.
 - `weekdays` neutre à 0 **et** à 7 valeurs.
-- Plage horaire : le jour est gardé si **au moins une** remise à flot y tombe. Une seule borne →
-  comparaison simple. `from > to` (plage franchissant minuit, ex. 22:00 → 06:00) est traitée comme
-  une union, sinon l'utilisateur obtiendrait un tableau vide sans comprendre pourquoi.
 
-L'heure utilisée est la **« Remise à flot » à décalage fixe**, jamais l'estimation par seuil :
-règle du projet, seule la pastille ↗ du tableau utilise l'estimation ; cartes, marégramme et
-colonne « Constaté » utilisent le décalage fixe.
+*Filtre d'heures* — `matchesAflotWindow` : la plage horaire ne supprime **aucune ligne**, elle
+masque les remises à flot qui en sortent. Le jour reste affiché, avec « — » si aucun à-flot n'est
+retenu. Bornes inclusives, chacune facultative ; `from > to` (plage franchissant minuit, ex.
+22:00 → 06:00) se lit en **union**, sinon une plage de nuit ne retiendrait jamais rien.
+
+L'heure jugée est la **« Remise à flot » à décalage fixe**, jamais l'estimation par seuil : règle du
+projet, seule la pastille ↗ du tableau utilise l'estimation ; cartes, marégramme et colonne
+« Constaté » utilisent le décalage fixe. **Les trois lectures d'un même à-flot disparaissent
+ensemble** — pastille ✓, estimation ↗ et ligne « Constaté » — sinon l'heure masquée dans la colonne
+Navihan réapparaîtrait immédiatement à droite.
 
 Ajout dans `client/src/lib/format.ts` : `weekdayIndex(dateKey)` → lundi = 0, même convention que
 les statistiques serveur, même astuce « midi local » que `formatDate` / `addDays`.
 
 ### `client/src/components/TideDayTable.vue`
 
-`rows` filtre les jours **après** `groupByDay` :
+`rows` filtre les jours **après** `groupByDay` (coefficient et jours de la semaine) :
 
-- `aflotTimes` vient de `constateByDate`, qui indexe déjà les remises à flot (décalage fixe) par le
-  jour où elles ont **réellement lieu** ;
 - **la liste plate `props.tides` n'est pas filtrée en amont** : `navihanByDate` et `constateByDate`
   se construisent dessus, donc les heures Navihan d'un jour masqué (ou du jour d'amorce) qui
   franchissent minuit restent rendues sur le jour visible suivant ;
 - quand des lignes sont masquées, un pied de tableau discret l'annonce
   (« N jour(s) masqué(s) par les filtres · Réinitialiser »). Sans lui, un filtre **persisté** rend
   le tableau incompréhensible au retour — c'est le prix de la persistance, il doit être payé ici.
+
+La **plage horaire** agit ailleurs, **dans** `navihanByDate` et `constateByDate` : chaque basse mer
+dont la remise à flot (décalage fixe) sort de la plage perd sa pastille ✓, son estimation ↗ et sa
+ligne « Constaté ». Aucune ligne ne disparaît, le pied ne la compte donc pas.
 
 ### `client/src/components/TideFiltersBar.vue` (nouveau)
 
@@ -138,17 +148,18 @@ ne contient plus que de la configuration serveur et se renomme **« Réglages »
 
 - `lib/tides.test.ts` — `filterTides` réduit à la plage de dates ; `matchesDayFilters` : bornes
   inclusives, jour sans coefficient écarté dès qu'une borne est posée, `weekdays` neutre à 0 et 7,
-  plage horaire incluse/exclue, plage franchissant minuit, plusieurs à-flot dont un seul dans la
-  plage, filtres neutres.
+  plage horaire **sans effet** sur la sélection de lignes, filtres neutres ; `matchesAflotWindow` :
+  bornes incluses, borne seule, plage franchissant minuit, aucune borne.
 - `lib/format.test.ts` — `weekdayIndex` (lundi = 0, dimanche = 6).
 - `composables/useTideFilters.test.ts` — patron de `useNavihanDisplay.test.ts` (`vi.resetModules()`
   + import dynamique) : défauts, lecture d'un état stocké, persistance, JSON invalide, objet
   partiel, `activeCount`, `reset()`.
 - `components/TideFiltersBar.test.ts` — saisie bornée, bascule d'un jour, désélection du dernier
   jour, visibilité du bouton Réinitialiser.
-- `components/TideDayTable.test.ts` — un filtre masque des lignes ; pied « N jours masqués » ; **les
-  pastilles Navihan d'un jour masqué qui franchissent minuit restent rendues** ; filtre de plage
-  horaire.
+- `components/TideDayTable.test.ts` — un filtre de coefficient masque des lignes ; pied « N jours
+  masqués » ; **les pastilles Navihan d'un jour masqué qui franchissent minuit restent rendues** ; la
+  plage horaire masque la pastille ✓ **sans** supprimer de ligne, et emporte l'estimation ↗ et la
+  ligne « Constaté » du même à-flot.
 
 ## Hors périmètre
 

@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import type { FlatTide } from '../types';
 import type { DayTides } from '../lib/tides';
-import { groupByDay, matchesDayFilters } from '../lib/tides';
+import { groupByDay, matchesAflotWindow, matchesDayFilters } from '../lib/tides';
 import { addDays, formatDate, formatHeight, todayKey, coefBand, weekdayIndex } from '../lib/format';
 import { shiftMoment } from '../lib/navihan';
 import { useNavihan } from '../composables/useNavihan';
@@ -116,10 +116,14 @@ const navihanByDate = computed(() => {
     }
     const bm = moment(t, offsets.basseMer);
     push('bm', bm, 'navihan-pill--bm', 'bi-arrow-down', 'Basse mer');
-    push('flot', flotMoment(t), 'navihan-pill--flot', 'bi-check-circle', 'Remise à flot (décalage fixe)');
+    // Plage horaire : elle masque la remise à flot elle-même, **pas** la ligne du jour. Estimation
+    // et « Constaté » décrivent le même à-flot et suivent donc son sort.
+    const flot = flotMoment(t);
+    const shown = matchesAflotWindow(flot.time, filters);
+    push('flot', shown ? flot : null, 'navihan-pill--flot', 'bi-check-circle', 'Remise à flot (décalage fixe)');
     // L'estimation n'a pas de date propre : elle suit la basse mer Navihan dont elle découle, et
     // bascule au lendemain si son heure d'horloge est passée avant celle-ci (franchissement).
-    const est = t.aflotEstimate
+    const est = t.aflotEstimate && shown
       ? { date: t.aflotEstimate >= bm.time ? bm.date : addDays(bm.date, 1), time: t.aflotEstimate }
       : null;
     push('flotEst', est, 'navihan-pill--flot-est', 'bi-graph-up-arrow', 'Estimation remise à flot (seuil de hauteur)');
@@ -143,6 +147,8 @@ const constateByDate = computed(() => {
   for (const t of props.tides) {
     if (t.type !== 'low') continue;
     const { date, time } = flotMoment(t);
+    // Même plage horaire que les pastilles : l'observation mesure cet à-flot, elle disparaît avec lui.
+    if (!matchesAflotWindow(time, filters)) continue;
     const list = byDate.get(date) ?? [];
     list.push({ low: t, flot: time });
     byDate.set(date, list);
@@ -156,25 +162,16 @@ function constateRows(day: DayTides): { low: FlatTide; flot: string }[] {
 }
 
 /**
- * Lignes réellement affichées : les filtres d'affichage s'appliquent **au grain du jour** (issue
- * #10). La liste plate `props.tides` n'est volontairement **pas** filtrée en amont — `navihanByDate`
- * et `constateByDate` s'y construisent, donc les heures d'un jour masqué (ou du jour d'amorce) qui
+ * Lignes réellement affichées : coefficient et jour de la semaine sélectionnent des **lignes**
+ * (issue #10) ; la plage horaire de remise à flot, elle, masque des **heures** dans la ligne (cf.
+ * `navihanByDate` / `constateByDate`) et n'en supprime aucune.
+ * La liste plate `props.tides` n'est volontairement **pas** filtrée en amont — `navihanByDate` et
+ * `constateByDate` s'y construisent, donc les heures d'un jour masqué (ou du jour d'amorce) qui
  * franchissent minuit restent rendues sur le jour visible suivant.
- * L'heure retenue pour le filtre horaire est la **remise à flot à décalage fixe**, jamais
- * l'estimation par seuil — même règle que les cartes, le marégramme et la colonne « Constaté ».
  */
 const rows = computed(() =>
   allRows.value
-    .filter(day =>
-      matchesDayFilters(
-        {
-          coefficient: day.coefficient,
-          weekday: weekdayIndex(day.date),
-          aflotTimes: constateRows(day).map(r => r.flot)
-        },
-        filters
-      )
-    )
+    .filter(day => matchesDayFilters({ coefficient: day.coefficient, weekday: weekdayIndex(day.date) }, filters))
     .map(day => ({ day, band: coefBand(day.coefficient) }))
 );
 

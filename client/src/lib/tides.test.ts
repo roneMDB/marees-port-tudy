@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  clampDate, filterTides, flatten, groupByDay, matchNavihanReference, matchesDayFilters,
-  periodWindow, resolveWindow, tidalRange
+  clampDate, filterTides, flatten, groupByDay, matchNavihanReference, matchesAflotWindow,
+  matchesDayFilters, periodWindow, resolveWindow, tidalRange
 } from './tides';
 import type { DayFacts, DayTides } from './tides';
 import { addDays } from './format';
@@ -137,12 +137,11 @@ describe('matchesDayFilters', () => {
   const facts = (over: Partial<DayFacts> = {}): DayFacts => ({
     coefficient: 70,
     weekday: 0, // lundi
-    aflotTimes: ['09:30'],
     ...over
   });
 
   it('garde tout quand aucun filtre n’est posé', () => {
-    expect(matchesDayFilters(facts({ coefficient: null, aflotTimes: [] }), NEUTRAL)).toBe(true);
+    expect(matchesDayFilters(facts({ coefficient: null }), NEUTRAL)).toBe(true);
   });
 
   it('borne le coefficient de façon inclusive', () => {
@@ -172,40 +171,45 @@ describe('matchesDayFilters', () => {
     expect(matchesDayFilters(facts({ weekday: 0 }), weekend)).toBe(false); // lundi
   });
 
-  it('garde le jour dès qu’une remise à flot tombe dans la plage horaire', () => {
+  it('ignore la plage horaire de remise à flot : elle masque des heures, pas des lignes', () => {
     const window = { ...NEUTRAL, aflotFrom: '09:00', aflotTo: '19:00' };
-    expect(matchesDayFilters(facts({ aflotTimes: ['05:10', '17:40'] }), window)).toBe(true);
-    expect(matchesDayFilters(facts({ aflotTimes: ['05:10', '22:40'] }), window)).toBe(false);
-    // Bornes inclusives.
-    expect(matchesDayFilters(facts({ aflotTimes: ['09:00'] }), window)).toBe(true);
-    expect(matchesDayFilters(facts({ aflotTimes: ['19:00'] }), window)).toBe(true);
+    expect(matchesDayFilters(facts(), window)).toBe(true);
+  });
+
+  it('exige que tous les critères de ligne posés soient satisfaits', () => {
+    const f: TideDayFilters = { minCoef: 80, maxCoef: null, weekdays: [5, 6], aflotFrom: null, aflotTo: null };
+    expect(matchesDayFilters(facts({ coefficient: 90, weekday: 5 }), f)).toBe(true);
+    expect(matchesDayFilters(facts({ coefficient: 70, weekday: 5 }), f)).toBe(false);
+    expect(matchesDayFilters(facts({ coefficient: 90, weekday: 1 }), f)).toBe(false);
+  });
+});
+
+describe('matchesAflotWindow', () => {
+  it('laisse tout passer quand aucune borne n’est posée', () => {
+    expect(matchesAflotWindow('03:00', { aflotFrom: null, aflotTo: null })).toBe(true);
+  });
+
+  it('retient les heures de la plage, bornes incluses', () => {
+    const w = { aflotFrom: '09:00', aflotTo: '19:00' };
+    expect(matchesAflotWindow('09:00', w)).toBe(true);
+    expect(matchesAflotWindow('19:00', w)).toBe(true);
+    expect(matchesAflotWindow('12:30', w)).toBe(true);
+    expect(matchesAflotWindow('08:59', w)).toBe(false);
+    expect(matchesAflotWindow('19:01', w)).toBe(false);
   });
 
   it('accepte une borne seule', () => {
-    expect(matchesDayFilters(facts({ aflotTimes: ['08:00'] }), { ...NEUTRAL, aflotFrom: '09:00' })).toBe(false);
-    expect(matchesDayFilters(facts({ aflotTimes: ['10:00'] }), { ...NEUTRAL, aflotFrom: '09:00' })).toBe(true);
-    expect(matchesDayFilters(facts({ aflotTimes: ['10:00'] }), { ...NEUTRAL, aflotTo: '09:00' })).toBe(false);
-    expect(matchesDayFilters(facts({ aflotTimes: ['08:00'] }), { ...NEUTRAL, aflotTo: '09:00' })).toBe(true);
+    expect(matchesAflotWindow('08:00', { aflotFrom: '09:00', aflotTo: null })).toBe(false);
+    expect(matchesAflotWindow('10:00', { aflotFrom: '09:00', aflotTo: null })).toBe(true);
+    expect(matchesAflotWindow('10:00', { aflotFrom: null, aflotTo: '09:00' })).toBe(false);
+    expect(matchesAflotWindow('08:00', { aflotFrom: null, aflotTo: '09:00' })).toBe(true);
   });
 
   it('traite une plage franchissant minuit comme une union', () => {
-    const night = { ...NEUTRAL, aflotFrom: '22:00', aflotTo: '06:00' };
-    expect(matchesDayFilters(facts({ aflotTimes: ['23:10'] }), night)).toBe(true);
-    expect(matchesDayFilters(facts({ aflotTimes: ['04:30'] }), night)).toBe(true);
-    expect(matchesDayFilters(facts({ aflotTimes: ['12:00'] }), night)).toBe(false);
-  });
-
-  it('écarte un jour sans aucune remise à flot dès qu’une plage est posée', () => {
-    expect(matchesDayFilters(facts({ aflotTimes: [] }), { ...NEUTRAL, aflotFrom: '09:00' })).toBe(false);
-    expect(matchesDayFilters(facts({ aflotTimes: [] }), NEUTRAL)).toBe(true);
-  });
-
-  it('exige que tous les critères posés soient satisfaits', () => {
-    const f: TideDayFilters = { minCoef: 80, maxCoef: null, weekdays: [5, 6], aflotFrom: '09:00', aflotTo: '19:00' };
-    expect(matchesDayFilters(facts({ coefficient: 90, weekday: 5, aflotTimes: ['10:00'] }), f)).toBe(true);
-    expect(matchesDayFilters(facts({ coefficient: 90, weekday: 5, aflotTimes: ['20:00'] }), f)).toBe(false);
-    expect(matchesDayFilters(facts({ coefficient: 70, weekday: 5, aflotTimes: ['10:00'] }), f)).toBe(false);
-    expect(matchesDayFilters(facts({ coefficient: 90, weekday: 1, aflotTimes: ['10:00'] }), f)).toBe(false);
+    const night = { aflotFrom: '22:00', aflotTo: '06:00' };
+    expect(matchesAflotWindow('23:10', night)).toBe(true);
+    expect(matchesAflotWindow('04:30', night)).toBe(true);
+    expect(matchesAflotWindow('12:00', night)).toBe(false);
   });
 });
 

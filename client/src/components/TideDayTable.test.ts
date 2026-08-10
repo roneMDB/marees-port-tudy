@@ -361,14 +361,60 @@ describe('TideDayTable — filtres d’affichage au grain du jour', () => {
     expect(wrapper.find('.hidden-days-row').exists()).toBe(false);
   });
 
-  it('ne garde que les jours dont une remise à flot tombe dans la plage horaire', () => {
+  it('masque les remises à flot hors de la plage horaire, sans supprimer de ligne', () => {
     const { filters } = useTideFilters();
     filters.aflotFrom = '15:00';
     filters.aflotTo = '20:00';
     const wrapper = mount(TideDayTable, { props: { tides } });
+
+    // Les deux jours restent affichés (le 23 n'a pourtant aucun à-flot dans la plage).
     const labels = rowLabels(wrapper);
-    expect(labels.some(t => t.includes('22 juil.'))).toBe(true); // à-flot 16:27
-    expect(labels.some(t => t.includes('23 juil.'))).toBe(false); // à-flot 09:02
+    expect(labels.some(t => t.includes('22 juil.'))).toBe(true);
+    expect(labels.some(t => t.includes('23 juil.'))).toBe(true);
+    expect(wrapper.find('.hidden-days-row').exists()).toBe(false);
+
+    const row22 = wrapper.findAll('tbody tr').find(r => r.text().includes('22 juil.'))!;
+    const navihan22 = row22.find('td[data-label="Navihan"]').text();
+    expect(navihan22).toContain('16:27'); // remise à flot dans la plage
+    expect(navihan22).not.toContain('04:19'); // remise à flot hors plage : masquée
+    // Les basses et pleines mers ne sont pas concernées par ce filtre.
+    expect(navihan22).toContain('02:54'); // basse mer Navihan
+    expect(navihan22).toContain('08:25'); // pleine mer Navihan
+
+    // Le jour sans à-flot retenu garde sa ligne, sa marée et son coefficient.
+    const row23 = wrapper.findAll('tbody tr').find(r => r.text().includes('23 juil.'))!;
+    expect(row23.find('td[data-label="Navihan"]').text()).not.toContain('09:02');
+    expect(row23.find('td[data-label="Basses mers"]').text()).toContain('06:22');
+    expect(row23.find('td[data-label="Coef"]').text()).toContain('35');
+  });
+
+  it('emporte l’estimation et la colonne « Constaté » de l’à-flot masqué', () => {
+    const withEstimate: FlatTide[] = [
+      {
+        date: '2026-07-25', time: '01:39', height: 1.75, type: 'low', coefficient: null,
+        refDate: '2026-07-25', refTime: '01:39', aflotEstimate: '04:30', navihan: {}
+      },
+      {
+        date: '2026-07-25', time: '13:47', height: 1.83, type: 'low', coefficient: null,
+        refDate: '2026-07-25', refTime: '13:47', aflotEstimate: '16:35', navihan: {}
+      }
+    ];
+    const { filters } = useTideFilters();
+    filters.aflotFrom = '09:00';
+    filters.aflotTo = '19:00';
+    const wrapper = mount(TideDayTable, { props: { tides: withEstimate } });
+    const row = wrapper.findAll('tbody tr')[0];
+
+    // À-flot de 04:19 masqué → son estimation 04:30 aussi, et sa ligne « Constaté ».
+    const navihan = row.find('td[data-label="Navihan"]').text();
+    expect(navihan).not.toContain('04:19');
+    expect(navihan).not.toContain('04:30');
+    expect(navihan).toContain('16:27'); // l'autre à-flot, dans la plage
+    expect(navihan).toContain('16:35'); // et son estimation
+
+    const constate = row.find('td[data-label="Constaté"]').text();
+    expect(constate).not.toContain('04:19');
+    expect(constate).toContain('16:27');
   });
 
   it('ne garde que les jours de la semaine sélectionnés (lundi = 0)', () => {

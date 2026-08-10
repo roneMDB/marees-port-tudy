@@ -141,25 +141,14 @@ export function filterTides(tides: FlatTide[], f: TideFilters): FlatTide[] {
 export interface DayFacts {
   coefficient: number | null; // coef du jour (max des pleines mers)
   weekday: number; // lundi = 0
-  aflotTimes: string[]; // heures de remise à flot (décalage fixe) ayant lieu ce jour-là
-}
-
-/** Vrai si l'heure `HH:MM` tombe dans `[from, to]` (bornes inclusives, l'une des deux peut manquer). */
-function inTimeWindow(time: string, from: string | null, to: string | null): boolean {
-  if (from && to) {
-    // `from > to` = plage franchissant minuit (ex. 22:00 → 06:00) : union, et non intervalle vide.
-    return from <= to ? time >= from && time <= to : time >= from || time <= to;
-  }
-  if (from) return time >= from;
-  if (to) return time <= to;
-  return true;
 }
 
 /**
- * Applique les filtres d'affichage à un jour : toutes les conditions **posées** doivent être
+ * Applique les filtres **de ligne** à un jour : toutes les conditions posées doivent être
  * satisfaites. Un jour sans coefficient est écarté dès qu'une borne de coefficient est posée (on ne
- * peut pas affirmer qu'il la satisfait) ; de même, un jour sans remise à flot est écarté dès qu'une
- * plage horaire est posée. Fonction pure.
+ * peut pas affirmer qu'il la satisfait). La **plage horaire de remise à flot n'est pas ici** : elle
+ * masque des heures dans la ligne, elle ne supprime pas la ligne (cf. `matchesAflotWindow`).
+ * Fonction pure.
  */
 export function matchesDayFilters(facts: DayFacts, f: TideDayFilters): boolean {
   if (f.minCoef != null || f.maxCoef != null) {
@@ -169,8 +158,25 @@ export function matchesDayFilters(facts: DayFacts, f: TideDayFilters): boolean {
   }
   // Sélection neutre à 0 comme à 7 jours : on ne filtre que sur un sous-ensemble strict.
   if (f.weekdays.length > 0 && f.weekdays.length < 7 && !f.weekdays.includes(facts.weekday)) return false;
-  if (f.aflotFrom || f.aflotTo) {
-    if (!facts.aflotTimes.some(t => inTimeWindow(t, f.aflotFrom, f.aflotTo))) return false;
-  }
+  return true;
+}
+
+/**
+ * Vrai si une remise à flot doit rester affichée, c'est-à-dire si son heure tombe dans la plage
+ * `[aflotFrom, aflotTo]` (bornes inclusives, chacune facultative ; aucune borne = tout passe).
+ * `from > to` désigne une plage **franchissant minuit** (ex. 22:00 → 06:00) et se lit en **union**,
+ * sinon une plage de nuit ne retiendrait jamais rien.
+ * L'heure jugée est celle de la remise à flot à **décalage fixe** : c'est l'heure de référence du
+ * projet, et estimation et « Constaté » décrivent le même à-flot, donc suivent son sort.
+ * Fonction pure.
+ */
+export function matchesAflotWindow(
+  time: string,
+  f: Pick<TideDayFilters, 'aflotFrom' | 'aflotTo'>
+): boolean {
+  const { aflotFrom: from, aflotTo: to } = f;
+  if (from && to) return from <= to ? time >= from && time <= to : time >= from || time <= to;
+  if (from) return time >= from;
+  if (to) return time <= to;
   return true;
 }

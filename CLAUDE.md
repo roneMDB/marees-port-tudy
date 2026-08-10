@@ -298,18 +298,22 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   tolérance 3 h, sinon `null`), `groupByDay(tides)` (regroupe par jour → `DayTides` : pleines/
   basses mers triées + coef du jour), `tidalRange(day)` (**marnage** du jour = plus haute pleine mer
   − plus basse basse mer, `null` s'il manque un type ; utilisé par la carte « Marnage du jour » de
-  `StatCards`), `matchesDayFilters(facts, filters)` (filtres d'affichage **au grain du jour**,
-  cf. ci-dessous) et `periodWindow(from, rangeDays, offset, min, max)` (fenêtre
+  `StatCards`), `matchesDayFilters(facts, filters)` / `matchesAflotWindow(time, filters)` (filtres
+  d'affichage, cf. ci-dessous) et `periodWindow(from, rangeDays, offset, min, max)` (fenêtre
   du tableau décalée de `offset` périodes, bornée) — **fonctions pures, testées**.
-  ⚠️ **Les filtres portent sur le jour, jamais sur la marée** (issue #10). Le tableau affiche une
-  ligne par jour : filtrer `FlatTide` par `type`/`minCoef` — ce que faisait `filterTides` — vidait
-  des **cellules** au lieu de sélectionner des lignes. Les basses mers n'ayant **pas** de
-  coefficient, un « Coef min » les supprimait toutes, emportant les pastilles Navihan et la colonne
-  « Constaté ». `matchesDayFilters` prend donc des `DayFacts` (`coefficient` du jour, `weekday`
-  lundi = 0, `aflotTimes` = remises à flot **à décalage fixe** ayant lieu ce jour-là) : bornes de
-  coef inclusives, jour **sans** coefficient écarté dès qu'une borne est posée, sélection de jours
-  neutre à 0 **comme** à 7 valeurs, et plage horaire traitée en **union** si `from > to` (22:00 →
-  06:00), sinon une plage de nuit renverrait un tableau vide sans explication.
+  ⚠️ **Les filtres de ligne portent sur le jour, jamais sur la marée** (issue #10). Le tableau
+  affiche une ligne par jour : filtrer `FlatTide` par `type`/`minCoef` — ce que faisait
+  `filterTides` — vidait des **cellules** au lieu de sélectionner des lignes. Les basses mers n'ayant
+  **pas** de coefficient, un « Coef min » les supprimait toutes, emportant les pastilles Navihan et
+  la colonne « Constaté ». `matchesDayFilters` prend donc des `DayFacts` (`coefficient` du jour,
+  `weekday` lundi = 0) : bornes de coef inclusives, jour **sans** coefficient écarté dès qu'une borne
+  est posée, sélection de jours neutre à 0 **comme** à 7 valeurs.
+  ⚠️ **La plage horaire de remise à flot, elle, ne filtre pas de lignes** : `matchesAflotWindow`
+  masque les **heures** hors plage à l'intérieur de la ligne, qui reste affichée (un jour dont aucun
+  à-flot n'est retenu montre « — »). Bornes inclusives, chacune facultative ; `from > to` (22:00 →
+  06:00) se lit en **union**, sinon une plage de nuit ne retiendrait jamais rien. L'heure jugée est
+  celle du **décalage fixe** — estimation (↗) et « Constaté » décrivent le même à-flot et suivent
+  son sort, sinon l'heure masquée dans la colonne Navihan réapparaîtrait dans « Constaté ».
 - `src/lib/format.ts` — `formatDate`, `formatHeight`, `todayKey`, `addDays`, `coefBand`,
   `weekdayIndex` (jour de la semaine, **lundi = 0** comme les stats serveur),
   `relativeDayLabel` (« aujourd'hui »/« demain »/date — lève l'ambiguïté d'une heure seule).
@@ -398,7 +402,9 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   singleton `useTideFilters` (ni prop ni emit) : bornes de **coefficient** (bornées **en JS**, les
   attributs HTML `min`/`max` n'empêchent pas de taper 999), 7 pastilles **L M M J V S D** sur le
   patron de la légende Navihan (`aria-pressed`, `aria-label` = le jour en toutes lettres, sinon un
-  bouton « S » n'a pas de nom accessible), et une **plage horaire de remise à flot**. Modèle
+  bouton « S » n'a pas de nom accessible), et une **plage horaire de remise à flot**. **Deux natures
+  de filtre** : coefficient et jours **sélectionnent des lignes** ; la plage horaire **masque des
+  heures** dans les lignes conservées. Modèle
   « chips » : **aucun jour sélectionné = tous les jours**, donc désélectionner le dernier ne vide
   jamais le tableau. Le bouton bascule vit dans l'en-tête de carte (`Dashboard.vue`, repli
   **éphémère**) et passe en `btn-primary` avec le badge `activeCount` dès qu'un filtre est posé :
@@ -557,12 +563,16 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   qu'on lui passe (`tableTides`) ; la **navigation Précédent/Suivant/Début** (par période, cf.
   `useTides`) est dans l'en-tête de carte du `Dashboard`. Remplace l'ancien `TideTable`
   (une-ligne-par-marée, retiré).
-  Les **filtres d'affichage** (`useTideFilters`, issue #10) s'appliquent ici, sur `allRows` — donc
-  **après** `groupByDay` et **jamais** sur `props.tides` : `navihanByDate`/`constateByDate` se
-  construisent sur la liste plate complète, ce qui garde les heures d'un jour masqué (ou du jour
-  d'amorce) qui franchissent minuit sur le jour visible suivant. Un pied de tableau
-  (`.hidden-days-row`) annonce « N jour(s) masqué(s) par les filtres · Réinitialiser » : les filtres
-  sont **persistés**, un tableau tronqué sans explication au retour serait incompréhensible.
+  Les **filtres d'affichage** (`useTideFilters`, issue #10) s'appliquent ici. Coefficient et jours
+  filtrent `allRows` — donc **après** `groupByDay` et **jamais** sur `props.tides` :
+  `navihanByDate`/`constateByDate` se construisent sur la liste plate complète, ce qui garde les
+  heures d'un jour masqué (ou du jour d'amorce) qui franchissent minuit sur le jour visible suivant.
+  Un pied de tableau (`.hidden-days-row`) annonce « N jour(s) masqué(s) par les filtres ·
+  Réinitialiser » : les filtres sont **persistés**, un tableau tronqué sans explication au retour
+  serait incompréhensible. La **plage horaire** agit au contraire **dans** `navihanByDate` et
+  `constateByDate` (`matchesAflotWindow` sur l'heure du décalage fixe) : elle retire la pastille ✓,
+  son estimation ↗ et sa ligne « Constaté », et **ne masque aucun jour** — le pied ne la compte donc
+  pas.
 
 Le proxy Vite (`vite.config.ts`) redirige `/api` vers `:3000` en dev.
 
