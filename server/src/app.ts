@@ -11,6 +11,7 @@ import { createStatsRouter } from './routes/stats';
 import { createUsersRouter } from './routes/users';
 import { createAflotObservationsRouter } from './routes/aflotObservations';
 import { createLexiconRouter } from './routes/lexicon';
+import { createFishingRouter } from './routes/fishing';
 import { createAuthRouter } from './routes/auth';
 import { basicAuth } from './middleware/auth';
 import { accessLog } from './middleware/accessLog';
@@ -87,6 +88,7 @@ export function createApp(logger: Logger): Application {
   app.use('/api', createUsersRouter(logger));
   app.use('/api', createAflotObservationsRouter(logger));
   app.use('/api', createLexiconRouter(logger));
+  app.use('/api', createFishingRouter(logger));
 
   // En production, sert le client Vue buildé (client/dist) sur la même origine.
   const clientDist = path.resolve(__dirname, '..', '..', 'client', 'dist');

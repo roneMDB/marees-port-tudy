@@ -1,0 +1,129 @@
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import request from 'supertest';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import type { Application } from 'express';
+
+const dataDir = path.join(os.tmpdir(), `marees-fishing-test-${process.pid}`);
+process.env.DATA_DIR = dataDir;
+
+// La capture météo sort sur le réseau : neutralisée ici, elle a ses propres tests.
+vi.mock('../service/fishingWeather', () => ({
+  captureTripWeather: vi.fn(async () => null)
+}));
+
+const fakeLogger = { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() } as any;
+
+let app: Application;
+
+beforeAll(async () => {
+  const { initStorage } = await import('../db/bootstrap');
+  const { createApp } = await import('../app');
+  await initStorage();
+  app = createApp(fakeLogger);
+});
+
+afterAll(() => {
+  fs.rmSync(dataDir, { recursive: true, force: true });
+});
+
+const validTrip = {
+  date: '2026-08-10',
+  startTime: '19:42',
+  endTime: '21:10',
+  notes: 'Vent d’ouest',
+  catches: [{ speciesId: 'bar', gearId: 'ligne', quantity: 1, sizeCm: 42, weightG: null, kept: true }]
+};
+
+describe('API /api/fishing/refs', () => {
+  it('GET renvoie les référentiels amorcés', async () => {
+    const res = await request(app).get('/api/fishing/refs');
+    expect(res.status).toBe(200);
+    expect(res.body.some((r: any) => r.id === 'casier-crevettes' && r.kind === 'gear')).toBe(true);
+    expect(res.body.some((r: any) => r.id === 'bar' && r.kind === 'species')).toBe(true);
+  });
+
+  it('POST ajoute une espèce puis PUT la renomme', async () => {
+    const post = await request(app).post('/api/fishing/refs').send({ kind: 'species', label: 'Homard' });
+    expect(post.status).toBe(201);
+    expect(post.body).toMatchObject({ id: 'homard', kind: 'species', label: 'Homard' });
+
+    const put = await request(app).put('/api/fishing/refs/homard').send({ label: 'Homard bleu' });
+    expect(put.status).toBe(200);
+    expect(put.body.label).toBe('Homard bleu');
+  });
+
+  it('POST refuse un type inconnu ou un libellé vide (400)', async () => {
+    expect((await request(app).post('/api/fishing/refs').send({ kind: 'poisson', label: 'X' })).status).toBe(400);
+    expect((await request(app).post('/api/fishing/refs').send({ kind: 'species', label: '  ' })).status).toBe(400);
+  });
+
+  it('DELETE renvoie 404 sur un id inconnu, 204 sinon', async () => {
+    expect((await request(app).delete('/api/fishing/refs/inconnu')).status).toBe(404);
+    expect((await request(app).delete('/api/fishing/refs/homard')).status).toBe(204);
+  });
+});
+
+describe('API /api/fishing/trips', () => {
+  it('POST crée une sortie et GET la relit', async () => {
+    const post = await request(app).post('/api/fishing/trips').send(validTrip);
+    expect(post.status).toBe(201);
+    expect(post.body).toMatchObject({ date: '2026-08-10', startTime: '19:42', notes: 'Vent d’ouest' });
+    expect(post.body.catches).toHaveLength(1);
+
+    const get = await request(app).get('/api/fishing/trips');
+    expect(get.status).toBe(200);
+    expect(get.body.some((t: any) => t.id === post.body.id)).toBe(true);
+  });
+
+  it('GET filtre sur une plage inclusive et refuse des dates invalides', async () => {
+    await request(app).post('/api/fishing/trips').send({ ...validTrip, date: '2026-07-01' });
+    const inRange = await request(app).get('/api/fishing/trips?from=2026-08-01&to=2026-08-31');
+    expect(inRange.body.every((t: any) => t.date >= '2026-08-01')).toBe(true);
+
+    expect((await request(app).get('/api/fishing/trips?from=hier')).status).toBe(400);
+    expect((await request(app).get('/api/fishing/trips?from=2026-08-31&to=2026-08-01')).status).toBe(400);
+  });
+
+  it('POST accepte une sortie bredouille', async () => {
+    const res = await request(app).post('/api/fishing/trips').send({ ...validTrip, catches: [] });
+    expect(res.status).toBe(201);
+    expect(res.body.catches).toEqual([]);
+  });
+
+  it('POST refuse une date, une heure, une quantité ou un référentiel invalides (400)', async () => {
+    const bad = (over: any) => request(app).post('/api/fishing/trips').send({ ...validTrip, ...over });
+    expect((await bad({ date: '10/08/2026' })).status).toBe(400);
+    expect((await bad({ startTime: '25:00' })).status).toBe(400);
+    expect((await bad({ notes: 'x'.repeat(1001) })).status).toBe(400);
+    expect((await bad({ catches: [{ ...validTrip.catches[0], quantity: 0 }] })).status).toBe(400);
+    expect((await bad({ catches: [{ ...validTrip.catches[0], speciesId: 'licorne' }] })).status).toBe(400);
+    // Un engin ne peut pas servir d'espèce, ni l'inverse.
+    expect((await bad({ catches: [{ ...validTrip.catches[0], speciesId: 'ligne' }] })).status).toBe(400);
+    expect((await bad({ catches: [{ ...validTrip.catches[0], gearId: 'bar' }] })).status).toBe(400);
+  });
+
+  it('PUT remplace les prises, DELETE supprime, 404 hors sortie existante', async () => {
+    const post = await request(app).post('/api/fishing/trips').send(validTrip);
+    const id = post.body.id;
+
+    const put = await request(app)
+      .put(`/api/fishing/trips/${id}`)
+      .send({ ...validTrip, catches: [{ speciesId: 'seiche', gearId: 'ligne', quantity: 2, sizeCm: null, weightG: 900, kept: false }] });
+    expect(put.status).toBe(200);
+    expect(put.body.catches).toHaveLength(1);
+    expect(put.body.catches[0]).toMatchObject({ speciesId: 'seiche', kept: false });
+
+    expect((await request(app).put('/api/fishing/trips/9999').send(validTrip)).status).toBe(404);
+    expect((await request(app).delete(`/api/fishing/trips/${id}`)).status).toBe(204);
+    expect((await request(app).delete(`/api/fishing/trips/${id}`)).status).toBe(404);
+  });
+
+  it('refuse de supprimer un référentiel encore utilisé (409)', async () => {
+    await request(app).post('/api/fishing/trips').send(validTrip);
+    const res = await request(app).delete('/api/fishing/refs/bar');
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/utilisé/i);
+  });
+});
