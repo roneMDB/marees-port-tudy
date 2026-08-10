@@ -351,13 +351,43 @@ describe('fishingRefsRepository', () => {
     db.close();
   });
 
-  it('rétablit la graine en écrasant les ajouts', () => {
+  it('rétablit la graine en écrasant les ajouts non utilisés', () => {
     const db = openDb(':memory:');
     seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
     addRef(db, 'species', 'Homard');
     resetFishingRefs(db, FISHING_REFS_SEED);
     expect(getRefs(db)).toHaveLength(FISHING_REFS_SEED.length);
     expect(getRefs(db).some(r => r.id === 'homard')).toBe(false);
+    db.close();
+  });
+
+  it('conserve au reset une entrée personnalisée encore utilisée par une prise', () => {
+    const db = openDb(':memory:');
+    seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+    addRef(db, 'species', 'Homard');
+    db.prepare(
+      "INSERT INTO fishing_trips (id, date, created_at, updated_at) VALUES (1, '2026-08-10', 'x', 'x')"
+    ).run();
+    db.prepare(
+      "INSERT INTO fishing_catches (trip_id, species_id, gear_id, quantity) VALUES (1, 'homard', 'ligne', 1)"
+    ).run();
+
+    resetFishingRefs(db, FISHING_REFS_SEED);
+
+    const refs = getRefs(db);
+    expect(refs.some(r => r.id === 'homard')).toBe(true);
+    // Rangée après la graine, pas au milieu.
+    expect(refs.at(-1)!.id).toBe('homard');
+    expect(refs).toHaveLength(FISHING_REFS_SEED.length + 1);
+    db.close();
+  });
+
+  it('rétablit le libellé d’une entrée de graine renommée', () => {
+    const db = openDb(':memory:');
+    seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+    updateRef(db, 'bar', 'Bar moucheté');
+    resetFishingRefs(db, FISHING_REFS_SEED);
+    expect(getRefs(db).find(r => r.id === 'bar')!.label).toBe('Bar');
     db.close();
   });
 
@@ -479,11 +509,28 @@ export function seedFishingRefsIfEmpty(db: DB, seed: FishingRef[]): void {
   if (c === 0) db.transaction(() => insertSeed(db, seed))();
 }
 
-/** « Rétablir les défauts » : vide puis réinsère la graine. */
+/**
+ * « Rétablir les défauts » : réinsère la graine **en conservant** les entrées personnalisées encore
+ * référencées par une prise. Sans cette exception, le bouton ferait silencieusement ce que
+ * `deleteRef` refuse par un 409, et une prise ancienne perdrait son libellé. Les entrées conservées
+ * sont rangées **après** la graine (`insertSeed` numérote `sort_order` par index).
+ */
 export function resetFishingRefs(db: DB, seed: FishingRef[]): void {
   db.transaction(() => {
+    const seedIds = new Set(seed.map(r => r.id));
+    const kept = (
+      db
+        .prepare(
+          `SELECT id, kind, label FROM fishing_refs
+           WHERE id IN (SELECT species_id FROM fishing_catches UNION SELECT gear_id FROM fishing_catches)
+           ORDER BY sort_order, id`
+        )
+        .all() as RefRow[]
+    )
+      .map(r => ({ id: r.id, kind: r.kind as FishingRefKind, label: r.label }))
+      .filter(r => !seedIds.has(r.id));
     db.prepare('DELETE FROM fishing_refs').run();
-    insertSeed(db, seed);
+    insertSeed(db, [...seed, ...kept]);
   })();
 }
 ```
