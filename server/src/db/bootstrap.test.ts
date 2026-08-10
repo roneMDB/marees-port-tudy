@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { getRefs } from './fishingRefsRepository';
 
 // DATA_DIR isolé, fixé avant tout import de la couche data (const lue à l'import).
 const dataDir = path.join(os.tmpdir(), `marees-bootstrap-test-${process.pid}`);
@@ -51,6 +52,20 @@ describe('initStorage', () => {
     const before = countTides(db);
     await initStorage(undefined, db);
     expect(countTides(db)).toBe(before);
+    db.close();
+  });
+
+  it('amorce les référentiels de pêche, sans les réamorcer au second appel', async () => {
+    const { openDb } = await import('./index');
+    const { initStorage } = await import('./bootstrap');
+
+    const db = openDb(':memory:');
+    await initStorage(undefined, db);
+    const first = getRefs(db);
+    expect(first.length).toBeGreaterThan(10);
+    expect(first.some(r => r.id === 'casier-crevettes')).toBe(true);
+    await initStorage(undefined, db);
+    expect(getRefs(db)).toHaveLength(first.length);
     db.close();
   });
 });

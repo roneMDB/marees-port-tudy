@@ -9,6 +9,8 @@ import { countTides, replaceSiteData } from './tidesRepository';
 import { getOrCreateSessionSecret } from './usersRepository';
 import { seedLexiconIfEmpty } from './lexiconRepository';
 import { LEXICON_SEED } from '../service/lexiconSeed';
+import { seedFishingRefsIfEmpty } from './fishingRefsRepository';
+import { FISHING_REFS_SEED } from '../service/fishingSeed';
 import { writeSettings, ensureSettings } from '../service/SettingsStore';
 import { ensureAdminUser } from '../service/UsersStore';
 import { authEnabled } from '../middleware/auth';
@@ -22,6 +24,7 @@ import { authEnabled } from '../middleware/auth';
  *   sinon écrit les défauts.
  * - **Utilisateurs** : si l'authentification est active, génère le secret de session persisté et
  *   amorce le premier administrateur (`ensureAdminUser`) si la table `users` est vide.
+ * - **Pêche** : amorce les référentiels espèces/engins si la table `fishing_refs` est vide.
  *
  * Idempotent : ne réimporte rien si la base contient déjà les données.
  */
@@ -54,6 +57,9 @@ export async function initStorage(logger?: Logger, db: DB = getDb()): Promise<vo
 
   // Lexique du « mot du jour » : amorce la table depuis la graine si elle est vide.
   seedLexiconIfEmpty(db, LEXICON_SEED);
+
+  // Référentiels du carnet de pêche (issue #3) : mêmes règles que le lexique — amorçage si vide.
+  seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
 
   if (authEnabled()) {
     getOrCreateSessionSecret(db); // secret stable, indépendant des mots de passe utilisateurs
