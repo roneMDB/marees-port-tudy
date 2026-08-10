@@ -1,12 +1,7 @@
 import { Router } from 'express';
 import { Logger } from 'pino';
-import { fetchWeather } from '../service/weather';
+import { DEFAULT_LAT, DEFAULT_LON, fetchWeather } from '../service/weather';
 // `fetchWeather(lat, lon, days, fetchImpl, extraSeaPoints)` : `undefined` laisse le `fetch` global.
-
-// Zone par défaut : Belz (Morbihan) — lieu de consultation. Les marées restent référencées
-// sur Port-Tudy (Groix), mais la météo affichée est celle de Belz.
-const DEFAULT_LAT = 47.677;
-const DEFAULT_LON = -3.166;
 
 /**
  * Lieux dont on veut la **seule** température de l'eau, en plus du point principal (issue #13).

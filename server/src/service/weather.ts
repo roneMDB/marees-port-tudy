@@ -34,6 +34,15 @@ export function weatherText(code: number | null | undefined): string {
   return code == null ? '—' : (WMO[code] ?? `code ${code}`);
 }
 
+/**
+ * Zone par défaut : Belz (Morbihan) — lieu de consultation. Les marées restent référencées sur
+ * Port-Tudy (Groix). Exportées ici parce que deux appelants s'en servent : la route météo et la
+ * capture de l'instantané d'une sortie de pêche (issue #3).
+ * ⚠️ `EPHEMERIDE_LOCATION` (client) est un miroir de ces valeurs.
+ */
+export const DEFAULT_LAT = 47.677;
+export const DEFAULT_LON = -3.166;
+
 export interface CurrentWeather {
   time: string;
   temperature: number;
@@ -108,14 +117,17 @@ async function getJson(url: string, fetchImpl: FetchLike): Promise<any> {
 /**
  * Récupère la météo (Open-Meteo, sans clé) pour des coordonnées : conditions actuelles,
  * prévisions quotidiennes, et conditions marines (vagues) si disponibles. `fetchImpl`
- * est injectable pour les tests.
+ * est injectable pour les tests. `pastDays` ajoute des **jours passés** aux séries quotidiennes
+ * (jusqu'à 92 chez Open-Meteo) — sans lui, une sortie de pêche saisie après coup enregistrerait
+ * la météo du jour de la saisie (issue #3).
  */
 export async function fetchWeather(
   latitude: number,
   longitude: number,
   days = 3,
   fetchImpl: FetchLike = fetch,
-  extraSeaPoints: SeaPoint[] = []
+  extraSeaPoints: SeaPoint[] = [],
+  pastDays = 0
 ): Promise<WeatherResult> {
   const forecastParams = new URLSearchParams({
     latitude: String(latitude),
@@ -127,6 +139,7 @@ export async function fetchWeather(
     timezone: 'auto',
     forecast_days: String(days)
   });
+  if (pastDays > 0) forecastParams.set('past_days', String(pastDays));
   const f = await getJson(`https://api.open-meteo.com/v1/forecast?${forecastParams.toString()}`, fetchImpl);
 
   const c = f.current ?? {};
@@ -159,6 +172,7 @@ export async function fetchWeather(
       timezone: 'auto',
       forecast_days: String(days)
     });
+    if (pastDays > 0) marineParams.set('past_days', String(pastDays));
     const raw = await getJson(`https://marine-api.open-meteo.com/v1/marine?${marineParams.toString()}`, fetchImpl);
     // La réponse devient un **tableau** dès qu'on demande plusieurs points ; le principal est en tête.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
