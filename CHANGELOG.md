@@ -3,6 +3,11 @@
 Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
 conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [1.5.0] — 10/08/2026
+
+### Fonctionnalités
+
+- **filtres** — Les bascules Navihan rejoignent la barre, la légende reste (#10)
 ## [1.4.0] — 10/08/2026
 
 ### Fonctionnalités
