@@ -26,14 +26,20 @@ test('le sélecteur de port bascule vers Étel', async ({ page }) => {
   await expect(page.locator('table.tide-day-table thead')).toContainText('Étel');
 });
 
-test('la légende Navihan masque un type au clic (persisté)', async ({ page }) => {
-  const pmToggle = page.getByRole('button', { name: /Pleine mer/ });
+test('la barre de filtres masque un type Navihan au clic (persisté)', async ({ page }) => {
+  // Les bascules ont quitté la légende du tableau pour la barre de filtres (issue #10) ; la légende
+  // subsiste mais n'est plus cliquable — elle se contente de barrer le type masqué.
+  await page.getByRole('button', { name: 'Filtres' }).click();
+  const pmToggle = page.locator('.tide-filters .navihan-toggle').filter({ hasText: 'Pleine mer' });
   await expect(pmToggle).toHaveAttribute('aria-pressed', 'true');
 
   await pmToggle.click();
   await expect(pmToggle).toHaveAttribute('aria-pressed', 'false');
+  await expect(
+    page.locator('.navihan-legend .navihan-toggle').filter({ hasText: 'Pleine mer' })
+  ).toHaveClass(/navihan-toggle--off/);
 
-  // Le choix est persisté en localStorage.
+  // Le choix est persisté en localStorage, sous sa clé historique.
   const stored = await page.evaluate(() => localStorage.getItem('marees-navihan-display'));
   expect(stored).toContain('"pm":false');
 });

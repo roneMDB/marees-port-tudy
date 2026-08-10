@@ -54,14 +54,15 @@ const tides: FlatTide[] = [
 describe('TideDayTable', () => {
   // Le choix d'affichage Navihan est un singleton : on repart de « tout visible » à chaque cas.
   beforeEach(() => {
+    // `reset()` rétablit aussi les 5 types Navihan : l'appeler **en premier**, sinon il écraserait
+    // la visibilité qu'un cas vient de poser.
+    useTideFilters().reset();
     const { visible } = useNavihanDisplay();
     visible.bm = true;
     visible.flot = true;
     visible.flotEst = true;
     visible.flotObs = true;
     visible.pm = true;
-    // Les filtres d'affichage sont eux aussi un singleton persisté : on repart de « rien de posé ».
-    useTideFilters().reset();
     authState.admin = false;
     obs.save.mockClear();
     obs.remove.mockClear();
@@ -155,11 +156,15 @@ describe('TideDayTable', () => {
     expect(wrapper.text()).toContain('Aucune marée');
   });
 
-  it('renders the legend as five toggle buttons (aria-pressed)', () => {
+  it('rend la légende en cinq entrées statiques (les bascules sont dans la barre de filtres)', () => {
     const wrapper = mount(TideDayTable, { props: { tides } });
-    const buttons = wrapper.findAll('.navihan-legend button');
-    expect(buttons).toHaveLength(5); // bm, flot (fixe), estimation, constaté, pm
-    expect(buttons.every(b => b.attributes('aria-pressed') === 'true')).toBe(true);
+    const entries = wrapper.findAll('.navihan-legend .navihan-toggle');
+    expect(entries).toHaveLength(5); // bm, flot (fixe), estimation, constaté, pm
+    expect(entries.map(e => e.text())).toEqual([
+      'Basse mer', 'Remise à flot', 'Estimation', 'Constaté', 'Pleine mer'
+    ]);
+    // Plus aucun bouton : la légende explique, elle n'agit plus (issue #10).
+    expect(wrapper.findAll('.navihan-legend button')).toHaveLength(0);
   });
 
   it('hides a Navihan type when it is toggled off', () => {
@@ -172,13 +177,14 @@ describe('TideDayTable', () => {
     expect(firstRow).toContain('04:19'); // à flot toujours visible
   });
 
-  it('toggles a type off when its legend button is clicked', async () => {
+  it('barre l’entrée de légende d’un type masqué (l’état reste lisible barre repliée)', () => {
+    useNavihanDisplay().visible.pm = false;
     const wrapper = mount(TideDayTable, { props: { tides } });
-    const pmButton = wrapper.findAll('.navihan-legend button').find(b => b.text().includes('Pleine mer'));
-    expect(pmButton).toBeTruthy();
-    await pmButton!.trigger('click');
-    expect(wrapper.findAll('tbody tr')[0].text()).not.toContain('08:25');
-    expect(useNavihanDisplay().visible.pm).toBe(false);
+    const pm = wrapper.findAll('.navihan-legend .navihan-toggle').find(e => e.text().includes('Pleine mer'))!;
+    expect(pm.classes()).toContain('navihan-toggle--off');
+
+    const bm = wrapper.findAll('.navihan-legend .navihan-toggle').find(e => e.text().includes('Basse mer'))!;
+    expect(bm.classes()).not.toContain('navihan-toggle--off');
   });
 
   it('shows the estimation (seuil) time as a Navihan pill', () => {
@@ -270,10 +276,10 @@ describe('TideDayTable — heures Navihan reportées au jour où elles ont lieu'
     wrapper.findAll('tbody tr').find(r => r.text().includes(label))!;
 
   beforeEach(() => {
+    useTideFilters().reset(); // rétablit aussi les types Navihan → avant de poser la visibilité
     const { visible } = useNavihanDisplay();
     visible.bm = true; visible.flot = true; visible.flotEst = false;
     visible.flotObs = true; visible.pm = true;
-    useTideFilters().reset();
   });
 
   it('rend la remise à flot d’après minuit sur la ligne du lendemain', () => {
@@ -319,10 +325,10 @@ describe('TideDayTable — filtres d’affichage au grain du jour', () => {
     wrapper.findAll('tbody tr').filter(r => !r.classes('hidden-days-row')).map(r => r.text());
 
   beforeEach(() => {
+    useTideFilters().reset(); // rétablit aussi les types Navihan → avant de poser la visibilité
     const { visible } = useNavihanDisplay();
     visible.bm = true; visible.flot = true; visible.flotEst = true;
     visible.flotObs = true; visible.pm = true;
-    useTideFilters().reset();
   });
 
   it('masque les jours hors des bornes de coefficient', () => {

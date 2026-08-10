@@ -1,12 +1,24 @@
 <script setup lang="ts">
 import { useTideFilters } from '../composables/useTideFilters';
+import { useNavihanDisplay, type NavihanKey } from '../composables/useNavihanDisplay';
 
 /**
  * Filtres d'affichage du tableau (issue #10) — **ouverts à tous les rôles**, contrairement aux
  * réglages serveur : ce sont des préférences personnelles, persistées par navigateur
- * (`useTideFilters`). Composant purement présentationnel, adossé au singleton : ni prop, ni emit.
+ * (`useTideFilters`). Composant purement présentationnel, adossé aux singletons : ni prop, ni emit.
  */
 const { filters, activeCount, reset } = useTideFilters();
+// Types d'heures Navihan affichés. Les bascules ont quitté la légende du tableau pour cette barre :
+// la légende reste dans le tableau, mais **statique** — elle sert à lire les pastilles, pas à agir.
+const { visible, toggle } = useNavihanDisplay();
+
+const NAVIHAN_TYPES: { key: NavihanKey; pillClass: string; icon: string; label: string }[] = [
+  { key: 'bm', pillClass: 'navihan-pill--bm', icon: 'bi-arrow-down', label: 'Basse mer' },
+  { key: 'flot', pillClass: 'navihan-pill--flot', icon: 'bi-check-circle', label: 'Remise à flot' },
+  { key: 'flotEst', pillClass: 'navihan-pill--flot-est', icon: 'bi-graph-up-arrow', label: 'Estimation' },
+  { key: 'flotObs', pillClass: 'navihan-pill--obs', icon: 'bi-clipboard-check', label: 'Constaté' },
+  { key: 'pm', pillClass: 'navihan-pill--pm', icon: 'bi-arrow-up', label: 'Pleine mer' }
+];
 
 // Lundi = 0, comme `weekdayIndex` et les statistiques serveur.
 const WEEKDAYS = [
@@ -127,6 +139,28 @@ function isOn(index: number): boolean {
         </div>
       </div>
 
+      <div>
+        <label class="form-label small text-muted mb-1 d-block">
+          Heures Navihan
+          <i class="bi bi-info-circle" title="Types d'heures affichés dans la colonne Navihan et dans « Constaté »"></i>
+        </label>
+        <div class="d-flex flex-wrap align-items-center gap-2 navihan-toggles">
+          <button
+            v-for="t in NAVIHAN_TYPES"
+            :key="t.key"
+            type="button"
+            class="btn btn-sm p-0 navihan-toggle"
+            :class="{ 'navihan-toggle--off': !visible[t.key] }"
+            :aria-pressed="visible[t.key] ? 'true' : 'false'"
+            :title="(visible[t.key] ? 'Masquer' : 'Afficher') + ' : ' + t.label"
+            @click="toggle(t.key)"
+          >
+            <span class="badge rounded-pill navihan-pill" :class="t.pillClass"><i class="bi" :class="t.icon"></i></span>
+            <span class="navihan-toggle-label">{{ t.label }}</span>
+          </button>
+        </div>
+      </div>
+
       <button
         v-if="activeCount > 0"
         type="button"
@@ -151,5 +185,12 @@ function isOn(index: number): boolean {
 /* Pastilles de jour : assez larges pour rester cliquables au pouce malgré une lettre unique. */
 .weekday-toggle {
   min-width: 2.1rem;
+}
+
+/* Bascules Navihan : mêmes chips que la légende du tableau (palette globale, cf. `assets/app.css`),
+   alignées sur la hauteur des autres champs de la barre. */
+.navihan-toggles {
+  min-height: calc(1.5em + 0.5rem + 2px);
+  font-size: 0.875rem;
 }
 </style>

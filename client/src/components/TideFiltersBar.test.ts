@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { mount } from '@vue/test-utils';
 import TideFiltersBar from './TideFiltersBar.vue';
 import { useTideFilters } from '../composables/useTideFilters';
+import { useNavihanDisplay } from '../composables/useNavihanDisplay';
 
 const coefInputs = (w: ReturnType<typeof mount>) => w.findAll('input[type="number"]');
 const timeInputs = (w: ReturnType<typeof mount>) => w.findAll('input[type="time"]');
@@ -87,6 +88,52 @@ describe('TideFiltersBar', () => {
 
     expect(filters.aflotFrom).toBe('09:00');
     expect(filters.aflotTo).toBe('19:00');
+  });
+
+  it('reprend les cinq bascules de types Navihan, toutes actives par défaut', () => {
+    const wrapper = mount(TideFiltersBar);
+    const buttons = wrapper.findAll('.navihan-toggle');
+
+    expect(buttons).toHaveLength(5);
+    expect(buttons.map(b => b.text())).toEqual([
+      'Basse mer', 'Remise à flot', 'Estimation', 'Constaté', 'Pleine mer'
+    ]);
+    expect(buttons.every(b => b.attributes('aria-pressed') === 'true')).toBe(true);
+  });
+
+  it('masque un type Navihan au clic, et le compte comme un filtre actif', async () => {
+    const wrapper = mount(TideFiltersBar);
+    const { activeCount } = useTideFilters();
+    const pm = wrapper.findAll('.navihan-toggle').find(b => b.text().includes('Pleine mer'))!;
+
+    await pm.trigger('click');
+
+    expect(useNavihanDisplay().visible.pm).toBe(false);
+    expect(pm.attributes('aria-pressed')).toBe('false');
+    expect(pm.classes()).toContain('navihan-toggle--off');
+    expect(activeCount.value).toBe(1);
+  });
+
+  it('ne compte qu’un critère quels que soient le nombre de types masqués', async () => {
+    const wrapper = mount(TideFiltersBar);
+    const { activeCount } = useTideFilters();
+    const buttons = wrapper.findAll('.navihan-toggle');
+
+    await buttons[0].trigger('click');
+    await buttons[4].trigger('click');
+
+    expect(activeCount.value).toBe(1);
+  });
+
+  it('Réinitialiser rétablit aussi les types Navihan masqués', async () => {
+    const wrapper = mount(TideFiltersBar);
+    await wrapper.findAll('.navihan-toggle')[0].trigger('click');
+    expect(useNavihanDisplay().visible.bm).toBe(false);
+
+    await wrapper.find('button.btn-outline-secondary.ms-auto').trigger('click');
+
+    expect(useNavihanDisplay().visible.bm).toBe(true);
+    expect(useTideFilters().activeCount.value).toBe(0);
   });
 
   it('n’affiche le bouton Réinitialiser que si un filtre est actif, et il remet tout à zéro', async () => {

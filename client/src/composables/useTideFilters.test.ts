@@ -91,3 +91,43 @@ describe('useTideFilters', () => {
     expect(activeCount.value).toBe(0);
   });
 });
+
+describe('useTideFilters — types Navihan', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('compte un type Navihan masqué comme un critère actif', async () => {
+    const useTideFilters = await freshUseTideFilters();
+    const { useNavihanDisplay } = await import('./useNavihanDisplay');
+    const { activeCount } = useTideFilters();
+    const { visible } = useNavihanDisplay();
+
+    expect(activeCount.value).toBe(0);
+    visible.pm = false;
+    expect(activeCount.value).toBe(1);
+    // Plusieurs types masqués restent **un seul** critère.
+    visible.bm = false;
+    expect(activeCount.value).toBe(1);
+  });
+
+  it('reset rétablit les cinq types Navihan', async () => {
+    const useTideFilters = await freshUseTideFilters();
+    const { useNavihanDisplay } = await import('./useNavihanDisplay');
+    const { filters, reset, activeCount } = useTideFilters();
+    const { visible } = useNavihanDisplay();
+
+    filters.minCoef = 80;
+    visible.pm = false;
+    visible.flotObs = false;
+
+    reset();
+
+    expect(visible).toEqual({ bm: true, flot: true, flotEst: true, flotObs: true, pm: true });
+    expect(activeCount.value).toBe(0);
+  });
+});

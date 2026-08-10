@@ -166,3 +166,33 @@ ne contient plus que de la configuration serveur et se renomme **« Réglages »
 - Aucun changement serveur : ces filtres sont une préférence locale, pas de la configuration.
 - Pas de synchronisation multi-appareils (choix volontairement local, comme le thème et le port).
 - Les cartes, le marégramme et le graphe des coefficients restent non filtrés.
+
+---
+
+## Suite : les bascules Navihan rejoignent la barre
+
+La ligne « Navihan (dérivé de Port-Tudy) : » du tableau jouait **deux rôles** : elle était la
+**légende** (le code couleur/icône sans lequel les pastilles ne se lisent pas) *et* un **filtre**
+(5 bascules `aria-pressed` adossées à `useNavihanDisplay`). Seul le second a sa place dans la barre.
+
+### Décisions
+
+| Sujet | Décision |
+|---|---|
+| Bascules | Déplacées dans `TideFiltersBar`, 4ᵉ groupe « Heures Navihan », **même composable et même clé** `marees-navihan-display` — aucune migration des préférences existantes |
+| Légende | **Conservée dans le tableau, mais statique** (`<span>`) : c'est la clé de lecture, elle doit rester visible sans rien déplier. Un type masqué s'y affiche atténué et barré |
+| Comptage | Un ou plusieurs types masqués = **1 critère** dans `activeCount` ; `reset()` les rétablit tous |
+
+### Conséquences
+
+- `useTideFilters` s'adosse à `useNavihanDisplay` pour `activeCount` et `reset`. Deux clés de
+  stockage distinctes, un seul point d'entrée pour « combien de filtres sont posés » et « tout
+  remettre à zéro » — sans quoi un type masqué lors d'une visite précédente ne se signalerait nulle
+  part, ce qui est précisément le défaut que la persistance impose de couvrir.
+- Corollaire pour les tests : `reset()` rétablissant les 5 types, il doit être appelé **avant** de
+  poser une visibilité dans un `beforeEach`.
+- La palette des pastilles (`.navihan-pill*`) et le style des chips (`.navihan-toggle*`) quittent le
+  `<style scoped>` de `TideDayTable` pour `assets/app.css` : deux composants les rendent désormais,
+  et deux blocs scopés finiraient par diverger.
+- `flotObs` reste un cas à part assumé : il masque la **colonne « Constaté » entière**, pas des
+  pastilles. Il est présenté avec les autres parce que l'utilisateur y voit un type d'heure.

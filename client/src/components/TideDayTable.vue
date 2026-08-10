@@ -29,8 +29,9 @@ const { offsets } = useNavihan();
 
 const today = todayKey();
 
-// Choix d'affichage des types Navihan (persisté localStorage, préférence par navigateur).
-const { visible, toggle } = useNavihanDisplay();
+// Choix d'affichage des types Navihan (persisté localStorage, préférence par navigateur). Les
+// bascules sont dans `TideFiltersBar` ; ici on ne fait que **lire** l'état (filtrage + légende).
+const { visible } = useNavihanDisplay();
 // Filtres d'affichage au grain du jour (persistés localStorage, ouverts à tous les rôles).
 const { filters, reset: resetFilters } = useTideFilters();
 // Saisie des remises à flot constatées : réservée à l'admin (le verrou réel est côté serveur).
@@ -78,7 +79,7 @@ interface NavihanEntry {
   title: string; // libellé complet (infobulle / accessibilité)
 }
 
-/** Métadonnées d'un type Navihan (légende cliquable + construction des pastilles). */
+/** Métadonnées d'un type Navihan (légende + construction des pastilles). */
 const NAVIHAN_TYPES: { key: NavihanKey; pillClass: string; icon: string; label: string }[] = [
   { key: 'bm', pillClass: 'navihan-pill--bm', icon: 'bi-arrow-down', label: 'Basse mer' },
   { key: 'flot', pillClass: 'navihan-pill--flot', icon: 'bi-check-circle', label: 'Remise à flot' },
@@ -185,21 +186,24 @@ const hiddenCount = computed(() => allRows.value.length - rows.value.length);
     Chaque marée : <span class="fw-semibold text-body">heure</span>
     · <i class="bi bi-water text-primary"></i> <span class="text-body">hauteur d'eau (m)</span>
   </div>
+  <!--
+    Légende **statique** : c'est la clé de lecture des pastilles, elle doit rester visible sans
+    ouvrir quoi que ce soit. Les bascules d'affichage, elles, vivent dans `TideFiltersBar`
+    (issue #10) ; un type masqué s'affiche ici atténué et barré pour que l'état reste lisible
+    barre repliée.
+  -->
   <div class="small text-muted px-3 pb-1 navihan-legend d-flex flex-wrap align-items-center gap-2">
     <span>Navihan (dérivé de Port-Tudy) :</span>
-    <button
+    <span
       v-for="t in NAVIHAN_TYPES"
       :key="t.key"
-      type="button"
-      class="btn btn-sm p-0 navihan-toggle"
+      class="navihan-toggle"
       :class="{ 'navihan-toggle--off': !visible[t.key] }"
-      :aria-pressed="visible[t.key] ? 'true' : 'false'"
-      :title="(visible[t.key] ? 'Masquer' : 'Afficher') + ' : ' + t.label"
-      @click="toggle(t.key)"
+      :title="visible[t.key] ? t.label : t.label + ' — masqué (voir les filtres)'"
     >
       <span class="badge rounded-pill navihan-pill" :class="t.pillClass"><i class="bi" :class="t.icon"></i></span>
       <span class="navihan-toggle-label">{{ t.label }}</span>
-    </button>
+    </span>
   </div>
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0 tide-day-table">
@@ -336,53 +340,6 @@ const hiddenCount = computed(() => allRows.value.length - rows.value.length);
   vertical-align: middle;
 }
 
-/* Pastilles Navihan : palette « niveau d'eau », adaptée aux thèmes clair/sombre (Bootstrap 5.3). */
-.navihan-pill {
-  font-weight: 600;
-  font-size: 0.78rem;
-}
-
-/* Basse mer : ambre (peu d'eau). */
-.navihan-pill--bm {
-  background-color: var(--bs-warning-bg-subtle);
-  color: var(--bs-warning-text-emphasis);
-  border: 1px solid var(--bs-warning-border-subtle);
-}
-
-/* Remise à flot : vert (feu vert pour sortir). */
-.navihan-pill--flot {
-  background-color: var(--bs-success-bg-subtle);
-  color: var(--bs-success-text-emphasis);
-  border: 1px solid var(--bs-success-border-subtle);
-}
-
-/* Pleine mer : bleu (pleine eau). */
-.navihan-pill--pm {
-  background-color: var(--bs-primary-bg-subtle);
-  color: var(--bs-primary-text-emphasis);
-  border: 1px solid var(--bs-primary-border-subtle);
-}
-
-/* Estimation (modèle seuil, issue #4) : cyan/info, proche du « flot » mais distinct. */
-.navihan-pill--flot-est {
-  background-color: var(--bs-info-bg-subtle);
-  color: var(--bs-info-text-emphasis);
-  border: 1px solid var(--bs-info-border-subtle);
-}
-
-/* Constaté (heure réelle saisie) : violet, se démarque comme donnée « autorité ». */
-.navihan-pill--obs {
-  background-color: color-mix(in srgb, var(--bs-purple, #6f42c1) 16%, transparent);
-  color: var(--bs-purple, #6f42c1);
-  border: 1px solid color-mix(in srgb, var(--bs-purple, #6f42c1) 38%, transparent);
-}
-
-:root[data-bs-theme='dark'] .navihan-pill--obs {
-  color: #c9a3ff;
-  background-color: color-mix(in srgb, #c9a3ff 16%, transparent);
-  border-color: color-mix(in srgb, #c9a3ff 45%, transparent);
-}
-
 /* Colonne « Constaté » : une entrée par basse mer (heure de la basse + saisie / valeur). */
 .constate-cell {
   display: flex;
@@ -416,30 +373,6 @@ const hiddenCount = computed(() => allRows.value.length - rows.value.length);
 
 .navihan-legend .navihan-pill {
   font-size: 0.7rem;
-}
-
-/* Légende cliquable : chaque type est un bouton bascule (affiché / masqué). */
-.navihan-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  border: 0;
-  color: var(--bs-secondary-color);
-  text-decoration: none;
-  line-height: 1.2;
-}
-
-.navihan-toggle:hover .navihan-toggle-label {
-  text-decoration: underline;
-}
-
-/* Type masqué : atténué + libellé barré (l'icône/couleur restent pour se repérer). */
-.navihan-toggle--off {
-  opacity: 0.5;
-}
-
-.navihan-toggle--off .navihan-toggle-label {
-  text-decoration: line-through;
 }
 
 /* Regroupe les horaires d'une cellule (2 marées) ; sur mobile ils s'alignent à droite. */

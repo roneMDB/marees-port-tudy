@@ -345,7 +345,11 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   des préférences personnelles, pas de la configuration serveur : ils ont donc quitté `SettingsPanel`
   (admin-only) pour la barre `TideFiltersBar` de l'en-tête du tableau. Lecture initiale **validée clé
   par clé** (un stockage ancien ou trafiqué retombe sur les défauts). `activeCount` compte des
-  **critères** et non des champs (les deux bornes de coef = 1) : c'est le badge du bouton.
+  **critères** (0 à 4) et non des champs : les deux bornes de coef = 1, les cinq types Navihan = 1.
+  C'est le badge du bouton. ⚠️ `activeCount` et `reset` **incluent `useNavihanDisplay`** bien qu'il
+  ait sa propre clé : c'est la même nature de chose (un réglage persisté qui retire du contenu du
+  tableau), et un type masqué lors d'une visite précédente doit se signaler. Corollaire pour les
+  tests : `reset()` rétablit les 5 types, donc l'appeler **avant** de poser une visibilité.
 - `src/composables/useTides.ts` — charge config + sites + meta + marées au montage, expose `loading/
   error/meta/settings/dateWindow/coefTides/tableTides/allTides` (+ nav période). `allTides` =
   **référence Port-Tudy** (marégramme, carte à flot). Les **lignes** (via `windowedTides`) sont les
@@ -401,10 +405,12 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   l'en-tête de la carte « Horaires par jour » et le tableau, **ouverte à tous les rôles**, adossée au
   singleton `useTideFilters` (ni prop ni emit) : bornes de **coefficient** (bornées **en JS**, les
   attributs HTML `min`/`max` n'empêchent pas de taper 999), 7 pastilles **L M M J V S D** sur le
-  patron de la légende Navihan (`aria-pressed`, `aria-label` = le jour en toutes lettres, sinon un
-  bouton « S » n'a pas de nom accessible), et une **plage horaire de remise à flot**. **Deux natures
+  patron des chips Navihan (`aria-pressed`, `aria-label` = le jour en toutes lettres, sinon un
+  bouton « S » n'a pas de nom accessible), une **plage horaire de remise à flot** et les **5 bascules
+  de types Navihan** (`useNavihanDisplay`), venues de la légende du tableau. **Trois natures
   de filtre** : coefficient et jours **sélectionnent des lignes** ; la plage horaire **masque des
-  heures** dans les lignes conservées. Modèle
+  heures** dans les lignes conservées ; les types Navihan masquent des **pastilles** (et, pour
+  `flotObs`, la colonne « Constaté » entière). Modèle
   « chips » : **aucun jour sélectionné = tous les jours**, donc désélectionner le dernier ne vide
   jamais le tableau. Le bouton bascule vit dans l'en-tête de carte (`Dashboard.vue`, repli
   **éphémère**) et passe en `btn-primary` avec le badge `activeCount` dès qu'un filtre est posé :
@@ -542,8 +548,8 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   Pleines/Basses mers liste les marées du **port sélectionné** en `HH:MM · 🌊 h,hh m` (heure +
   hauteur d'eau inline, icône `bi-water` + légende) ; le **Coef** du jour = max des coef des pleines
   mers (Port-Tudy). La colonne **Navihan** (dérivée Port-Tudy) affiche des **pastilles triées par
-  heure**, une par **type affichable** (`useNavihanDisplay`, 5 types masquables via la légende
-  cliquable, persistés localStorage) : basse mer (↓), **Remise à flot** fixe (✓ vert),
+  heure**, une par **type affichable** (`useNavihanDisplay`, 5 types masquables **depuis
+  `TideFiltersBar`**, persistés localStorage) : basse mer (↓), **Remise à flot** fixe (✓ vert),
   **Estimation** seuil (↗ cyan), **Constaté** (violet) et pleine mer (↑). **Chaque pastille est
   rendue sur la ligne du jour où elle a réellement lieu** (`shiftMoment` sur `refDate`/`refTime`,
   repli sur la marée elle-même pour le port de référence) : une heure dérivée d'une basse mer
@@ -563,6 +569,13 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   qu'on lui passe (`tableTides`) ; la **navigation Précédent/Suivant/Début** (par période, cf.
   `useTides`) est dans l'en-tête de carte du `Dashboard`. Remplace l'ancien `TideTable`
   (une-ligne-par-marée, retiré).
+  La **légende** « Navihan (dérivé de Port-Tudy) : » du tableau est **statique** depuis l'issue #10
+  (des `<span>`, plus des `<button>`) : elle est la clé de lecture des pastilles et doit rester
+  visible sans rien déplier, tandis que les bascules vivent dans `TideFiltersBar`. Un type masqué
+  s'y affiche **atténué et barré** (`.navihan-toggle--off`), pour que l'état reste lisible barre
+  repliée. La palette des pastilles et le style des chips sont **globaux**
+  (`assets/app.css`, pas de `scoped`) : deux composants les rendent désormais, les dupliquer dans
+  deux blocs scopés les ferait diverger.
   Les **filtres d'affichage** (`useTideFilters`, issue #10) s'appliquent ici. Coefficient et jours
   filtrent `allRows` — donc **après** `groupByDay` et **jamais** sur `props.tides` :
   `navihanByDate`/`constateByDate` se construisent sur la liste plate complète, ce qui garde les

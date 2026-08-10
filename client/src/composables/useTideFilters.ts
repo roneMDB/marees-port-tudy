@@ -1,4 +1,5 @@
 import { computed, reactive, watch } from 'vue';
+import { useNavihanDisplay } from './useNavihanDisplay';
 import type { TideDayFilters } from '../types';
 
 const STORAGE_KEY = 'marees-tide-filters';
@@ -64,21 +65,31 @@ watch(
 );
 
 /**
- * Nombre de **critères** actifs (0 à 3), et non de champs remplis : les deux bornes de coefficient
- * comptent pour un. C'est ce nombre que porte le badge du bouton « Filtres ».
+ * Nombre de **critères** actifs (0 à 4), et non de champs remplis : les deux bornes de coefficient
+ * comptent pour un, et les cinq types Navihan pour un. C'est ce nombre que porte le badge du bouton
+ * « Filtres ».
+ *
+ * Les types Navihan masqués en font partie **bien qu'ils vivent dans `useNavihanDisplay`** : c'est
+ * la même nature de chose — un réglage persisté qui retire du contenu du tableau. Les exclure
+ * laisserait un type masqué depuis une visite précédente sans aucun signal (issue #10).
  */
 const activeCount = computed(() => {
+  const { visible } = useNavihanDisplay();
   let n = 0;
   if (filters.minCoef != null || filters.maxCoef != null) n += 1;
   // Neutre à 0 comme à 7 jours : dans les deux cas, aucun jour n'est écarté.
   if (filters.weekdays.length > 0 && filters.weekdays.length < 7) n += 1;
   if (filters.aflotFrom || filters.aflotTo) n += 1;
+  if (Object.values(visible).some(v => !v)) n += 1;
   return n;
 });
 
 export function useTideFilters() {
+  /** Remet **tous** les filtres d'affichage à neutre, types Navihan compris (cf. `activeCount`). */
   function reset(): void {
     Object.assign(filters, { ...DEFAULTS, weekdays: [] });
+    const { visible } = useNavihanDisplay();
+    for (const key of Object.keys(visible) as (keyof typeof visible)[]) visible[key] = true;
   }
 
   return { filters, activeCount, reset };
