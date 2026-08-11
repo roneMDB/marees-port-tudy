@@ -193,6 +193,36 @@ Routes lexique du « mot du jour » (`src/routes/lexicon.ts`, issue #4 suite) :
 - `PUT /api/lexicon/:id` / `DELETE /api/lexicon/:id` → met à jour / supprime (**admin**, 404 si absent).
 - `POST /api/lexicon/reset` → rétablit les termes par défaut depuis `service/lexiconSeed.ts` (**admin**).
 
+Routes carnet de pêche (`src/routes/fishing.ts`, issue #3) :
+- `GET /api/fishing/trips?from&to` → sorties + prises (lecture ouverte, plage **inclusive**, 400 si
+  dates invalides ou `from > to`).
+- `POST /api/fishing/trips` (**admin**, 201) → crée. **La météo est figée ici**
+  (`service/fishingWeather.captureTripWeather`) et **jamais au `PUT`** : la recapturer écraserait la
+  météo de juillet le jour où l'on corrige une note en janvier. Capture **best-effort** — hors
+  fenêtre Open-Meteo (92 j d'archive, 7 j de prévision) ou sur échec réseau, `weather` reste `null`
+  et l'enregistrement aboutit quand même.
+- `PUT /api/fishing/trips/:id` (**admin**) → remplace la sortie **et toutes ses prises** en une
+  transaction. `DELETE` (**admin**, 204).
+- `GET /api/fishing/refs` (lecture) ; `POST`/`PUT`/`DELETE /api/fishing/refs[/:id]` et
+  `POST /api/fishing/refs/reset` (**admin**). ⚠️ Supprimer un référentiel **encore utilisé** par une
+  prise renvoie **409** : il n'y a **pas** de clé étrangère vers `fishing_refs`, précisément pour
+  qu'une sortie ancienne ne perde pas son espèce lors d'un nettoyage du référentiel. Pour la même
+  raison, `reset` **conserve** les entrées hors graine encore référencées par une prise.
+- ⚠️ **Le pluriel d'un référentiel est une donnée, pas un calcul** (`labelPlural`, v8) : sur la seule
+  graine, l'orthographe demande des choses contradictoires — « lieu jaune » fait « lieus jaunes » là
+  où « lieu » l'endroit ferait « lieux », et « crevette bouquet » garde son apposition invariable.
+  Une heuristique le rendait faux ; ne pas la réintroduire. `POST`/`PUT` acceptent un `labelPlural`
+  **facultatif** : vide ou absent, il vaut `label` (repli posé dans le **repository**, donc valable
+  pour tout appelant comme pour toute ligne antérieure à la v8, relue `NULL` → singulier). Ce repli
+  étant **silencieux**, une base amorcée avant la v8 garderait « 3 casier à crabes » sans le
+  signaler : `backfillSeedPlurals` (appelé par `initStorage`, **pas** par la migration — la graine
+  est une donnée de service, pas de schéma) complète les entrées **de la graine** dont le libellé
+  n'a pas été renommé et dont le pluriel est encore `NULL`. Un renommage ou un pluriel déjà saisi
+  n'est jamais écrasé.
+- `service/weather.ts` expose désormais `DEFAULT_LAT`/`DEFAULT_LON` (la route météo les importe au
+  lieu de les redéclarer) et `fetchWeather` prend un 6ᵉ paramètre **`pastDays`** : sans lui, une
+  sortie saisie après coup enregistrerait la météo du **jour de la saisie**.
+
 Routes accès/stats (`src/routes/stats.ts` + `src/middleware/accessLog.ts`, refondues issue #16) :
 - `GET /api/stats?days=7|30|90|all` → agrégats d'accès (`lib/stats.ts` `aggregateAccess`), **réservé
   au rôle `admin`** (403 sinon ; `days` invalide → 400). `resolveSince` convertit `days` en borne
@@ -242,9 +272,13 @@ sur `DATA_DIR/marees.db` ; `openDb` crée le dossier parent ; `openDb(':memory:'
 (CRUD `users` + `getOrCreateSessionSecret`), `aflotObservationsRepository.ts`
 (`getObservations`/`upsertObservation`/`deleteObservation`), `lexiconRepository.ts`
 (`getLexicon`/`addEntry`/`updateEntry`/`deleteEntry`/`resetLexicon`/`seedLexiconIfEmpty`),
+`fishingRepository.ts` (sorties et prises : `listTrips`/`getTrip`/`createTrip`/`updateTrip`/`deleteTrip`),
+`fishingRefsRepository.ts`
+(`getRefs`/`addRef`/`updateRef`/`deleteRef`/`resetFishingRefs`/`seedFishingRefsIfEmpty`),
 `bootstrap.ts` (`initStorage(logger?, db?)`,
-**async** : le seed admin hache un mot de passe ; amorce aussi le lexique via `seedLexiconIfEmpty`).
-Schéma **v6** : tables `tides` (par site),
+**async** : le seed admin hache un mot de passe ; amorce aussi le lexique via `seedLexiconIfEmpty`
+et les référentiels de pêche via `seedFishingRefsIfEmpty`).
+Schéma **v8** : tables `tides` (par site),
 `settings` (document JSON, ligne unique `id=1`), `access_log` (dont colonne **`login`** nullable
 (v3) et **`kind`** nullable (v6, issue #16 : `visit`/`page`/`login`, NULL relu comme `page`)),
 **`users`** (login unique
@@ -252,9 +286,15 @@ Schéma **v6** : tables `tides` (par site),
 **`app_secret`** (secret de session persisté, ligne unique), **`aflot_observations`** (v4, issue #4 :
 heures de remise à flot **constatées** — clé primaire `(date, time)` de la basse mer Port-Tudy,
 colonne `observed`) et **`lexicon`** (v5 : lexique éditable du « mot du jour » — `id`, `term`,
-`definition`, `type` marée/pêche, `sort_order` ; amorcé depuis `service/lexiconSeed.ts`). Migration
+`definition`, `type` marée/pêche, `sort_order` ; amorcé depuis `service/lexiconSeed.ts`),
+**`fishing_trips`** / **`fishing_catches`** / **`fishing_refs`** (v7, issue #3 : carnet de pêche —
+une sortie porte N prises ; `weather` est un instantané JSON **figé à la création**, le contexte
+marée n'est **pas** stocké) et la colonne **`fishing_refs.label_plural`** (v8 : libellé au pluriel,
+**saisi**, cf. routes ci-dessus). ⚠️ `openDb` active désormais **`PRAGMA foreign_keys = ON`** :
+better-sqlite3 le laisse à `OFF`, et le `ON DELETE CASCADE` de `fishing_catches` serait resté
+lettre morte. Migration
 additive par palier `if (version < N)`. ⚠️ `ALTER TABLE … ADD COLUMN` **n'est pas idempotent** en
-SQLite : les paliers v3 et v6 testent d'abord `PRAGMA table_info` (robustesse à un rollback ayant
+SQLite : les paliers v3, v6 et v8 testent d'abord `PRAGMA table_info` (robustesse à un rollback ayant
 remis `user_version` en arrière puis re-migré).
 
 **Amorçage/migration** : `initStorage()` (appelé au boot par `src/index.ts`, remplace les anciens
@@ -287,6 +327,11 @@ par mois) vers `{ date: entries }`.
 Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-icons) + Chart.js
 (`vue-chartjs`). `src/main.ts` importe le CSS/JS Bootstrap et enregistre Chart.js.
 
+- **Routeur** (`src/router.ts`, issue #3) — l'application **cesse d'être mono-vue** : `/` = dashboard
+  marées, `/peche` = carnet de pêche (chargé à la demande), toute autre URL redirige vers `/`
+  (redirection **par chemin**, pas par nom). `createWebHistory` ne demande aucun changement de
+  configuration : le repli SPA existait déjà côté Express (`app.get('*')`, monté **après** les
+  routers `/api`) et côté PWA (`navigateFallback`).
 - `src/types.ts` — miroir du contrat REST (`Extreme`, `TideOutput`, `TidesMeta`, `FlatTide`,
   `TideFilters`) ; découplage via le JSON, **pas de package partagé**.
 - `src/api/tides.ts` — `getTides(from,to,site)`, `getMeta`, `getSites` (`fetch`, chemins `/api/...`)
@@ -513,6 +558,30 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
 - `components/ForcePasswordChange.vue` — écran **bloquant** de changement de mot de passe, affiché par
   `App.vue` quand `useAuth().mustChangePassword` (ex. compte `admin`/`admin` amorcé) : appelle
   `changeMyPassword` puis réhydrate le statut. `useAuth` expose désormais `user` et `mustChangePassword`.
+- **Carnet de pêche** (`views/FishingView.vue`, `components/FishingTrip{Card,Form}.vue`,
+  `components/FishingRefsPanel.vue`, `composables/useFishing.ts` + `useFishingRefs.ts`,
+  `lib/fishing.ts`, issue #3) — liste antichronologique des sorties, formulaire **inline** (pas une
+  modale : N lignes de prises y seraient inutilisables sur téléphone), panneau admin des espèces et
+  des engins (bouton navbar admin-only, calqué sur `LexiconPanel`). Lecture ouverte à tout compte
+  connecté, écriture réservée à `admin`.
+  ⚠️ **Choix asymétrique assumé : la marée se recalcule, la météo se fige.** `tripTideContext`
+  dérive coefficient, basses mers et remises à flot **de la date**, sans rien stocker — ce projet a
+  déjà repris 11 journées de graine depuis l'annuaire officiel, et une correction doit profiter aux
+  sorties déjà saisies. La météo, elle, n'est pas reproductible : elle est figée à la création.
+  `aflotChoices` **s'appuie sur `aflotEvents`** (`lib/navihan.ts`) au lieu de refaire le calcul —
+  deux formules d'à-flot finiraient par diverger ; l'heure retenue est celle **« Constaté »** si
+  elle existe, sinon le **décalage fixe**, **jamais** l'estimation par seuil (cantonnée au tableau
+  du dashboard) ; et un à-flot est daté du **jour où il a lieu**. `nearestAflot` retient le plus
+  proche **passé ou à venir** : on note souvent ses prises en rentrant. Le sélecteur d'à-flot
+  **réécrit** date et heure de début ; l'heure de fin n'est **jamais** pré-remplie. Rien de ce
+  pré-remplissage n'est persisté.
+  `summarizeCatches` rend « Bredouille » plutôt qu'une chaîne vide : une sortie sans prise est une
+  donnée, pas une absence de donnée. Il emploie le **`labelPlural` du référentiel** et ne calcule
+  aucun pluriel (cf. routes serveur) ; un id disparu du référentiel s'affiche **brut**, jusque dans
+  les quantités (« 3 licorne ») plutôt que de se voir inventer une marque.
+  La vue charge les marées **Port-Tudy** sur une plage couvrant les sorties **et** la fenêtre de
+  pré-remplissage (± 7 j) ; horaires indisponibles, les cartes disent « marée inconnue » au lieu de
+  faire échouer la page.
 - `Dashboard.vue` affiche un encart explicatif : heures **Port-Tudy** = référence, le but est
   d'en déduire les heures **Navihan** (basse mer, pleine mer, « remise à flot »).
 - `src/composables/useWeather.ts` — **météo partagée** (singleton) : `weather`/`loading`/`error`,
@@ -619,6 +688,8 @@ comme **tâche utilisateur** du Planificateur de tâches DSM (procédure + resta
 - `server/src/lib/readTides.ts`, `server/src/resources/horaires_marees_port-tudy.json` — graines (import initial).
 - `client/src/composables/useTides.ts`, `client/src/lib/tides.ts` — état + filtrage.
 - `client/src/views/Dashboard.vue` + `client/src/components/*.vue` — dashboard.
+- `client/src/router.ts`, `client/src/views/FishingView.vue`, `client/src/lib/fishing.ts` — carnet
+  de pêche.
 - Tests : `server/src/**/*.test.ts` (Vitest + supertest), `client/src/**/*.test.ts`
   (Vitest + @vue/test-utils, environnement `jsdom`).
 
