@@ -3,6 +3,11 @@
 Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
 conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [1.6.1] — 11/08/2026
+
+### Corrections
+
+- **ui** — Le menu ⋮ sortait de l'écran sur mobile
 ## [1.6.0] — 11/08/2026
 
 ### Fonctionnalités
