@@ -5,6 +5,7 @@ import {
   deleteRef,
   getRefs,
   refExists,
+  backfillSeedPlurals,
   resetFishingRefs,
   seedFishingRefsIfEmpty,
   updateRef
@@ -177,6 +178,33 @@ describe('fishingRefsRepository', () => {
     // Ligne écrite avant la v8 : `label_plural` est NULL.
     db.prepare("INSERT INTO fishing_refs (id, kind, label, sort_order) VALUES ('ancien', 'species', 'Ancien', 0)").run();
     expect(getRefs(db).find(r => r.id === 'ancien')!.labelPlural).toBe('Ancien');
+    db.close();
+  });
+
+  it('complète le pluriel des entrées de graine amorcées avant la v8', () => {
+    const db = openDb(':memory:');
+    // Table amorcée par une version antérieure : la colonne existe mais reste NULL.
+    seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+    db.prepare('UPDATE fishing_refs SET label_plural = NULL').run();
+
+    backfillSeedPlurals(db, FISHING_REFS_SEED);
+    const refs = getRefs(db);
+    expect(refs.find(r => r.id === 'lieu-jaune')!.labelPlural).toBe('Lieus jaunes');
+    expect(refs.find(r => r.id === 'casier-crabes')!.labelPlural).toBe('Casiers à crabes');
+    db.close();
+  });
+
+  it('ne touche ni aux libellés renommés ni aux pluriels déjà saisis', () => {
+    const db = openDb(':memory:');
+    seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+    // Un libellé renommé n'est plus celui de la graine : son pluriel ne s'en déduit pas.
+    db.prepare("UPDATE fishing_refs SET label = 'Lieu', label_plural = NULL WHERE id = 'lieu-jaune'").run();
+    db.prepare("UPDATE fishing_refs SET label_plural = 'Bars mouchetés' WHERE id = 'bar'").run();
+
+    backfillSeedPlurals(db, FISHING_REFS_SEED);
+    const refs = getRefs(db);
+    expect(refs.find(r => r.id === 'lieu-jaune')!.labelPlural).toBe('Lieu'); // repli, pas la graine
+    expect(refs.find(r => r.id === 'bar')!.labelPlural).toBe('Bars mouchetés');
     db.close();
   });
 });

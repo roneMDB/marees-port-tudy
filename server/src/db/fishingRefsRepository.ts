@@ -108,6 +108,24 @@ function insertSeed(db: DB, seed: FishingRef[]): void {
   seed.forEach((r, i) => ins.run(r.id, r.kind, r.label, r.labelPlural, i));
 }
 
+/**
+ * Complète le pluriel des entrées de graine amorcées **avant la v8** (colonne `NULL`).
+ *
+ * Sans cela, une base déjà amorcée garderait pour toujours des pluriels valant leur singulier — le
+ * repli de lecture est correct mais silencieux, et « 3 casier à crabes » ne se signale pas comme un
+ * défaut. La condition est double et volontairement stricte : **id de la graine** *et* **libellé
+ * encore identique** à celui de la graine. Un libellé renommé n'est plus celui dont on connaît le
+ * pluriel ; un pluriel déjà saisi (donc non `NULL`) est la volonté de l'utilisateur. Idempotent.
+ */
+export function backfillSeedPlurals(db: DB, seed: FishingRef[]): void {
+  const upd = db.prepare(
+    'UPDATE fishing_refs SET label_plural = ? WHERE id = ? AND label = ? AND label_plural IS NULL'
+  );
+  db.transaction(() => {
+    for (const r of seed) upd.run(r.labelPlural, r.id, r.label);
+  })();
+}
+
 /** Amorce les référentiels **uniquement si la table est vide** (idempotent). */
 export function seedFishingRefsIfEmpty(db: DB, seed: FishingRef[]): void {
   const { c } = db.prepare('SELECT count(*) AS c FROM fishing_refs').get() as { c: number };

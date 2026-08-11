@@ -9,7 +9,7 @@ import { countTides, replaceSiteData } from './tidesRepository';
 import { getOrCreateSessionSecret } from './usersRepository';
 import { seedLexiconIfEmpty } from './lexiconRepository';
 import { LEXICON_SEED } from '../service/lexiconSeed';
-import { seedFishingRefsIfEmpty } from './fishingRefsRepository';
+import { backfillSeedPlurals, seedFishingRefsIfEmpty } from './fishingRefsRepository';
 import { FISHING_REFS_SEED } from '../service/fishingSeed';
 import { writeSettings, ensureSettings } from '../service/SettingsStore';
 import { ensureAdminUser } from '../service/UsersStore';
@@ -60,6 +60,9 @@ export async function initStorage(logger?: Logger, db: DB = getDb()): Promise<vo
 
   // Référentiels du carnet de pêche (issue #3) : mêmes règles que le lexique — amorçage si vide.
   seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+  // Base amorcée avant la v8 : ses pluriels sont NULL, donc relus au singulier. On les complète
+  // ici plutôt que dans la migration, la graine étant une donnée de service et non de schéma.
+  backfillSeedPlurals(db, FISHING_REFS_SEED);
 
   if (authEnabled()) {
     getOrCreateSessionSecret(db); // secret stable, indépendant des mots de passe utilisateurs
