@@ -45,12 +45,12 @@ export function useFishingRefs() {
     return refs.value.find(r => r.id === id)?.label ?? id;
   }
 
-  async function add(kind: FishingRefKind, label: string): Promise<void> {
-    refs.value = [...refs.value, await apiAdd(kind, label)];
+  async function add(kind: FishingRefKind, label: string, labelPlural = ''): Promise<void> {
+    refs.value = [...refs.value, await apiAdd(kind, label, labelPlural)];
   }
 
-  async function update(id: string, label: string): Promise<void> {
-    const updated = await apiUpdate(id, label);
+  async function update(id: string, label: string, labelPlural = ''): Promise<void> {
+    const updated = await apiUpdate(id, label, labelPlural);
     refs.value = refs.value.map(r => (r.id === id ? updated : r));
   }
 

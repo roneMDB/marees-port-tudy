@@ -23,31 +23,26 @@ function dayCoefficient(tides: FlatTide[], date: string): number | null {
 }
 
 /**
- * Pluriel simple d'un libellé d'espèce : « 3 tourteaux ». Les libellés composés (« crevette
- * bouquet ») ne prennent la marque que sur leur premier mot, et un libellé déjà terminé par `s`
- * ou `x` est laissé tel quel. Les noms en `-au`/`-eu` (tourteau, bureau) prennent un `x` plutôt
- * qu'un `s` — orthographe courante de ces finales, et « tourteau » est justement une espèce du
- * référentiel.
- */
-function plural(label: string, quantity: number): string {
-  if (quantity < 2) return label;
-  const [first, ...rest] = label.split(' ');
-  if (/[sx]$/i.test(first)) return label;
-  const suffix = /(?:au|eu)$/i.test(first) ? 'x' : 's';
-  return [`${first}${suffix}`, ...rest].join(' ');
-}
-
-/**
- * Résumé d'une sortie en une ligne : « 12 crevette bouquet · 3 tourteaux · 1 bar 42 cm ».
+ * Résumé d'une sortie en une ligne : « 12 crevettes bouquet · 3 tourteaux · 1 bar 42 cm ».
  * Une sortie sans prise n'est **pas** une absence de donnée : elle se lit « Bredouille ».
  * Un id absent du référentiel s'affiche brut, pour qu'une prise ancienne reste lisible.
+ *
+ * Le pluriel vient du **référentiel** (`labelPlural`), il n'est pas calculé : « lieu jaune » fait
+ * « lieus jaunes » là où « lieu » l'endroit ferait « lieux », et « crevette bouquet » garde son
+ * apposition invariable — aucune règle ne couvre les deux. Corollaire : un id **disparu** du
+ * référentiel s'affiche tel quel jusque dans les quantités, plutôt que de se voir inventer une
+ * marque du pluriel.
  */
 export function summarizeCatches(catches: FishingCatch[], refs: FishingRef[]): string {
   if (catches.length === 0) return 'Bredouille';
-  const labelOf = (id: string) => refs.find(r => r.id === id)?.label ?? id;
+  const labelOf = (id: string, quantity: number) => {
+    const ref = refs.find(r => r.id === id);
+    if (!ref) return id;
+    return quantity > 1 ? ref.labelPlural : ref.label;
+  };
   return catches
     .map(c => {
-      const parts = [`${c.quantity}`, plural(labelOf(c.speciesId).toLowerCase(), c.quantity)];
+      const parts = [`${c.quantity}`, labelOf(c.speciesId, c.quantity).toLowerCase()];
       if (c.sizeCm != null) parts.push(`${c.sizeCm} cm`);
       else if (c.weightG != null) parts.push(`${c.weightG} g`);
       const text = parts.join(' ');

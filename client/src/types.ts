@@ -213,6 +213,12 @@ export interface FishingRef {
   id: string;
   kind: FishingRefKind;
   label: string;
+  /**
+   * Libellé au pluriel, **saisi** et non calculé (« lieu jaune » → « lieus jaunes », « crevette
+   * bouquet » → « crevettes bouquet »). Toujours présent : le serveur le fait valoir le singulier
+   * quand il n'est pas fourni.
+   */
+  labelPlural: string;
 }
 
 /** Une ligne de prise. `sizeCm`/`weightG` sont optionnels : sans objet pour 40 crevettes. */

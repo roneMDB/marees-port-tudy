@@ -41,21 +41,28 @@ export function getRefs(): Promise<FishingRef[]> {
   return fetchJson<FishingRef[]>('/api/fishing/refs');
 }
 
-/** POST /api/fishing/refs (**admin**). */
-export function addRef(kind: FishingRefKind, label: string): Promise<FishingRef> {
+/**
+ * POST /api/fishing/refs (**admin**). `labelPlural` est facultatif : vide ou absent, le serveur
+ * le fait valoir `label`.
+ */
+export function addRef(
+  kind: FishingRefKind,
+  label: string,
+  labelPlural = ''
+): Promise<FishingRef> {
   return fetchJson<FishingRef>('/api/fishing/refs', {
     method: 'POST',
     headers: JSON_HEADERS,
-    body: JSON.stringify({ kind, label })
+    body: JSON.stringify({ kind, label, labelPlural })
   });
 }
 
-/** PUT /api/fishing/refs/:id (**admin**) — seul le libellé change ; l'id et le type sont figés. */
-export function updateRef(id: string, label: string): Promise<FishingRef> {
+/** PUT /api/fishing/refs/:id (**admin**) — les libellés changent ; l'id et le type sont figés. */
+export function updateRef(id: string, label: string, labelPlural = ''): Promise<FishingRef> {
   return fetchJson<FishingRef>(`/api/fishing/refs/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: JSON_HEADERS,
-    body: JSON.stringify({ label })
+    body: JSON.stringify({ label, labelPlural })
   });
 }
 

@@ -3,11 +3,17 @@ import { aflotChoices, nearestAflot, summarizeCatches, tripTideContext } from '.
 import type { FishingCatch, FishingRef, FlatTide, NavihanOffsets } from '../types';
 
 const REFS: FishingRef[] = [
-  { id: 'bar', kind: 'species', label: 'Bar' },
-  { id: 'tourteau', kind: 'species', label: 'Tourteau' },
-  { id: 'crevette-bouquet', kind: 'species', label: 'Crevette bouquet' },
-  { id: 'ligne', kind: 'gear', label: 'Ligne' },
-  { id: 'casier-crabes', kind: 'gear', label: 'Casier à crabes' }
+  { id: 'bar', kind: 'species', label: 'Bar', labelPlural: 'Bars' },
+  { id: 'tourteau', kind: 'species', label: 'Tourteau', labelPlural: 'Tourteaux' },
+  {
+    id: 'crevette-bouquet',
+    kind: 'species',
+    label: 'Crevette bouquet',
+    labelPlural: 'Crevettes bouquet'
+  },
+  { id: 'lieu-jaune', kind: 'species', label: 'Lieu jaune', labelPlural: 'Lieus jaunes' },
+  { id: 'ligne', kind: 'gear', label: 'Ligne', labelPlural: 'Lignes' },
+  { id: 'casier-crabes', kind: 'gear', label: 'Casier à crabes', labelPlural: 'Casiers à crabes' }
 ];
 
 const OFFSETS: NavihanOffsets = { basseMer: 75, pleineMer: 75, aFlot: 160 };
@@ -56,8 +62,20 @@ describe('summarizeCatches', () => {
     expect(summarizeCatches([], REFS)).toBe('Bredouille');
   });
 
+  it('emploie le pluriel **saisi**, qu’aucune règle automatique ne donnerait', () => {
+    // « lieu jaune » (le poisson) fait « lieus jaunes » là où « lieu » l'endroit ferait « lieux ».
+    expect(summarizeCatches([cat({ speciesId: 'lieu-jaune', quantity: 2 })], REFS)).toBe(
+      '2 lieus jaunes'
+    );
+    expect(summarizeCatches([cat({ speciesId: 'lieu-jaune', quantity: 1 })], REFS)).toBe(
+      '1 lieu jaune'
+    );
+  });
+
   it('retombe sur l’id quand l’espèce a disparu du référentiel', () => {
     expect(summarizeCatches([cat({ speciesId: 'licorne', quantity: 1 })], REFS)).toBe('1 licorne');
+    // Au pluriel non plus, un id disparu ne s'invente pas de marque.
+    expect(summarizeCatches([cat({ speciesId: 'licorne', quantity: 3 })], REFS)).toBe('3 licorne');
   });
 });
 
