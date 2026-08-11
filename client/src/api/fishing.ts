@@ -83,6 +83,19 @@ export async function deleteRef(id: string): Promise<void> {
   throw new Error(message);
 }
 
+/**
+ * POST /api/fishing/refs/reorder (**admin**) — réordonne une section. `ids` doit être exactement
+ * l'ensemble des ids de ce `kind` ; sinon le serveur répond 400. Renvoie la liste **complète**
+ * réordonnée, qui devient le nouvel état.
+ */
+export function reorderRefs(kind: FishingRefKind, ids: string[]): Promise<FishingRef[]> {
+  return fetchJson<FishingRef[]>('/api/fishing/refs/reorder', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ kind, ids })
+  });
+}
+
 /** POST /api/fishing/refs/reset (**admin**) — rétablit la graine. */
 export function resetRefs(): Promise<FishingRef[]> {
   return fetchJson<FishingRef[]>('/api/fishing/refs/reset', { method: 'POST' });

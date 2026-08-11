@@ -14,6 +14,7 @@ import {
   deleteRef,
   getRefs,
   refExists,
+  reorderRefs,
   resetFishingRefs,
   updateRef,
   type FishingRefKind
@@ -86,7 +87,8 @@ function parseTrip(body: unknown): FishingTripInput | null {
  * - `PUT /fishing/trips/:id` (**admin**) : remplace la sortie **et toutes ses prises** ; ne touche
  *   pas à la météo (la recapturer écraserait celle de juillet en corrigeant une note en janvier).
  * - `DELETE /fishing/trips/:id` (**admin**).
- * - `GET /fishing/refs`, `POST`/`PUT`/`DELETE /fishing/refs[/:id]`, `POST /fishing/refs/reset`.
+ * - `GET /fishing/refs`, `POST`/`PUT`/`DELETE /fishing/refs[/:id]`, `POST /fishing/refs/reset`,
+ *   `POST /fishing/refs/reorder`.
  *   `POST`/`PUT` acceptent un `labelPlural` optionnel (le pluriel est une donnée saisie, pas une
  *   règle calculée, issue #3) ; absent ou vide, il vaut `label` (repli posé dans le repository).
  */
@@ -160,6 +162,35 @@ export function createFishingRouter(logger: Logger): Router {
       if (!isAdmin(req)) return forbid(res);
       resetFishingRefs(getDb(), FISHING_REFS_SEED);
       res.json(getRefs(getDb()));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * Réordonne une section (les espèces entre elles, les engins entre eux). `ids` doit être
+   * **exactement** l'ensemble des ids de ce `kind`, sinon 400 : une liste périmée doit échouer
+   * bruyamment plutôt que d'escamoter l'entrée absente.
+   *
+   * ⚠️ C'est un `POST`, sur le modèle de `/reset`, et non un `PUT /fishing/refs/order` : ce dernier
+   * serait capté par `PUT /fishing/refs/:id` (id = « order ») selon l'ordre de déclaration.
+   */
+  router.post('/fishing/refs/reorder', (req, res, next) => {
+    try {
+      if (!isAdmin(req)) return forbid(res);
+      const o = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+      const kind = o.kind === 'species' || o.kind === 'gear' ? (o.kind as FishingRefKind) : null;
+      const ids = Array.isArray(o.ids) && o.ids.every(i => typeof i === 'string') ? (o.ids as string[]) : null;
+      if (!kind || !ids) {
+        return res.status(400).json({ error: 'kind (species|gear) et ids (tableau) requis.' });
+      }
+      const reordered = reorderRefs(getDb(), kind, ids);
+      if (!reordered) {
+        return res
+          .status(400)
+          .json({ error: 'La liste doit contenir exactement les identifiants de ce type.' });
+      }
+      res.json(reordered);
     } catch (err) {
       next(err);
     }

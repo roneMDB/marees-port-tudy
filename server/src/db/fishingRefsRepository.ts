@@ -109,6 +109,35 @@ function insertSeed(db: DB, seed: FishingRef[]): void {
 }
 
 /**
+ * Réordonne les entrées d'un `kind`. Renvoie la liste **complète** réordonnée, ou `null` si `ids`
+ * n'est pas **exactement** l'ensemble des ids de ce `kind` — liste partielle, id étranger, id d'un
+ * autre type ou doublon. Une liste périmée (un autre onglet vient d'ajouter une espèce) doit
+ * échouer bruyamment plutôt que de faire disparaître l'absent du tri.
+ *
+ * ⚠️ Les rangs ne sont **pas** renumérotés 0..N−1 : on **redistribue les rangs déjà occupés** par
+ * cette section. `sort_order` est global aux deux types (la graine numérote par index, et
+ * `nextSortOrder` rend max + 1 quel que soit le `kind`), donc renuméroter une section déplacerait
+ * l'autre. Ici elle garde ses rangs au bit près.
+ */
+export function reorderRefs(db: DB, kind: FishingRefKind, ids: string[]): FishingRef[] | null {
+  const rows = db
+    .prepare('SELECT id, sort_order AS s FROM fishing_refs WHERE kind = ? ORDER BY s, id')
+    .all(kind) as { id: string; s: number }[];
+
+  const wanted = new Set(ids);
+  // `Set` écarte les doublons : comparer les cardinaux couvre donc aussi ce cas.
+  if (wanted.size !== ids.length || wanted.size !== rows.length) return null;
+  if (rows.some(r => !wanted.has(r.id))) return null;
+
+  const slots = rows.map(r => r.s);
+  const upd = db.prepare('UPDATE fishing_refs SET sort_order = ? WHERE id = ?');
+  db.transaction(() => {
+    ids.forEach((id, i) => upd.run(slots[i], id));
+  })();
+  return getRefs(db);
+}
+
+/**
  * Complète le pluriel des entrées de graine amorcées **avant la v8** (colonne `NULL`).
  *
  * Sans cela, une base déjà amorcée garderait pour toujours des pluriels valant leur singulier — le

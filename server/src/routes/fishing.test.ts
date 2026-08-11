@@ -102,6 +102,31 @@ describe('API /api/fishing/refs', () => {
     expect((await request(app).delete('/api/fishing/refs/inconnu')).status).toBe(404);
     expect((await request(app).delete('/api/fishing/refs/homard')).status).toBe(204);
   });
+
+  it('POST /reorder réordonne une section sans toucher à l’autre', async () => {
+    const avant = (await request(app).get('/api/fishing/refs')).body as { id: string; kind: string }[];
+    const especes = avant.filter(r => r.kind === 'species').map(r => r.id);
+    const engins = avant.filter(r => r.kind === 'gear').map(r => r.id);
+    const voulu = [...especes].reverse();
+
+    const res = await request(app).post('/api/fishing/refs/reorder').send({ kind: 'species', ids: voulu });
+    expect(res.status).toBe(200);
+    const apres = res.body as { id: string; kind: string }[];
+    expect(apres.filter(r => r.kind === 'species').map(r => r.id)).toEqual(voulu);
+    expect(apres.filter(r => r.kind === 'gear').map(r => r.id)).toEqual(engins);
+
+    // Remis en place pour ne pas déteindre sur les tests suivants.
+    await request(app).post('/api/fishing/refs/reorder').send({ kind: 'species', ids: especes });
+  });
+
+  it('POST /reorder refuse un type inconnu ou un ensemble d’ids non conforme (400)', async () => {
+    const refs = (await request(app).get('/api/fishing/refs')).body as { id: string; kind: string }[];
+    const especes = refs.filter(r => r.kind === 'species').map(r => r.id);
+
+    expect((await request(app).post('/api/fishing/refs/reorder').send({ kind: 'poisson', ids: especes })).status).toBe(400);
+    expect((await request(app).post('/api/fishing/refs/reorder').send({ kind: 'species', ids: especes.slice(1) })).status).toBe(400);
+    expect((await request(app).post('/api/fishing/refs/reorder').send({ kind: 'species', ids: 'nope' })).status).toBe(400);
+  });
 });
 
 describe('API /api/fishing/trips', () => {
@@ -178,7 +203,7 @@ describe('API /api/fishing — écritures réservées au rôle admin', () => {
     roleState.role = 'admin';
   });
 
-  it('refuse les quatre écritures sur les référentiels', async () => {
+  it('refuse les cinq écritures sur les référentiels', async () => {
     const post = await request(app).post('/api/fishing/refs').send({ kind: 'species', label: 'Congre royal' });
     expect(post.status).toBe(403);
     expect(post.body).toEqual(REFUS);
@@ -186,6 +211,9 @@ describe('API /api/fishing — écritures réservées au rôle admin', () => {
     expect((await request(app).put('/api/fishing/refs/bar').send({ label: 'Bar rayé' })).status).toBe(403);
     expect((await request(app).delete('/api/fishing/refs/bar')).status).toBe(403);
     expect((await request(app).post('/api/fishing/refs/reset')).status).toBe(403);
+    expect(
+      (await request(app).post('/api/fishing/refs/reorder').send({ kind: 'species', ids: [] })).status
+    ).toBe(403);
   });
 
   it('refuse les trois écritures sur les sorties', async () => {

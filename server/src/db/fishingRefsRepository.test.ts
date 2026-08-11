@@ -6,6 +6,7 @@ import {
   getRefs,
   refExists,
   backfillSeedPlurals,
+  reorderRefs,
   resetFishingRefs,
   seedFishingRefsIfEmpty,
   updateRef
@@ -206,5 +207,62 @@ describe('fishingRefsRepository', () => {
     expect(refs.find(r => r.id === 'lieu-jaune')!.labelPlural).toBe('Lieu'); // repli, pas la graine
     expect(refs.find(r => r.id === 'bar')!.labelPlural).toBe('Bars mouchetés');
     db.close();
+  });
+
+  describe('reorderRefs', () => {
+    const ids = (db: ReturnType<typeof openDb>, kind: 'species' | 'gear') =>
+      getRefs(db)
+        .filter(r => r.kind === kind)
+        .map(r => r.id);
+
+    it('réordonne une section et renvoie la liste complète', () => {
+      const db = openDb(':memory:');
+      seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+      const avant = ids(db, 'species');
+      const voulu = [...avant].reverse();
+
+      const res = reorderRefs(db, 'species', voulu)!;
+      expect(res.filter(r => r.kind === 'species').map(r => r.id)).toEqual(voulu);
+      expect(ids(db, 'species')).toEqual(voulu); // persisté
+      db.close();
+    });
+
+    it('ne touche pas à l’autre section', () => {
+      const db = openDb(':memory:');
+      seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+      const gearsAvant = ids(db, 'gear');
+      reorderRefs(db, 'species', [...ids(db, 'species')].reverse());
+      expect(ids(db, 'gear')).toEqual(gearsAvant);
+      db.close();
+    });
+
+    it('réaffecte les rangs déjà occupés, sans renuméroter globalement', () => {
+      const db = openDb(':memory:');
+      seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+      const rangs = () =>
+        (db.prepare('SELECT sort_order AS s FROM fishing_refs ORDER BY s').all() as { s: number }[])
+          .map(r => r.s);
+      const avant = rangs();
+      reorderRefs(db, 'species', [...ids(db, 'species')].reverse());
+      // L'ensemble des rangs est invariant : seule leur attribution change.
+      expect(rangs()).toEqual(avant);
+      db.close();
+    });
+
+    it('refuse une liste incomplète, un id étranger ou un id d’un autre type', () => {
+      const db = openDb(':memory:');
+      seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+      const especes = ids(db, 'species');
+
+      expect(reorderRefs(db, 'species', especes.slice(1))).toBeNull();
+      expect(reorderRefs(db, 'species', [...especes.slice(1), 'inconnu'])).toBeNull();
+      // « ligne » est un engin : il n'a rien à faire dans le tri des espèces.
+      expect(reorderRefs(db, 'species', [...especes.slice(1), 'ligne'])).toBeNull();
+      // Un doublon a le bon cardinal mais pas le bon ensemble.
+      expect(reorderRefs(db, 'species', [especes[0], ...especes.slice(0, -1)])).toBeNull();
+
+      expect(ids(db, 'species')).toEqual(especes); // rien n'a bougé
+      db.close();
+    });
   });
 });

@@ -4,7 +4,7 @@ import IconFish from './IconFish.vue';
 import { useFishingRefs } from '../composables/useFishingRefs';
 import type { FishingRef, FishingRefKind } from '../types';
 
-const { species, gears, load, add, update, remove, reset } = useFishingRefs();
+const { species, gears, load, add, update, remove, reorder, reset } = useFishingRefs();
 onMounted(load);
 
 const error = ref<string | null>(null);
@@ -54,6 +54,28 @@ function saveEdit(id: string): void {
     await update(id, label, editPlural.value.trim());
     editingId.value = null;
   });
+}
+
+/**
+ * Déplace une entrée d'un cran **dans sa section** : le tri des espèces et celui des engins sont
+ * deux listes séparées (elles ne sont jamais affichées ensemble — deux sections ici, deux `<select>`
+ * dans le formulaire de saisie). Les bornes sont donc celles de la section, pas de `refs` entier.
+ */
+function move(entry: FishingRef, delta: -1 | 1): void {
+  const section = (entry.kind === 'gear' ? gears : species).value;
+  const from = section.findIndex(r => r.id === entry.id);
+  const to = from + delta;
+  if (from < 0 || to < 0 || to >= section.length) return;
+  const ids = section.map(r => r.id);
+  [ids[from], ids[to]] = [ids[to], ids[from]];
+  run(() => reorder(entry.kind, ids));
+}
+
+/** Position dans sa section, pour désactiver les flèches aux extrémités. */
+function positionIn(entry: FishingRef): { first: boolean; last: boolean } {
+  const section = (entry.kind === 'gear' ? gears : species).value;
+  const i = section.findIndex(r => r.id === entry.id);
+  return { first: i <= 0, last: i === section.length - 1 };
 }
 
 function onRemove(entry: FishingRef): void {
@@ -209,6 +231,28 @@ const sections = computed(() => [
                 </span>
               </span>
               <span class="btn-group btn-group-sm">
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  data-test="up"
+                  :disabled="positionIn(item).first"
+                  :aria-label="`Monter ${item.label}`"
+                  title="Monter"
+                  @click="move(item, -1)"
+                >
+                  <i class="bi bi-arrow-up"></i>
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  data-test="down"
+                  :disabled="positionIn(item).last"
+                  :aria-label="`Descendre ${item.label}`"
+                  title="Descendre"
+                  @click="move(item, 1)"
+                >
+                  <i class="bi bi-arrow-down"></i>
+                </button>
                 <button
                   type="button"
                   class="btn btn-outline-secondary"

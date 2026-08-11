@@ -203,8 +203,8 @@ Routes carnet de pêche (`src/routes/fishing.ts`, issue #3) :
   et l'enregistrement aboutit quand même.
 - `PUT /api/fishing/trips/:id` (**admin**) → remplace la sortie **et toutes ses prises** en une
   transaction. `DELETE` (**admin**, 204).
-- `GET /api/fishing/refs` (lecture) ; `POST`/`PUT`/`DELETE /api/fishing/refs[/:id]` et
-  `POST /api/fishing/refs/reset` (**admin**). ⚠️ Supprimer un référentiel **encore utilisé** par une
+- `GET /api/fishing/refs` (lecture) ; `POST`/`PUT`/`DELETE /api/fishing/refs[/:id]`,
+  `POST /api/fishing/refs/reset` et `POST /api/fishing/refs/reorder` (**admin**). ⚠️ Supprimer un référentiel **encore utilisé** par une
   prise renvoie **409** : il n'y a **pas** de clé étrangère vers `fishing_refs`, précisément pour
   qu'une sortie ancienne ne perde pas son espèce lors d'un nettoyage du référentiel. Pour la même
   raison, `reset` **conserve** les entrées hors graine encore référencées par une prise.
@@ -219,6 +219,16 @@ Routes carnet de pêche (`src/routes/fishing.ts`, issue #3) :
   est une donnée de service, pas de schéma) complète les entrées **de la graine** dont le libellé
   n'a pas été renommé et dont le pluriel est encore `NULL`. Un renommage ou un pluriel déjà saisi
   n'est jamais écrasé.
+- **Ordre des référentiels** (`POST /api/fishing/refs/reorder` `{ kind, ids }`, `reorderRefs`) :
+  réordonne **une section** (les espèces entre elles, les engins entre eux), les deux listes n'étant
+  jamais affichées ensemble. `ids` doit être **exactement** l'ensemble des ids de ce `kind`, sinon
+  **400** — une liste périmée doit échouer bruyamment plutôt qu'escamoter l'absent. ⚠️ Les rangs ne
+  sont **pas** renumérotés 0..N−1 : on **redistribue les rangs déjà occupés** par la section, car
+  `sort_order` est **global aux deux types** (la graine numérote par index et `nextSortOrder` rend
+  max + 1 quel que soit le `kind` — un engin ajouté après coup passe donc après les espèces, sans
+  conséquence puisque le regroupement se fait côté client sur `kind`). ⚠️ C'est un `POST` sur le
+  modèle de `/reset` : un `PUT /fishing/refs/order` aurait été capté par `PUT /fishing/refs/:id`.
+  Spec : `docs/superpowers/specs/2026-08-11-ordre-referentiels-peche-design.md`.
 - `service/weather.ts` expose désormais `DEFAULT_LAT`/`DEFAULT_LON` (la route météo les importe au
   lieu de les redéclarer) et `fetchWeather` prend un 6ᵉ paramètre **`pastDays`** : sans lui, une
   sortie saisie après coup enregistrerait la météo du **jour de la saisie**.
@@ -562,7 +572,11 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   `components/FishingRefsPanel.vue`, `composables/useFishing.ts` + `useFishingRefs.ts`,
   `lib/fishing.ts`, issue #3) — liste antichronologique des sorties, formulaire **inline** (pas une
   modale : N lignes de prises y seraient inutilisables sur téléphone), panneau admin des espèces et
-  des engins (bouton navbar admin-only, calqué sur `LexiconPanel`). Lecture ouverte à tout compte
+  des engins (bouton navbar admin-only — **icône poisson** `components/IconFish.vue`, un SVG inline
+  faute de glyphe bootstrap ; le seau reste au lien de navigation vers le carnet). Le panneau permet
+  de **réordonner** chaque section par des **flèches ↑/↓** — et non par glisser-déposer : le DnD
+  natif HTML5 ne réagit pas au doigt, or c'est une PWA de téléphone, et le rendre tactile coûterait
+  une dépendance pour un geste qu'on fait une fois. Lecture ouverte à tout compte
   connecté, écriture réservée à `admin`.
   ⚠️ **Choix asymétrique assumé : la marée se recalcule, la météo se fige.** `tripTideContext`
   dérive coefficient, basses mers et remises à flot **de la date**, sans rien stocker — ce projet a

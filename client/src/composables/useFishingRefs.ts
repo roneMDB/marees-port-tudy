@@ -3,6 +3,7 @@ import {
   addRef as apiAdd,
   deleteRef as apiDelete,
   getRefs,
+  reorderRefs as apiReorder,
   resetRefs as apiReset,
   updateRef as apiUpdate
 } from '../api/fishing';
@@ -63,5 +64,13 @@ export function useFishingRefs() {
     refs.value = await apiReset();
   }
 
-  return { refs, species, gears, labelOf, load, add, update, remove, reset };
+  /**
+   * Réordonne une section. **Serveur d'abord**, comme les autres écritures d'ici : la réponse
+   * devient l'état, donc rien à annuler si l'appel échoue (l'appelant affiche le message).
+   */
+  async function reorder(kind: FishingRefKind, ids: string[]): Promise<void> {
+    refs.value = await apiReorder(kind, ids);
+  }
+
+  return { refs, species, gears, labelOf, load, add, update, remove, reorder, reset };
 }
