@@ -80,7 +80,36 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
           <i class="bi bi-water me-2"></i>Marées Navihan
           <small class="fw-normal opacity-75">· Belz</small>
         </span>
-        <div class="d-flex align-items-center gap-3">
+        <!--
+          Le login est un **enfant direct** de la barre, et non un élément de la rangée d'actions.
+          `.navbar > .container-xxl` est un flex `wrap` + `space-between` : sous `sm`, la rangée
+          d'actions passe à la ligne suivante et le login reste donc sur celle du titre, collé à
+          droite (`ms-auto`). Au-dessus de `sm` tout tient sur une ligne et `ms-auto` le pousse
+          contre la rangée d'actions, qu'il précède désormais — sur grand écran il ne jouxte donc
+          plus le bouton de déconnexion, mais suit le titre. C'est le prix d'un **élément unique**
+          plutôt que de deux variantes responsives qui finiraient par diverger.
+
+          Ce n'est pas cosmétique : la rangée d'actions a gagné un bouton avec le carnet de pêche, et
+          le menu ⋮ sortait de l'écran (bord droit à 427 px sur 360). Un seul élément plutôt que deux
+          variantes responsives, pour qu'elles ne divergent pas.
+
+          ⚠️ La marge droite est `me-sm-3` et non `me-3` : sous `sm`, rien ne suit le login sur sa
+          ligne, et ces 16 px suffisaient à faire déborder le titre (243 px + les 16 px de marge de
+          `.navbar-brand` + 67 px de login = 342 pour 336 disponibles) — le login basculait alors sur
+          une troisième ligne au lieu de rejoindre le titre.
+        -->
+        <span
+          v-if="authRequired && user"
+          class="navbar-text text-white-50 small d-inline-flex align-items-center app-username ms-auto me-sm-3"
+          :title="user.login"
+        >
+          <i class="bi bi-person-circle me-1"></i><span class="text-truncate">{{ user.login }}</span>
+        </span>
+        <!--
+          Espacement resserré sous `sm` : le carnet de pêche a ajouté un bouton à cette rangée, et
+          sur un écran de 320 px elle ne tenait plus (332 px pour 296 disponibles).
+        -->
+        <div class="d-flex align-items-center gap-2 gap-sm-3">
           <span class="navbar-text app-clock text-capitalize d-none d-sm-inline">
             <i class="bi bi-clock me-1"></i>{{ clock }}
           </span>
@@ -198,13 +227,6 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
           >
             <i :class="isDark ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill'"></i>
           </button>
-          <span
-            v-if="authRequired && user"
-            class="navbar-text text-white-50 small d-inline-flex align-items-center app-username"
-            :title="user.login"
-          >
-            <i class="bi bi-person-circle me-1"></i><span class="text-truncate">{{ user.login }}</span>
-          </span>
           <button
             v-if="authRequired"
             type="button"
