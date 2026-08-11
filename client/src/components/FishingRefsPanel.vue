@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import IconFish from './IconFish.vue';
 import { useFishingRefs } from '../composables/useFishingRefs';
 import type { FishingRef, FishingRefKind } from '../types';
 
@@ -79,7 +80,7 @@ const sections = computed(() => [
     <div class="offcanvas-header border-bottom">
       <div>
         <h5 id="fishingRefsOffcanvasLabel" class="offcanvas-title mb-0">
-          <i class="bi bi-bucket me-1"></i> Espèces et engins
+          <IconFish class="me-1" /> Espèces et engins
         </h5>
         <span class="text-muted small"
           >{{ gears.length }} engins · {{ species.length }} espèces</span

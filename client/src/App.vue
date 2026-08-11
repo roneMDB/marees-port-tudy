@@ -5,6 +5,7 @@ import TidesImportPanel from './components/TidesImportPanel.vue';
 import UsersPanel from './components/UsersPanel.vue';
 import LexiconPanel from './components/LexiconPanel.vue';
 import FishingRefsPanel from './components/FishingRefsPanel.vue';
+import IconFish from './components/IconFish.vue';
 import LoginScreen from './components/LoginScreen.vue';
 import ForcePasswordChange from './components/ForcePasswordChange.vue';
 import { useTheme } from './composables/useTheme';
@@ -174,7 +175,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
             title="Espèces et engins"
             aria-label="Espèces et engins"
           >
-            <i class="bi bi-bucket"></i>
+            <IconFish />
           </button>
           <button
             v-if="isAdmin"
@@ -249,7 +250,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
               </li>
               <li>
                 <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#fishingRefsOffcanvas">
-                  <i class="bi bi-bucket me-2"></i>Espèces et engins
+                  <IconFish class="me-2" />Espèces et engins
                 </button>
               </li>
               <li>
