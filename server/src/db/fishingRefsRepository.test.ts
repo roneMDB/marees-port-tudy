@@ -30,22 +30,42 @@ describe('fishingRefsRepository', () => {
     const db = openDb(':memory:');
     seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
     const refs = getRefs(db);
-    expect(refs[0]).toEqual({ id: 'casier-crabes', kind: 'gear', label: 'Casier à crabes' });
+    expect(refs[0]).toEqual({
+      id: 'casier-crabes',
+      kind: 'gear',
+      label: 'Casier à crabes',
+      labelPlural: 'Casiers à crabes'
+    });
     expect(refs.filter(r => r.kind === 'gear')).toHaveLength(3);
     db.close();
   });
 
   it('ajoute une entrée avec un id slug unique', () => {
     const db = openDb(':memory:');
-    expect(addRef(db, 'species', 'Homard')).toEqual({ id: 'homard', kind: 'species', label: 'Homard' });
-    expect(addRef(db, 'species', 'Homard')).toEqual({ id: 'homard-2', kind: 'species', label: 'Homard' });
+    expect(addRef(db, 'species', 'Homard')).toEqual({
+      id: 'homard',
+      kind: 'species',
+      label: 'Homard',
+      labelPlural: 'Homard'
+    });
+    expect(addRef(db, 'species', 'Homard')).toEqual({
+      id: 'homard-2',
+      kind: 'species',
+      label: 'Homard',
+      labelPlural: 'Homard'
+    });
     db.close();
   });
 
   it("met à jour un libellé sans changer l'id", () => {
     const db = openDb(':memory:');
     addRef(db, 'species', 'Homard');
-    expect(updateRef(db, 'homard', 'Homard bleu')).toEqual({ id: 'homard', kind: 'species', label: 'Homard bleu' });
+    expect(updateRef(db, 'homard', 'Homard bleu')).toEqual({
+      id: 'homard',
+      kind: 'species',
+      label: 'Homard bleu',
+      labelPlural: 'Homard bleu'
+    });
     expect(updateRef(db, 'inconnu', 'Rien')).toBeNull();
     db.close();
   });
@@ -112,6 +132,51 @@ describe('fishingRefsRepository', () => {
     expect(refExists(db, 'bar', 'species')).toBe(true);
     expect(refExists(db, 'bar', 'gear')).toBe(false);
     expect(refExists(db, 'inconnu', 'species')).toBe(false);
+    db.close();
+  });
+
+  it('amorce chaque référentiel avec son libellé au pluriel', () => {
+    const db = openDb(':memory:');
+    seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+    const refs = getRefs(db);
+    const plural = (id: string) => refs.find(r => r.id === id)!.labelPlural;
+    // Les trois pièges du français que la règle automatique ne savait pas franchir.
+    expect(plural('lieu-jaune')).toBe('Lieus jaunes');
+    expect(plural('crevette-bouquet')).toBe('Crevettes bouquet');
+    expect(plural('crevette-grise')).toBe('Crevettes grises');
+    expect(plural('tourteau')).toBe('Tourteaux');
+    expect(plural('bar')).toBe('Bars');
+    db.close();
+  });
+
+  it('enregistre et met à jour le pluriel saisi', () => {
+    const db = openDb(':memory:');
+    expect(addRef(db, 'species', 'Homard', 'Homards')).toEqual({
+      id: 'homard',
+      kind: 'species',
+      label: 'Homard',
+      labelPlural: 'Homards'
+    });
+    expect(updateRef(db, 'homard', 'Homard bleu', 'Homards bleus')).toEqual({
+      id: 'homard',
+      kind: 'species',
+      label: 'Homard bleu',
+      labelPlural: 'Homards bleus'
+    });
+    db.close();
+  });
+
+  it('retombe sur le singulier quand aucun pluriel n’est fourni', () => {
+    const db = openDb(':memory:');
+    expect(addRef(db, 'gear', 'Épuisette', '').labelPlural).toBe('Épuisette');
+    db.close();
+  });
+
+  it('relit une ligne héritée sans pluriel comme valant son singulier', () => {
+    const db = openDb(':memory:');
+    // Ligne écrite avant la v8 : `label_plural` est NULL.
+    db.prepare("INSERT INTO fishing_refs (id, kind, label, sort_order) VALUES ('ancien', 'species', 'Ancien', 0)").run();
+    expect(getRefs(db).find(r => r.id === 'ancien')!.labelPlural).toBe('Ancien');
     db.close();
   });
 });

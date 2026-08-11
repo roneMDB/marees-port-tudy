@@ -87,6 +87,8 @@ function parseTrip(body: unknown): FishingTripInput | null {
  *   pas à la météo (la recapturer écraserait celle de juillet en corrigeant une note en janvier).
  * - `DELETE /fishing/trips/:id` (**admin**).
  * - `GET /fishing/refs`, `POST`/`PUT`/`DELETE /fishing/refs[/:id]`, `POST /fishing/refs/reset`.
+ *   `POST`/`PUT` acceptent un `labelPlural` optionnel (le pluriel est une donnée saisie, pas une
+ *   règle calculée, issue #3) ; absent ou vide, il vaut `label` (repli posé dans le repository).
  */
 export function createFishingRouter(logger: Logger): Router {
   const router = Router();
@@ -110,10 +112,11 @@ export function createFishingRouter(logger: Logger): Router {
       const o = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
       const kind = o.kind === 'species' || o.kind === 'gear' ? (o.kind as FishingRefKind) : null;
       const label = typeof o.label === 'string' ? o.label.trim() : '';
-      if (!kind || !label || label.length > MAX_LABEL) {
+      const labelPlural = typeof o.labelPlural === 'string' ? o.labelPlural.trim() : '';
+      if (!kind || !label || label.length > MAX_LABEL || labelPlural.length > MAX_LABEL) {
         return res.status(400).json({ error: 'kind (species|gear) et label requis.' });
       }
-      res.status(201).json(addRef(getDb(), kind, label));
+      res.status(201).json(addRef(getDb(), kind, label, labelPlural));
     } catch (err) {
       next(err);
     }
@@ -124,8 +127,11 @@ export function createFishingRouter(logger: Logger): Router {
       if (!isAdmin(req)) return forbid(res);
       const o = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
       const label = typeof o.label === 'string' ? o.label.trim() : '';
-      if (!label || label.length > MAX_LABEL) return res.status(400).json({ error: 'label requis.' });
-      const updated = updateRef(getDb(), req.params.id, label);
+      const labelPlural = typeof o.labelPlural === 'string' ? o.labelPlural.trim() : '';
+      if (!label || label.length > MAX_LABEL || labelPlural.length > MAX_LABEL) {
+        return res.status(400).json({ error: 'label requis.' });
+      }
+      const updated = updateRef(getDb(), req.params.id, label, labelPlural);
       if (!updated) return res.status(404).json({ error: 'Référentiel introuvable.' });
       res.json(updated);
     } catch (err) {

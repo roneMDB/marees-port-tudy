@@ -6,7 +6,7 @@ import { DATA_DIR } from '../config/dataDir';
 export type DB = Database.Database;
 
 /** Version courante du schéma (incrémentée à chaque migration). */
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 /** Chemin du fichier SQLite runtime (dans le volume `DATA_DIR`). */
 export function dbPath(): string {
@@ -22,6 +22,7 @@ export function dbPath(): string {
  * v5 : table `lexicon` (mot du jour éditable en base, issue #4 suite).
  * v6 : colonne `kind` sur `access_log` (visite / chargement de page / connexion, issue #16).
  * v7 : carnet de pêche (`fishing_trips`, `fishing_catches`, `fishing_refs`, issue #3).
+ * v8 : libellé au pluriel des référentiels de pêche (issue #3).
  */
 export function migrate(db: DB): void {
   const version = db.pragma('user_version', { simple: true }) as number;
@@ -152,6 +153,16 @@ export function migrate(db: DB): void {
         sort_order INTEGER NOT NULL DEFAULT 0
       );
     `);
+  }
+  if (version < 8) {
+    // Le pluriel d'une espèce est une **donnée**, pas un calcul : « lieu jaune » fait « lieus
+    // jaunes » quand « lieu » l'endroit fait « lieux », et « crevette bouquet » garde son apposition
+    // invariable. Aucune règle automatique ne couvre les deux (issue #3).
+    // Même précaution qu'en v3 et v6 : `ADD COLUMN` n'est pas idempotent en SQLite.
+    const cols = db.prepare('PRAGMA table_info(fishing_refs)').all() as { name: string }[];
+    if (!cols.some(c => c.name === 'label_plural')) {
+      db.exec('ALTER TABLE fishing_refs ADD COLUMN label_plural TEXT;');
+    }
   }
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

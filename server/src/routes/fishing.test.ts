@@ -68,6 +68,36 @@ describe('API /api/fishing/refs', () => {
     expect((await request(app).post('/api/fishing/refs').send({ kind: 'species', label: '  ' })).status).toBe(400);
   });
 
+  it('POST accepte un pluriel explicite et PUT le met à jour', async () => {
+    const post = await request(app)
+      .post('/api/fishing/refs')
+      .send({ kind: 'species', label: 'Homard bleu', labelPlural: 'Homards bleus' });
+    expect(post.status).toBe(201);
+    expect(post.body).toMatchObject({ label: 'Homard bleu', labelPlural: 'Homards bleus' });
+
+    const put = await request(app)
+      .put(`/api/fishing/refs/${post.body.id}`)
+      .send({ label: 'Homard', labelPlural: 'Homards' });
+    expect(put.status).toBe(200);
+    expect(put.body.labelPlural).toBe('Homards');
+
+    expect((await request(app).delete(`/api/fishing/refs/${post.body.id}`)).status).toBe(204);
+  });
+
+  it('POST sans pluriel retombe sur le singulier', async () => {
+    const post = await request(app).post('/api/fishing/refs').send({ kind: 'gear', label: 'Épuisette' });
+    expect(post.status).toBe(201);
+    expect(post.body.labelPlural).toBe('Épuisette');
+    expect((await request(app).delete(`/api/fishing/refs/${post.body.id}`)).status).toBe(204);
+  });
+
+  it('POST refuse un pluriel trop long', async () => {
+    const res = await request(app)
+      .post('/api/fishing/refs')
+      .send({ kind: 'species', label: 'Truite', labelPlural: 'x'.repeat(61) });
+    expect(res.status).toBe(400);
+  });
+
   it('DELETE renvoie 404 sur un id inconnu, 204 sinon', async () => {
     expect((await request(app).delete('/api/fishing/refs/inconnu')).status).toBe(404);
     expect((await request(app).delete('/api/fishing/refs/homard')).status).toBe(204);

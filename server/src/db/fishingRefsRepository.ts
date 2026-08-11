@@ -7,14 +7,20 @@ interface RefRow {
   id: string;
   kind: string;
   label: string;
+  label_plural: string | null;
+}
+
+/** Mappe une ligne brute : une ligne antérieure à la v8 (`label_plural` NULL) vaut son singulier. */
+function toRef(r: RefRow): FishingRef {
+  return { id: r.id, kind: r.kind as FishingRefKind, label: r.label, labelPlural: r.label_plural ?? r.label };
 }
 
 /** Référentiels ordonnés : engins d'abord (`sort_order` de la graine), puis espèces. */
 export function getRefs(db: DB): FishingRef[] {
   const rows = db
-    .prepare('SELECT id, kind, label FROM fishing_refs ORDER BY sort_order, id')
+    .prepare('SELECT id, kind, label, label_plural FROM fishing_refs ORDER BY sort_order, id')
     .all() as RefRow[];
-  return rows.map(r => ({ id: r.id, kind: r.kind as FishingRefKind, label: r.label }));
+  return rows.map(toRef);
 }
 
 /** `true` si l'id existe **avec ce type** (une espèce ne peut pas servir d'engin). */
@@ -48,24 +54,35 @@ function nextSortOrder(db: DB): number {
   return (row.m ?? -1) + 1;
 }
 
-/** Ajoute une entrée (id slug unique, en fin de liste). */
-export function addRef(db: DB, kind: FishingRefKind, label: string): FishingRef {
+/**
+ * Ajoute une entrée (id slug unique, en fin de liste). Un `labelPlural` vide ou absent vaut
+ * `label` : l'invariant « il y a toujours un pluriel » tient ici, quel que soit l'appelant.
+ */
+export function addRef(db: DB, kind: FishingRefKind, label: string, labelPlural?: string): FishingRef {
   const id = uniqueId(db, label);
-  db.prepare('INSERT INTO fishing_refs (id, kind, label, sort_order) VALUES (?, ?, ?, ?)').run(
+  const plural = labelPlural && labelPlural.trim() ? labelPlural : label;
+  db.prepare('INSERT INTO fishing_refs (id, kind, label, label_plural, sort_order) VALUES (?, ?, ?, ?, ?)').run(
     id,
     kind,
     label,
+    plural,
     nextSortOrder(db)
   );
-  return { id, kind, label };
+  return { id, kind, label, labelPlural: plural };
 }
 
-/** Met à jour le libellé (le type et l'id sont figés). `null` si l'id n'existe pas. */
-export function updateRef(db: DB, id: string, label: string): FishingRef | null {
-  const res = db.prepare('UPDATE fishing_refs SET label = ? WHERE id = ?').run(label, id);
+/**
+ * Met à jour le libellé et son pluriel (le type et l'id sont figés). `null` si l'id n'existe pas.
+ * Même repli qu'`addRef` : `labelPlural` vide ou absent vaut `label`.
+ */
+export function updateRef(db: DB, id: string, label: string, labelPlural?: string): FishingRef | null {
+  const plural = labelPlural && labelPlural.trim() ? labelPlural : label;
+  const res = db
+    .prepare('UPDATE fishing_refs SET label = ?, label_plural = ? WHERE id = ?')
+    .run(label, plural, id);
   if (res.changes === 0) return null;
-  const row = db.prepare('SELECT id, kind, label FROM fishing_refs WHERE id = ?').get(id) as RefRow;
-  return { id: row.id, kind: row.kind as FishingRefKind, label: row.label };
+  const row = db.prepare('SELECT id, kind, label, label_plural FROM fishing_refs WHERE id = ?').get(id) as RefRow;
+  return toRef(row);
 }
 
 /**
@@ -85,8 +102,10 @@ export function deleteRef(db: DB, id: string): 'deleted' | 'missing' | 'in-use' 
 }
 
 function insertSeed(db: DB, seed: FishingRef[]): void {
-  const ins = db.prepare('INSERT INTO fishing_refs (id, kind, label, sort_order) VALUES (?, ?, ?, ?)');
-  seed.forEach((r, i) => ins.run(r.id, r.kind, r.label, i));
+  const ins = db.prepare(
+    'INSERT INTO fishing_refs (id, kind, label, label_plural, sort_order) VALUES (?, ?, ?, ?, ?)'
+  );
+  seed.forEach((r, i) => ins.run(r.id, r.kind, r.label, r.labelPlural, i));
 }
 
 /** Amorce les référentiels **uniquement si la table est vide** (idempotent). */
@@ -107,13 +126,13 @@ export function resetFishingRefs(db: DB, seed: FishingRef[]): void {
     const kept = (
       db
         .prepare(
-          `SELECT id, kind, label FROM fishing_refs
+          `SELECT id, kind, label, label_plural FROM fishing_refs
            WHERE id IN (SELECT species_id FROM fishing_catches UNION SELECT gear_id FROM fishing_catches)
            ORDER BY sort_order, id`
         )
         .all() as RefRow[]
     )
-      .map(r => ({ id: r.id, kind: r.kind as FishingRefKind, label: r.label }))
+      .map(toRef)
       .filter(r => !seedIds.has(r.id));
     db.prepare('DELETE FROM fishing_refs').run();
     insertSeed(db, [...seed, ...kept]);
