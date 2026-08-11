@@ -4,6 +4,7 @@ import StatsPanel from './components/StatsPanel.vue';
 import TidesImportPanel from './components/TidesImportPanel.vue';
 import UsersPanel from './components/UsersPanel.vue';
 import LexiconPanel from './components/LexiconPanel.vue';
+import FishingRefsPanel from './components/FishingRefsPanel.vue';
 import LoginScreen from './components/LoginScreen.vue';
 import ForcePasswordChange from './components/ForcePasswordChange.vue';
 import { useTheme } from './composables/useTheme';
@@ -168,6 +169,18 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
             type="button"
             class="btn btn-outline-light btn-sm d-none d-sm-inline-flex align-items-center"
             data-bs-toggle="offcanvas"
+            data-bs-target="#fishingRefsOffcanvas"
+            aria-controls="fishingRefsOffcanvas"
+            title="Espèces et engins"
+            aria-label="Espèces et engins"
+          >
+            <i class="bi bi-bucket"></i>
+          </button>
+          <button
+            v-if="isAdmin"
+            type="button"
+            class="btn btn-outline-light btn-sm d-none d-sm-inline-flex align-items-center"
+            data-bs-toggle="offcanvas"
             data-bs-target="#settingsOffcanvas"
             aria-controls="settingsOffcanvas"
             title="Réglages"
@@ -235,6 +248,11 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
                 </button>
               </li>
               <li>
+                <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#fishingRefsOffcanvas">
+                  <i class="bi bi-bucket me-2"></i>Espèces et engins
+                </button>
+              </li>
+              <li>
                 <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#settingsOffcanvas">
                   <i class="bi bi-sliders me-2"></i>Réglages
                 </button>
@@ -264,6 +282,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
     <TidesImportPanel v-if="isAdmin" />
     <UsersPanel v-if="isAdmin" />
     <LexiconPanel v-if="isAdmin" />
+    <FishingRefsPanel v-if="isAdmin" />
   </template>
 </template>
 
