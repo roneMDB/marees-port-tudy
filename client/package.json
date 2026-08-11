@@ -1,6 +1,6 @@
 {
   "name": "@marees/client",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Dashboard Vue 3 des marées de Port-Tudy (Bootstrap 5.3 + Chart.js).",
   "private": true,
   "type": "module",

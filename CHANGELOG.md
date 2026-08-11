@@ -3,6 +3,48 @@
 Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
 conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [1.6.0] — 11/08/2026
+
+### Fonctionnalités
+
+- **peche** — Ordre réglable des espèces et des engins (flèches ↑/↓)
+- **peche** — Icône poisson pour « Espèces et engins »
+- **peche** — Panneau admin des espèces et des engins
+- **peche** — Vue /peche — liste des sorties et saisie inline
+- **peche** — Formulaire de saisie d'une sortie
+- **peche** — Carte de lecture d'une sortie
+- **peche** — Le client emploie le pluriel saisi des référentiels
+- **peche** — Libellé au pluriel des référentiels (schéma v8)
+- **peche** — Fonctions pures du carnet (résumé, contexte marée, à-flot)
+- **peche** — Contrat client, appels REST et composables du carnet
+- **peche** — Routeur client et page /peche
+- **peche** — API REST du carnet de pêche
+- **peche** — Instantané météo d'une sortie, jours passés compris
+- **peche** — Amorce les référentiels espèces/engins au démarrage
+- **peche** — Repository des sorties et des prises
+- **peche** — Référentiels espèces et engins, amorcés et éditables
+- **peche** — Schéma v7 du carnet de pêche et activation des clés étrangères
+
+### Corrections
+
+- **peche** — L'icône poisson raccourcissait son bouton de 7 px
+- **peche** — Complète les pluriels d'une base amorcée avant la v8
+- **peche** — Redirige les URL inconnues par chemin plutôt que par nom
+- **peche** — Restaure les accents des libellés de test du repository
+- **peche** — Le reset des référentiels conserve ce qui est encore utilisé
+
+### Documentation
+
+- **peche** — Spec de l'ordre réglable des espèces et des engins
+- **peche** — Documente le carnet de pêche dans CLAUDE.md
+- **peche** — Le reset des référentiels conserve ce qui est encore utilisé
+- **peche** — Espèces supplémentaires dans la graine, engins dédoublonnés
+- **peche** — Plan d'implémentation du carnet de pêche (#3)
+- **peche** — Spec de conception du carnet de pêche (#3)
+
+### Tests
+
+- **peche** — Couvre le refus 403 des écritures du carnet
 ## [1.5.0] — 10/08/2026
 
 ### Fonctionnalités
