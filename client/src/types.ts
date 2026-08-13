@@ -251,6 +251,8 @@ export interface FishingTrip {
   startTime: string | null;
   endTime: string | null;
   notes: string | null;
+  /** Les casiers ont-ils été boëttés ? Oui / non — la matière n'est pas saisie (issue #3). */
+  baited: boolean;
   weather: TripWeather | null;
   catches: FishingCatch[];
   createdAt: string;
@@ -263,5 +265,6 @@ export interface FishingTripInput {
   startTime: string | null;
   endTime: string | null;
   notes: string | null;
+  baited: boolean;
   catches: FishingCatch[];
 }

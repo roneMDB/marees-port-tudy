@@ -29,6 +29,8 @@ export interface FishingTrip {
   startTime: string | null;
   endTime: string | null;
   notes: string | null;
+  /** Les casiers ont-ils été boëttés ? Oui / non — la matière n'est pas saisie (issue #3). */
+  baited: boolean;
   weather: TripWeather | null;
   catches: FishingCatch[];
   createdAt: string;
@@ -41,6 +43,8 @@ export interface FishingTripInput {
   startTime: string | null;
   endTime: string | null;
   notes: string | null;
+  /** Requis à dessein : un booléen facultatif se ferait oublier silencieusement par un appelant. */
+  baited: boolean;
   catches: FishingCatch[];
 }
 
@@ -50,6 +54,7 @@ interface TripRow {
   start_time: string | null;
   end_time: string | null;
   notes: string | null;
+  baited: number;
   weather: string | null;
   created_at: string;
   updated_at: string;
@@ -109,6 +114,7 @@ function withCatches(db: DB, rows: TripRow[]): FishingTrip[] {
     startTime: r.start_time,
     endTime: r.end_time,
     notes: r.notes,
+    baited: r.baited === 1,
     weather: parseWeather(r.weather),
     catches: byTrip.get(r.id) ?? [],
     createdAt: r.created_at,
@@ -133,7 +139,7 @@ export function listTrips(db: DB, from?: string, to?: string): FishingTrip[] {
   }
   const rows = db
     .prepare(
-      `SELECT id, date, start_time, end_time, notes, weather, created_at, updated_at
+      `SELECT id, date, start_time, end_time, notes, baited, weather, created_at, updated_at
        FROM fishing_trips ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
        ORDER BY date DESC, id DESC`
     )
@@ -144,7 +150,7 @@ export function listTrips(db: DB, from?: string, to?: string): FishingTrip[] {
 export function getTrip(db: DB, id: number): FishingTrip | null {
   const row = db
     .prepare(
-      `SELECT id, date, start_time, end_time, notes, weather, created_at, updated_at
+      `SELECT id, date, start_time, end_time, notes, baited, weather, created_at, updated_at
        FROM fishing_trips WHERE id = ?`
     )
     .get(id) as TripRow | undefined;
@@ -171,14 +177,15 @@ export function createTrip(
   const id = db.transaction(() => {
     const res = db
       .prepare(
-        `INSERT INTO fishing_trips (date, start_time, end_time, notes, weather, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO fishing_trips (date, start_time, end_time, notes, baited, weather, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         input.date,
         input.startTime,
         input.endTime,
         input.notes,
+        input.baited ? 1 : 0,
         weather ? JSON.stringify(weather) : null,
         nowIso,
         nowIso
@@ -193,7 +200,9 @@ export function createTrip(
 /**
  * Remplace la sortie **et toutes ses prises** en une transaction : une sortie s'édite comme un
  * formulaire, d'un bloc. La colonne `weather` n'est **pas** touchée — la recapturer écraserait
- * la météo de juillet par un « — » le jour où l'on corrige une note en janvier.
+ * la météo de juillet par un « — » le jour où l'on corrige une note en janvier. `baited`, lui, est
+ * bien réécrit : la règle n'est pas « le `PUT` ne touche à rien » mais « il ne recapture pas ce qui
+ * n'est pas reproductible », et la boëtte est une donnée saisie, corrigeable comme les notes.
  */
 export function updateTrip(
   db: DB,
@@ -205,9 +214,18 @@ export function updateTrip(
   if (!exists) return null;
   db.transaction(() => {
     db.prepare(
-      `UPDATE fishing_trips SET date = ?, start_time = ?, end_time = ?, notes = ?, updated_at = ?
+      `UPDATE fishing_trips
+       SET date = ?, start_time = ?, end_time = ?, notes = ?, baited = ?, updated_at = ?
        WHERE id = ?`
-    ).run(input.date, input.startTime, input.endTime, input.notes, nowIso, id);
+    ).run(
+      input.date,
+      input.startTime,
+      input.endTime,
+      input.notes,
+      input.baited ? 1 : 0,
+      nowIso,
+      id
+    );
     db.prepare('DELETE FROM fishing_catches WHERE trip_id = ?').run(id);
     insertCatches(db, id, input.catches);
   })();

@@ -17,6 +17,7 @@ function input(over: Partial<FishingTripInput> = {}): FishingTripInput {
     startTime: '19:42',
     endTime: null,
     notes: null,
+    baited: false,
     catches: [
       { speciesId: 'bar', gearId: 'ligne', quantity: 1, sizeCm: 42, weightG: null, kept: true },
       { speciesId: 'tourteau', gearId: 'casier-crabes', quantity: 3, sizeCm: null, weightG: null, kept: true }
@@ -107,6 +108,33 @@ describe('fishingRepository', () => {
     expect(updated!.createdAt).toBe(NOW);
     const orphans = db.prepare('SELECT count(*) AS c FROM fishing_catches').get() as { c: number };
     expect(orphans.c).toBe(1);
+    db.close();
+  });
+
+  it('enregistre et relit l’indicateur « casiers boëttés »', () => {
+    const db = openDb(':memory:');
+    expect(createTrip(db, input({ baited: true }), null, NOW).baited).toBe(true);
+    expect(createTrip(db, input(), null, NOW).baited).toBe(false);
+    db.close();
+  });
+
+  it('bascule « casiers boëttés » à la mise à jour, contrairement à la météo', () => {
+    const db = openDb(':memory:');
+    const trip = createTrip(db, input({ baited: true }), null, NOW);
+    // La boëtte est une donnée **saisie**, corrigeable comme les notes ; la météo, elle, n'est pas
+    // reproductible et reste figée (cf. le test suivant).
+    expect(updateTrip(db, trip.id, input({ baited: false }), NOW)!.baited).toBe(false);
+    expect(updateTrip(db, trip.id, input({ baited: true }), NOW)!.baited).toBe(true);
+    db.close();
+  });
+
+  it('relit une sortie antérieure au palier v9 comme non boëttée', () => {
+    const db = openDb(':memory:');
+    // Ligne écrite sans la colonne, comme le faisait le code d'avant : le DEFAULT 0 s'applique.
+    db.prepare(
+      "INSERT INTO fishing_trips (id, date, created_at, updated_at) VALUES (7, '2026-07-01', 'x', 'x')"
+    ).run();
+    expect(getTrip(db, 7)!.baited).toBe(false);
     db.close();
   });
 

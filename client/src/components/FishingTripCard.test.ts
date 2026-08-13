@@ -14,6 +14,7 @@ const TRIP: FishingTrip = {
   startTime: '19:42',
   endTime: '21:10',
   notes: 'Vent d’ouest',
+  baited: false,
   weather: {
     tempMin: 14,
     tempMax: 22,
@@ -81,6 +82,22 @@ describe('FishingTripCard', () => {
       }
     });
     expect(wrapper.find('.trip-gears').text().match(/Ligne/g)).toHaveLength(1);
+  });
+
+  it('signale les casiers boëttés, et se tait sinon', () => {
+    // Le « non » ne s'affiche pas : « Casiers sans boëtte » sur une sortie à la ligne serait un
+    // non-sens, et toutes les sorties antérieures au champ portent faux sans qu'on l'ait saisi.
+    expect(factory().find('.trip-baited').exists()).toBe(false);
+    const wrapper = factory({ trip: { ...TRIP, baited: true } });
+    expect(wrapper.find('.trip-baited').text()).toContain('Casiers boëttés');
+  });
+
+  it('signale les casiers boëttés même sur une sortie bredouille', () => {
+    // La mention est indépendante de `.trip-gears`, dont le `v-if` sur les engins employés
+    // l'aurait mangée : une pose boëttée qui n'a rien donné est précisément ce qu'on veut noter.
+    const wrapper = factory({ trip: { ...TRIP, baited: true, catches: [] } });
+    expect(wrapper.find('.trip-gears').exists()).toBe(false);
+    expect(wrapper.find('.trip-baited').exists()).toBe(true);
   });
 
   it('émet edit et remove pour un admin', async () => {

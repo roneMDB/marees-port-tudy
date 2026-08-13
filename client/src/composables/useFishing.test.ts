@@ -29,6 +29,7 @@ const trip = (over: Record<string, unknown> = {}) => ({
   startTime: '19:42',
   endTime: null,
   notes: null,
+  baited: false,
   weather: null,
   catches: [],
   createdAt: 'x',
@@ -66,11 +67,14 @@ describe('useFishing', () => {
     await load();
 
     api.createTrip.mockResolvedValue(trip({ id: 2, date: '2026-08-09' }));
-    await save({ date: '2026-08-09', startTime: null, endTime: null, notes: null, catches: [] });
+    await save({ date: '2026-08-09', startTime: null, endTime: null, notes: null, baited: false, catches: [] });
     expect(trips.value.map(t => t.id)).toEqual([2, 1]);
 
     api.updateTrip.mockResolvedValue(trip({ id: 1, date: '2026-08-01', notes: 'corrigé' }));
-    await save({ date: '2026-08-01', startTime: null, endTime: null, notes: 'corrigé', catches: [] }, 1);
+    await save(
+      { date: '2026-08-01', startTime: null, endTime: null, notes: 'corrigé', baited: false, catches: [] },
+      1
+    );
     expect(api.updateTrip).toHaveBeenCalledWith(1, expect.objectContaining({ notes: 'corrigé' }));
     expect(trips.value.find(t => t.id === 1)!.notes).toBe('corrigé');
   });

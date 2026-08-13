@@ -5,7 +5,7 @@ describe('db migrations', () => {
   it('creates the schema and sets user_version to the current version', () => {
     const db = openDb(':memory:');
     const version = db.pragma('user_version', { simple: true });
-    expect(version).toBe(8);
+    expect(version).toBe(9);
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -51,7 +51,7 @@ describe('db migrations', () => {
     // Simule un rollback (ancien binaire remet user_version=1) puis un re-upgrade.
     db.pragma('user_version = 1');
     expect(() => migrate(db)).not.toThrow();
-    expect(db.pragma('user_version', { simple: true })).toBe(8);
+    expect(db.pragma('user_version', { simple: true })).toBe(9);
     const cols = db.prepare('PRAGMA table_info(access_log)').all().map((c: any) => c.name);
     // `ADD COLUMN` n'est pas idempotent en SQLite : chaque colonne doit rester unique.
     expect(cols.filter((c: string) => c === 'login')).toHaveLength(1);
@@ -63,7 +63,7 @@ describe('db migrations', () => {
     const db = openDb(':memory:');
     migrate(db);
     migrate(db);
-    expect(db.pragma('user_version', { simple: true })).toBe(8);
+    expect(db.pragma('user_version', { simple: true })).toBe(9);
     // La table settings impose une ligne unique (id = 1).
     db.prepare("INSERT INTO settings (id, data) VALUES (1, '{}')").run();
     expect(() => db.prepare("INSERT INTO settings (id, data) VALUES (2, '{}')").run()).toThrow();
@@ -79,8 +79,8 @@ describe('db migrations', () => {
     expect(tables).toContain('fishing_trips');
     expect(tables).toContain('fishing_catches');
     expect(tables).toContain('fishing_refs');
-    // Une base neuve est toujours amenée à la version courante du schéma (v8 désormais).
-    expect(db.pragma('user_version', { simple: true })).toBe(8);
+    // Une base neuve est toujours amenée à la version courante du schéma (v9 désormais).
+    expect(db.pragma('user_version', { simple: true })).toBe(9);
     db.close();
   });
 
@@ -108,9 +108,9 @@ describe('db migrations', () => {
     const db = openDb(':memory:');
     db.pragma('user_version = 6');
     expect(() => migrate(db)).not.toThrow();
-    // `migrate` amène toujours à la version courante (v8) : les paliers restants (dont v8)
+    // `migrate` amène toujours à la version courante (v9) : les paliers restants (dont v8 et v9)
     // s'appliquent dans le même appel.
-    expect(db.pragma('user_version', { simple: true })).toBe(8);
+    expect(db.pragma('user_version', { simple: true })).toBe(9);
     db.close();
   });
 
@@ -118,7 +118,7 @@ describe('db migrations', () => {
     const db = openDb(':memory:');
     const cols = db.prepare('PRAGMA table_info(fishing_refs)').all() as { name: string }[];
     expect(cols.some(c => c.name === 'label_plural')).toBe(true);
-    expect(db.pragma('user_version', { simple: true })).toBe(8);
+    expect(db.pragma('user_version', { simple: true })).toBe(9);
     db.close();
   });
 
@@ -126,7 +126,34 @@ describe('db migrations', () => {
     const db = openDb(':memory:');
     db.pragma('user_version = 7');
     expect(() => migrate(db)).not.toThrow();
-    expect(db.pragma('user_version', { simple: true })).toBe(8);
+    expect(db.pragma('user_version', { simple: true })).toBe(9);
+    db.close();
+  });
+
+  it('ajoute la colonne « casiers boëttés » en v9, à faux par défaut', () => {
+    const db = openDb(':memory:');
+    const cols = db.prepare('PRAGMA table_info(fishing_trips)').all() as { name: string }[];
+    expect(cols.some(c => c.name === 'baited')).toBe(true);
+    // Les sorties antérieures au palier basculent à « non boëttées » : décision assumée, plutôt
+    // qu'un troisième état « non renseigné » à traiter partout.
+    db.prepare(
+      "INSERT INTO fishing_trips (id, date, created_at, updated_at) VALUES (1, '2026-08-10', 'x', 'x')"
+    ).run();
+    const row = db.prepare('SELECT baited FROM fishing_trips WHERE id = 1').get() as {
+      baited: number;
+    };
+    expect(row.baited).toBe(0);
+    expect(db.pragma('user_version', { simple: true })).toBe(9);
+    db.close();
+  });
+
+  it('rejoue la migration v9 sans erreur (ADD COLUMN n’est pas idempotent en SQLite)', () => {
+    const db = openDb(':memory:');
+    db.pragma('user_version = 8');
+    expect(() => migrate(db)).not.toThrow();
+    expect(db.pragma('user_version', { simple: true })).toBe(9);
+    const cols = db.prepare('PRAGMA table_info(fishing_trips)').all().map((c: any) => c.name);
+    expect(cols.filter((c: string) => c === 'baited')).toHaveLength(1);
     db.close();
   });
 });

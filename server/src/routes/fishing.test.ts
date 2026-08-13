@@ -42,6 +42,7 @@ const validTrip = {
   startTime: '19:42',
   endTime: '21:10',
   notes: 'Vent d’ouest',
+  baited: false,
   catches: [{ speciesId: 'bar', gearId: 'ligne', quantity: 1, sizeCm: 42, weightG: null, kept: true }]
 };
 
@@ -166,6 +167,30 @@ describe('API /api/fishing/trips', () => {
     // Un engin ne peut pas servir d'espèce, ni l'inverse.
     expect((await bad({ catches: [{ ...validTrip.catches[0], speciesId: 'ligne' }] })).status).toBe(400);
     expect((await bad({ catches: [{ ...validTrip.catches[0], gearId: 'bar' }] })).status).toBe(400);
+  });
+
+  it('POST enregistre « casiers boëttés » et le PUT le réécrit', async () => {
+    const post = await request(app).post('/api/fishing/trips').send({ ...validTrip, baited: true });
+    expect(post.status).toBe(201);
+    expect(post.body.baited).toBe(true);
+
+    // Contrairement à la météo (figée à la création), la boëtte est une donnée saisie, corrigeable.
+    const put = await request(app)
+      .put(`/api/fishing/trips/${post.body.id}`)
+      .send({ ...validTrip, baited: false });
+    expect(put.status).toBe(200);
+    expect(put.body.baited).toBe(false);
+
+    await request(app).delete(`/api/fishing/trips/${post.body.id}`);
+  });
+
+  it('POST coerce « casiers boëttés » à faux plutôt que de renvoyer 400', async () => {
+    // Booléen d'agrément, pas une clé : `kept` suit la même logique (avec un défaut inverse).
+    const send = (over: any) => request(app).post('/api/fishing/trips').send({ ...validTrip, ...over });
+    expect((await send({ baited: undefined })).body.baited).toBe(false); // champ absent
+    expect((await send({ baited: 'oui' })).body.baited).toBe(false);
+    expect((await send({ baited: 1 })).body.baited).toBe(false);
+    expect((await send({ baited: 'oui' })).status).toBe(201);
   });
 
   it('PUT remplace les prises, DELETE supprime, 404 hors sortie existante', async () => {

@@ -88,10 +88,25 @@ describe('FishingTripForm', () => {
       startTime: '22:22',
       endTime: null,
       notes: 'Belle soirée',
+      baited: false,
       catches: [
         { speciesId: 'bar', gearId: 'ligne', quantity: 2, sizeCm: null, weightG: null, kept: true }
       ]
     });
+  });
+
+  it('émet « casiers boëttés » quand la case est cochée', async () => {
+    const wrapper = factory();
+    await wrapper.find('[data-test="baited"]').setValue(true);
+    await wrapper.find('form').trigger('submit');
+    expect(wrapper.emitted('save')![0][0]).toMatchObject({ baited: true });
+  });
+
+  it('affiche la case « casiers boëttés » même sans prise au casier', () => {
+    // La case est **toujours** visible : `fishing_refs` ne sait pas ce qu'est un casier, et une
+    // sortie bredouille au casier ne porte aucune ligne de prise sur laquelle s'accrocher.
+    const wrapper = factory();
+    expect(wrapper.find('[data-test="baited"]').exists()).toBe(true);
   });
 
   it('permet d’enregistrer une sortie bredouille', async () => {
@@ -122,6 +137,7 @@ describe('FishingTripForm', () => {
       startTime: '06:30',
       endTime: '09:00',
       notes: 'Casiers',
+      baited: true,
       weather: null,
       catches: [
         {
@@ -140,6 +156,8 @@ describe('FishingTripForm', () => {
     expect(valueOf(wrapper, 'date')).toBe('2026-07-04');
     expect(valueOf(wrapper, 'end')).toBe('09:00');
     expect(wrapper.findAll('[data-test="catch-row"]')).toHaveLength(1);
+    const baited = wrapper.find('[data-test="baited"]').element as HTMLInputElement;
+    expect(baited.checked).toBe(true);
   });
 
   it('émet cancel', async () => {

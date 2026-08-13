@@ -101,6 +101,16 @@ function num(value: number): string {
         <i class="bi bi-tools me-1"></i>{{ gearsUsed.join(' · ') }}
       </p>
 
+      <!--
+        Seul le « oui » s'affiche : « Casiers sans boëtte » sur une sortie à la ligne serait un
+        non-sens, et toutes les sorties antérieures à ce champ portent faux sans qu'on l'ait saisi.
+        Ligne **indépendante** de `.trip-gears` : une pose boëttée qui n'a rien donné n'a aucun
+        engin listé, et c'est précisément le cas qu'on veut voir.
+      -->
+      <p v-if="trip.baited" class="small text-muted mb-2 trip-baited">
+        <i class="bi bi-basket me-1"></i>Casiers boëttés
+      </p>
+
       <p v-if="trip.notes" class="mb-2 small trip-notes">
         <i class="bi bi-journal-text me-1"></i>{{ trip.notes }}
       </p>

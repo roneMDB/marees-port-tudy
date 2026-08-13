@@ -203,6 +203,14 @@ Routes carnet de pêche (`src/routes/fishing.ts`, issue #3) :
   et l'enregistrement aboutit quand même.
 - `PUT /api/fishing/trips/:id` (**admin**) → remplace la sortie **et toutes ses prises** en une
   transaction. `DELETE` (**admin**, 204).
+- ⚠️ **`baited` (« casiers boëttés », v9) est réécrit par le `PUT`, contrairement à `weather`.** La
+  règle n'est pas « le `PUT` ne touche à rien » mais « il ne recapture pas ce qui n'est pas
+  reproductible » : la boëtte est une donnée **saisie**, corrigeable comme les notes. C'est un
+  **oui / non** — la matière n'est pas saisie, et un référentiel de boëttes a été écarté (personne ne
+  le remplirait ; les notes restent libres). `parseTrip` fait `baited: o.baited === true` :
+  **coercition**, pas validation — une valeur farfelue vaut « non » sans 400, sur le modèle de
+  `kept` dans `parseCatch` (au défaut inverse près). Spec :
+  `docs/superpowers/specs/2026-08-13-boette-casiers-peche-design.md`.
 - `GET /api/fishing/refs` (lecture) ; `POST`/`PUT`/`DELETE /api/fishing/refs[/:id]`,
   `POST /api/fishing/refs/reset` et `POST /api/fishing/refs/reorder` (**admin**). ⚠️ Supprimer un référentiel **encore utilisé** par une
   prise renvoie **409** : il n'y a **pas** de clé étrangère vers `fishing_refs`, précisément pour
@@ -288,7 +296,7 @@ sur `DATA_DIR/marees.db` ; `openDb` crée le dossier parent ; `openDb(':memory:'
 `bootstrap.ts` (`initStorage(logger?, db?)`,
 **async** : le seed admin hache un mot de passe ; amorce aussi le lexique via `seedLexiconIfEmpty`
 et les référentiels de pêche via `seedFishingRefsIfEmpty`).
-Schéma **v8** : tables `tides` (par site),
+Schéma **v9** : tables `tides` (par site),
 `settings` (document JSON, ligne unique `id=1`), `access_log` (dont colonne **`login`** nullable
 (v3) et **`kind`** nullable (v6, issue #16 : `visit`/`page`/`login`, NULL relu comme `page`)),
 **`users`** (login unique
@@ -299,12 +307,15 @@ colonne `observed`) et **`lexicon`** (v5 : lexique éditable du « mot du jour �
 `definition`, `type` marée/pêche, `sort_order` ; amorcé depuis `service/lexiconSeed.ts`),
 **`fishing_trips`** / **`fishing_catches`** / **`fishing_refs`** (v7, issue #3 : carnet de pêche —
 une sortie porte N prises ; `weather` est un instantané JSON **figé à la création**, le contexte
-marée n'est **pas** stocké) et la colonne **`fishing_refs.label_plural`** (v8 : libellé au pluriel,
-**saisi**, cf. routes ci-dessus). ⚠️ `openDb` active désormais **`PRAGMA foreign_keys = ON`** :
+marée n'est **pas** stocké), la colonne **`fishing_refs.label_plural`** (v8 : libellé au pluriel,
+**saisi**, cf. routes ci-dessus) et la colonne **`fishing_trips.baited`** (v9 : casiers boëttés ou
+non, `INTEGER NOT NULL DEFAULT 0` — les sorties antérieures basculent donc à « non », décision
+assumée plutôt qu'un troisième état « non renseigné » à traiter partout ; le `NOT NULL` n'est permis
+que parce que le `DEFAULT` est non nul). ⚠️ `openDb` active désormais **`PRAGMA foreign_keys = ON`** :
 better-sqlite3 le laisse à `OFF`, et le `ON DELETE CASCADE` de `fishing_catches` serait resté
 lettre morte. Migration
 additive par palier `if (version < N)`. ⚠️ `ALTER TABLE … ADD COLUMN` **n'est pas idempotent** en
-SQLite : les paliers v3, v6 et v8 testent d'abord `PRAGMA table_info` (robustesse à un rollback ayant
+SQLite : les paliers v3, v6, v8 et v9 testent d'abord `PRAGMA table_info` (robustesse à un rollback ayant
 remis `user_version` en arrière puis re-migré).
 
 **Amorçage/migration** : `initStorage()` (appelé au boot par `src/index.ts`, remplace les anciens
@@ -593,6 +604,14 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   donnée, pas une absence de donnée. Il emploie le **`labelPlural` du référentiel** et ne calcule
   aucun pluriel (cf. routes serveur) ; un id disparu du référentiel s'affiche **brut**, jusque dans
   les quantités (« 3 licorne ») plutôt que de se voir inventer une marque.
+  ⚠️ **« Casiers boëttés »** (`baited`, v9) : case à cocher **toujours visible** du formulaire (sous
+  les notes), et sur la carte une ligne `.trip-baited` **indépendante** de `.trip-gears`, rendue
+  **seulement si vrai**. Trois pièges à ne pas « corriger » : la case ne doit **pas** se masquer
+  faute de casier (`fishing_refs` ne sait pas ce qu'est un casier, et le deviner sur le libellé est
+  déjà interdit pour les pluriels) ; la ligne de la carte ne doit **pas** rejoindre `.trip-gears`,
+  dont le `v-if` la mangerait sur une sortie **bredouille au casier**, le cas le plus intéressant ;
+  et le « non » ne s'affiche **pas** (il serait absurde sur une sortie à la ligne, et toutes les
+  sorties antérieures à la v9 le portent sans qu'on l'ait saisi).
   La vue charge les marées **Port-Tudy** sur une plage couvrant les sorties **et** la fenêtre de
   pré-remplissage (± 7 j) ; horaires indisponibles, les cartes disent « marée inconnue » au lieu de
   faire échouer la page.

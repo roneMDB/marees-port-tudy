@@ -76,7 +76,11 @@ function parseTrip(body: unknown): FishingTripInput | null {
     if (!parsed) return null;
     catches.push(parsed);
   }
-  return { date: o.date, startTime, endTime, notes: notes || null, catches };
+  // Coercition et non validation stricte, sur le modèle de `kept` dans `parseCatch` — la seule
+  // différence est le défaut : `kept` vaut vrai par défaut, `baited` faux. C'est un booléen
+  // d'agrément, pas une clé : une valeur farfelue vaut « non », elle ne fait pas échouer la saisie.
+  const baited = o.baited === true;
+  return { date: o.date, startTime, endTime, notes: notes || null, baited, catches };
 }
 
 /**
@@ -85,7 +89,8 @@ function parseTrip(body: unknown): FishingTripInput | null {
  * - `GET /fishing/trips?from&to` : sorties + prises, plage **inclusive**.
  * - `POST /fishing/trips` (**admin**) : crée ; la météo est **figée ici**, best-effort.
  * - `PUT /fishing/trips/:id` (**admin**) : remplace la sortie **et toutes ses prises** ; ne touche
- *   pas à la météo (la recapturer écraserait celle de juillet en corrigeant une note en janvier).
+ *   pas à la météo (la recapturer écraserait celle de juillet en corrigeant une note en janvier),
+ *   mais réécrit bien `baited` — une donnée saisie, corrigeable comme les notes.
  * - `DELETE /fishing/trips/:id` (**admin**).
  * - `GET /fishing/refs`, `POST`/`PUT`/`DELETE /fishing/refs[/:id]`, `POST /fishing/refs/reset`,
  *   `POST /fishing/refs/reorder`.

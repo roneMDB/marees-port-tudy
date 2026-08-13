@@ -31,7 +31,8 @@ const form = reactive({
   date: '',
   startTime: '',
   endTime: '',
-  notes: ''
+  notes: '',
+  baited: false
 });
 
 /**
@@ -59,6 +60,7 @@ function reset(): void {
     form.startTime = props.initial.startTime ?? '';
     form.endTime = props.initial.endTime ?? '';
     form.notes = props.initial.notes ?? '';
+    form.baited = props.initial.baited;
     selectedAflot.value = '';
     catches.value = props.initial.catches.map(draftFromCatch);
     return;
@@ -69,6 +71,7 @@ function reset(): void {
   // L'heure de fin reste vide : personne ne sait quand la sortie se terminera.
   form.endTime = '';
   form.notes = '';
+  form.baited = false;
   selectedAflot.value = choice?.key ?? '';
   catches.value = [];
 }
@@ -133,6 +136,7 @@ function onSubmit(): void {
     startTime: form.startTime || null,
     endTime: form.endTime || null,
     notes: form.notes.trim() || null,
+    baited: form.baited,
     catches: catches.value.map(d => ({
       speciesId: d.speciesId,
       gearId: d.gearId,
@@ -319,6 +323,23 @@ function onSubmit(): void {
             placeholder="Appât, état de la mer, ce qui s'est mal passé…"
             data-test="notes"
           ></textarea>
+        </div>
+
+        <!--
+          Oui / non : on note **si** on a boëtté, pas avec quoi (la matière peut aller dans les
+          notes). La case reste visible même sur une sortie à la ligne — le référentiel ne sait pas
+          ce qu'est un casier, et une sortie bredouille au casier n'a aucune ligne de prise à
+          laquelle l'accrocher.
+        -->
+        <div class="form-check mb-3">
+          <input
+            id="tripBaited"
+            v-model="form.baited"
+            class="form-check-input"
+            type="checkbox"
+            data-test="baited"
+          />
+          <label class="form-check-label small" for="tripBaited">Casiers boëttés</label>
         </div>
 
         <div class="d-flex gap-2">

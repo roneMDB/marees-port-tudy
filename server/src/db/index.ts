@@ -6,7 +6,7 @@ import { DATA_DIR } from '../config/dataDir';
 export type DB = Database.Database;
 
 /** Version courante du schéma (incrémentée à chaque migration). */
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 /** Chemin du fichier SQLite runtime (dans le volume `DATA_DIR`). */
 export function dbPath(): string {
@@ -23,6 +23,7 @@ export function dbPath(): string {
  * v6 : colonne `kind` sur `access_log` (visite / chargement de page / connexion, issue #16).
  * v7 : carnet de pêche (`fishing_trips`, `fishing_catches`, `fishing_refs`, issue #3).
  * v8 : libellé au pluriel des référentiels de pêche (issue #3).
+ * v9 : colonne `baited` sur `fishing_trips` (casiers boëttés ou non, issue #3).
  */
 export function migrate(db: DB): void {
   const version = db.pragma('user_version', { simple: true }) as number;
@@ -162,6 +163,17 @@ export function migrate(db: DB): void {
     const cols = db.prepare('PRAGMA table_info(fishing_refs)').all() as { name: string }[];
     if (!cols.some(c => c.name === 'label_plural')) {
       db.exec('ALTER TABLE fishing_refs ADD COLUMN label_plural TEXT;');
+    }
+  }
+  if (version < 9) {
+    // A-t-on boëtté les casiers ? Un simple oui / non au niveau de la sortie — la matière de la
+    // boëtte n'est pas saisie (issue #3). Les sorties antérieures basculent à « non » : décision
+    // assumée, plutôt qu'un troisième état « non renseigné » à traiter partout. Le `NOT NULL` n'est
+    // permis ici que parce que le `DEFAULT` est non nul (SQLite refuserait l'inverse).
+    // Même précaution qu'en v3, v6 et v8 : `ADD COLUMN` n'est pas idempotent en SQLite.
+    const cols = db.prepare('PRAGMA table_info(fishing_trips)').all() as { name: string }[];
+    if (!cols.some(c => c.name === 'baited')) {
+      db.exec('ALTER TABLE fishing_trips ADD COLUMN baited INTEGER NOT NULL DEFAULT 0;');
     }
   }
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
