@@ -3,6 +3,15 @@
 Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
 conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [1.7.0] — 13/08/2026
+
+### Fonctionnalités
+
+- **peche** — Indicateur « casiers boëttés » sur une sortie
+
+### Documentation
+
+- **peche** — Spec de la boëtte des casiers
 ## [1.6.1] — 11/08/2026
 
 ### Corrections

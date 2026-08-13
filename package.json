@@ -1,6 +1,6 @@
 {
   "name": "marees-port-tudy",
-  "version": "1.6.1",
+  "version": "1.7.0",
   "description": "Application client/serveur des marées de Port-Tudy (île de Groix) : API REST Node.js + dashboard Vue 3.",
   "private": true,
   "type": "module",
