@@ -293,6 +293,17 @@ Durcissement déjà **intégré à l'image** : en-têtes de sécurité (helmet),
 
 - **Pare-feu DSM** (Panneau → Sécurité → Pare-feu) : une règle *Autoriser* limitée à la localisation
   **France** (base GeoIP intégrée) réduit fortement le bruit d'Internet.
+  - ⚠️ **Cette règle vaut pour TOUT le NAS**, pas pour cette application seule : elle s'applique à
+    tous les services exposés, y compris ceux qui seraient ajoutés plus tard. Sur un NAS qui n'héberge
+    pas que ce site, la décision se prend pour l'ensemble.
+  - ⚠️ **Créer la règle du réseau local AVANT** de basculer l'action par défaut sur « Refuser » :
+    dans l'ordre inverse, on se coupe de DSM, de SSH et de File Station depuis ses propres machines,
+    et le rattrapage passe par le bouton de réinitialisation matériel.
+  - ⚠️ **Une règle *Autoriser* seule ne filtre rien** tant que l'action par défaut reste
+    « Autoriser » : le pare-feu paraît configuré et tout Internet passe encore. Vérifier la ligne
+    d'action par défaut, pas seulement la liste des règles.
+  - ⚠️ **Le site devient inaccessible depuis l'étranger** — y compris depuis un téléphone dont le
+    réseau mobile sort par une IP étrangère, ce qui donne un blocage sans explication apparente.
 - **Auto-Block** (Panneau → Sécurité → Compte) : bannit les IP après trop d'échecs de connexion
   **DSM** (protège le NAS ; l'app est protégée par sa propre limitation de débit).
 - **Secret hérité** : une ancienne clé `API_MAREE_KEY` (fournisseur `api-maree.fr`, **plus utilisée
