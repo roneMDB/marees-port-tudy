@@ -6,6 +6,7 @@ import UsersPanel from './components/UsersPanel.vue';
 import LexiconPanel from './components/LexiconPanel.vue';
 import FishingRefsPanel from './components/FishingRefsPanel.vue';
 import IconFish from './components/IconFish.vue';
+import NavTabs from './components/NavTabs.vue';
 import LoginScreen from './components/LoginScreen.vue';
 import ForcePasswordChange from './components/ForcePasswordChange.vue';
 import { useTheme } from './composables/useTheme';
@@ -126,25 +127,9 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
               <option v-for="s in sites" :key="s.id" :value="s.id">{{ s.label }}</option>
             </select>
           </div>
-          <!-- Navigation entre les deux pages (lecture ouverte : visible de tous). -->
-          <RouterLink
-            v-if="$route.name === 'fishing'"
-            class="btn btn-outline-light btn-sm d-inline-flex align-items-center"
-            :to="{ name: 'dashboard' }"
-            title="Marées"
-            aria-label="Marées"
-          >
-            <i class="bi bi-water"></i>
-          </RouterLink>
-          <RouterLink
-            v-else
-            class="btn btn-outline-light btn-sm d-inline-flex align-items-center"
-            :to="{ name: 'fishing' }"
-            title="Carnet de pêche"
-            aria-label="Carnet de pêche"
-          >
-            <i class="bi bi-bucket"></i>
-          </RouterLink>
+          <!-- Navigation entre les pages (lecture ouverte : visible de tous). Sous `sm`, se rend
+               en barre d'onglets fixe en bas de fenêtre et ne prend donc pas de place ici. -->
+          <NavTabs />
           <!-- ≥ sm : actions admin en ligne dans la navbar. -->
           <button
             v-if="isAdmin"
@@ -290,7 +275,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
       <RouterView />
     </main>
 
-    <footer class="bg-body-tertiary border-top py-3 text-center">
+    <footer class="bg-body-tertiary border-top py-3 text-center app-footer">
       <small class="text-body-secondary">
         Marées Navihan
         <span class="app-version">v{{ appVersion }}</span>
@@ -310,6 +295,15 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
 </template>
 
 <style scoped>
+/* Sous `sm`, la barre d'onglets est `position: fixed` et flotte au-dessus du document : le pied
+   de page, dernier élément, doit dégager sa hauteur sinon version et lien GitHub restent dessous.
+   Hauteur partagée via `--app-navtabs-h` (assets/app.css) pour qu'elles ne se désaccordent pas. */
+@media (max-width: 575.98px) {
+  .app-footer {
+    padding-bottom: calc(var(--app-navtabs-h) + env(safe-area-inset-bottom) + 1rem) !important;
+  }
+}
+
 /* Chiffres à chasse fixe : l'horloge ne « saute » pas à chaque seconde. */
 .app-clock {
   font-variant-numeric: tabular-nums;

@@ -1,5 +1,7 @@
 /* Personnalisations par-dessus Bootstrap (importé après bootstrap.min.css). */
 
+:root { --app-navtabs-h: 3.5rem; }
+
 /* Bleu de marque : plus profond que le primary Bootstrap, décliné par thème. */
 :root {
   --app-brand: #0a4b8c;
