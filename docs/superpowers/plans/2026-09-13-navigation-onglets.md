@@ -37,7 +37,9 @@ documenter, commiter. Ne pas réécrire ce qui existe.
 - Point de rupture `sm` = **576 px**, celui déjà utilisé par toute la navbar.
 - Libellés **« Marées »** et **« Pêche »**, icônes `bi-water` et `bi-bucket`.
 - L'actif porte `aria-current="page"` — **jamais** `aria-pressed` (ce sont des liens).
-- **Pas** de `router-link-active` : il s'allume pour tout sur la route `/`.
+- **Pas** de `router-link-active` : il conviendrait (routes sœurs, pas de correspondance par
+  préfixe), mais la comparaison explicite sur `route.name` est indépendante de la forme des URL et
+  se teste directement.
 - `npm test` **ne suffit pas** : Vitest passe par esbuild et ne vérifie aucun type.
   **`npm run type-check` est obligatoire** avant tout commit.
 - Commentaires et messages de commit **en français**.
@@ -201,14 +203,15 @@ lors d'une prochaine session.
   il n'y a **pas** de `setupFiles` — un test qui monte `App` sans le simuler obtient
   silencieusement le `fallback` (`true` = desktop), si bien qu'`App.test.ts` n'exerce **que** le
   groupe segmenté ; la barre du bas est couverte par `NavTabs.test.ts`, qui simule.
-  ⚠️ **Pas de `router-link-active`** : sur la route `/` il s'allumerait pour les deux liens ; l'état
-  actif vient d'une comparaison sur `route.name`, et l'actif porte `aria-current="page"` (ce sont
-  des liens, pas des bascules — donc jamais `aria-pressed`).
+  ⚠️ **Pas de `router-link-active`**, alors qu'il conviendrait ici (routes sœurs `/`/`/peche`, pas
+  de correspondance par préfixe) : la comparaison explicite sur `route.name` est retenue quand même
+  car indépendante de la forme des URL et testable directement ; l'actif porte `aria-current="page"`
+  (ce sont des liens, pas des bascules — donc jamais `aria-pressed`).
   ⚠️ La hauteur de la barre est la variable **`--app-navtabs-h`** (`assets/app.css`) parce qu'elle a
   **deux consommateurs** : `NavTabs` pour sa hauteur, et le **pied de page** d'`App.vue` pour son
   `padding-bottom` sous `sm` — sans ce dégagement, la barre fixe masque la version et le lien
-  GitHub. Le calcul ajoute `env(safe-area-inset-bottom)`. Une seule valeur, donc pas de
-  désaccord possible. `NavTabs.test.ts`.
+  GitHub. Le calcul ajoute `env(safe-area-inset-bottom)`, posé **par précaution** : il vaut toujours
+  0, donc sans effet, tant que le `<meta viewport>` ne porte pas `viewport-fit=cover`. `NavTabs.test.ts`.
 ```
 
 - [ ] **Étape 2 : ajouter la ligne aux fichiers clés**
@@ -237,9 +240,9 @@ docs(nav): documente les onglets de navigation
 
 Consigne les trois décisions qu'une prochaine session « corrigerait » de
 bonne foi : le pilotage par `matchMedia` plutôt que par `d-none` (jsdom
-n'évalue pas les media queries CSS), l'absence de `router-link-active`
-(il s'allume pour tout sur `/`), et la variable `--app-navtabs-h`
-partagée avec le pied de page.
+n'évalue pas les media queries CSS), le choix de `route.name` plutôt que
+`router-link-active` (qui conviendrait pourtant sur ces routes sœurs),
+et la variable `--app-navtabs-h` partagée avec le pied de page.
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 MSG

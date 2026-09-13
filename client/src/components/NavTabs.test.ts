@@ -64,4 +64,13 @@ describe('NavTabs — rendu piloté par JS', () => {
       expect(current[0].text()).toContain('Pêche');
     }
   });
+
+  it('pointe vers les bonnes destinations, dans les deux variantes', async () => {
+    // Sans cette assertion, un `to` figé sur une seule page laisse les autres tests au vert :
+    // ils ne regardent que les classes, le texte et `aria-current`, jamais le lien lui-même.
+    for (const wide of [true, false]) {
+      const w = await mountAt('/', wide);
+      expect(w.findAll('a').map(a => a.attributes('href'))).toEqual(['/', '/peche']);
+    }
+  });
 });

@@ -67,8 +67,16 @@ Vérifications faites sur le prototype avant d'arrêter ce choix :
 
 ### Pourquoi pas `router-link-active`
 
-Sur la route `/`, cette classe s'allume pour **tout** lien dont le chemin en est un préfixe — donc
-pour les deux. L'état actif se déduit d'une comparaison explicite sur `route.name`.
+`router-link-active` **conviendrait** ici : `/` et `/peche` sont des routes **sœurs**, pas
+imbriquées, et sur des routes sœurs seul le lien correspondant à la route courante reçoit la
+classe (vérifié : `/` → actif seulement sur le lien `/`, `/peche` → actif seulement sur celui de
+`/peche`). La correspondance inclusive par préfixe ne joue qu'entre une route **parente** et ses
+enfants imbriqués, ce qui n'est pas le cas ici.
+
+La comparaison explicite sur `route.name` est retenue quand même : elle est indépendante de la
+forme des URL et se teste directement, sans monter le routeur pour lire une classe CSS. Et si des
+routes imbriquées apparaissaient un jour, `router-link-active` deviendrait ambigu là où cette
+comparaison ne changerait pas.
 
 Ce sont des **liens**, pas des bascules : l'actif porte `aria-current="page"`, jamais
 `aria-pressed`.

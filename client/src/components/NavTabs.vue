@@ -24,7 +24,10 @@ const PAGES = [
 const isWide = useMediaQuery('(min-width: 576px)', true);
 
 const route = useRoute();
-// Comparaison explicite sur le nom : `router-link-active` s'allumerait pour tout sur la route `/`.
+// Comparaison explicite sur le nom, plutôt que `router-link-active` : cette classe conviendrait
+// pourtant ici (routes sœurs `/` et `/peche`, pas de correspondance par préfixe entre elles), mais
+// `route.name` est indépendant de la forme des URL, se teste directement, et resterait correct si
+// des routes imbriquées apparaissaient un jour (là où `router-link-active` deviendrait ambigu).
 const isActive = (name: string) => route.name === name;
 </script>
 

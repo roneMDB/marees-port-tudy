@@ -27,8 +27,8 @@ vi.mock('./composables/useSite', () => ({
 
 import App from './App.vue';
 
-// App.vue s'appuie sur $route (lien de navigation, RouterView) : le routeur réel doit être
-// installé, sinon `$route` est undefined dans le test.
+// App.vue ne référence plus $route directement, mais le routeur réel reste nécessaire : il est
+// consommé par `RouterView` (rendu de la page) et par `NavTabs` (liens + surbrillance active).
 function mountApp() {
   return mount(App, {
     global: {

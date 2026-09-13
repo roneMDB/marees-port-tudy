@@ -368,14 +368,20 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   il n'y a **pas** de `setupFiles` — un test qui monte `App` sans le simuler obtient
   silencieusement le `fallback` (`true` = desktop), si bien qu'`App.test.ts` n'exerce **que** le
   groupe segmenté ; la barre du bas est couverte par `NavTabs.test.ts`, qui simule.
-  ⚠️ **Pas de `router-link-active`** : sur la route `/` il s'allumerait pour les deux liens ; l'état
-  actif vient d'une comparaison sur `route.name`, et l'actif porte `aria-current="page"` (ce sont
+  ⚠️ **Pas de `router-link-active`**, alors qu'il conviendrait ici (`/` et `/peche` sont des routes
+  **sœurs**, pas imbriquées, donc sans correspondance par préfixe entre elles) : la comparaison
+  explicite sur `route.name` est retenue quand même, indépendante de la forme des URL et testable
+  directement ; si des routes imbriquées apparaissaient un jour, `router-link-active` deviendrait
+  ambigu là où cette comparaison ne changerait pas. L'actif porte `aria-current="page"` (ce sont
   des liens, pas des bascules — donc jamais `aria-pressed`).
   ⚠️ La hauteur de la barre est la variable **`--app-navtabs-h`** (`assets/app.css`) parce qu'elle a
   **deux consommateurs** : `NavTabs` pour sa hauteur, et le **pied de page** d'`App.vue` pour son
   `padding-bottom` sous `sm` — sans ce dégagement, la barre fixe masque la version et le lien
-  GitHub. Le calcul ajoute `env(safe-area-inset-bottom)`. Une seule valeur, donc pas de
-  désaccord possible. `NavTabs.test.ts`.
+  GitHub. Le calcul ajoute `env(safe-area-inset-bottom)`, posé **par précaution** : il vaut
+  toujours 0, donc sans effet, tant que le `<meta name="viewport">` de `client/index.html` ne porte
+  pas `viewport-fit=cover` (absent aujourd'hui — l'ajouter changerait la mise en page de toute
+  l'app, hors périmètre de la navigation par onglets). Une seule valeur, donc pas de désaccord
+  possible si ce jour vient. `NavTabs.test.ts`.
 - `src/types.ts` — miroir du contrat REST (`Extreme`, `TideOutput`, `TidesMeta`, `FlatTide`,
   `TideFilters`) ; découplage via le JSON, **pas de package partagé**.
 - `src/api/tides.ts` — `getTides(from,to,site)`, `getMeta`, `getSites` (`fetch`, chemins `/api/...`)

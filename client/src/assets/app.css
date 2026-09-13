@@ -2,6 +2,15 @@
 
 :root { --app-navtabs-h: 3.5rem; }
 
+/* Sous 576 px (`sm`, cf. `NavTabs.vue`), la barre d'onglets fixe couvre le bas de la fenêtre : sans
+   cette marge, tabuler vers un champ proche du bord bas (ex. l'heure « Constaté » du tableau)
+   l'aligne sous la barre au lieu de le dégager. */
+@media (max-width: 575.98px) {
+  html {
+    scroll-padding-bottom: calc(var(--app-navtabs-h) + 1rem);
+  }
+}
+
 /* Bleu de marque : plus profond que le primary Bootstrap, décliné par thème. */
 :root {
   --app-brand: #0a4b8c;
@@ -17,8 +26,14 @@
   background-color: var(--app-brand) !important;
 }
 
+/* `:not(:hover):not(:focus-visible)` sur `.btn-outline-light` : Bootstrap pose un fond clair
+   (`#f8f9fa`) au survol et au focus clavier de ce bouton, et cette règle a la même spécificité
+   (0,2,0) — sans l'exclusion, elle l'emporterait par ordre de cascade et forcerait le texte en
+   blanc sur ce fond clair (contraste ≈ 1,05:1, illisible). Concerne les onglets de navigation en
+   groupe segmenté, mais aussi tous les autres boutons-icônes de la navbar (thème, déconnexion,
+   actions admin) : vérifié lisible aux deux états, dans les deux thèmes. */
 .app-navbar .navbar-brand,
-.app-navbar .btn-outline-light {
+.app-navbar .btn-outline-light:not(:hover):not(:focus-visible) {
   color: var(--app-brand-text);
 }
 
