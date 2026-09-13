@@ -353,6 +353,29 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   (redirection **par chemin**, pas par nom). `createWebHistory` ne demande aucun changement de
   configuration : le repli SPA existait déjà côté Express (`app.get('*')`, monté **après** les
   routers `/api`) et côté PWA (`navigateFallback`).
+- `components/NavTabs.vue` + `composables/useMediaQuery.ts` — **navigation entre les pages**.
+  Remplace le bouton unique qui alternait entre marées et carnet : son icône montrait la
+  **destination**, donc rien ne disait où l'on était ni qu'une seconde page existait. Deux onglets
+  sont visibles en permanence, l'actif mis en évidence. Sous `sm` : **barre fixe en bas de
+  fenêtre** (`position: fixed`, sous le pouce, et qui **libère la rangée d'actions de la navbar**,
+  celle qui saturait à 320 px) ; au-delà : **groupe segmenté** dans la navbar, à la place de
+  l'ancien bouton. La constante `PAGES` est la **source de vérité unique** — les deux variantes en
+  dérivent par `v-for`, donc ajouter une page est une ligne et elles ne peuvent pas diverger.
+  ⚠️ **Une seule variante est rendue, choisie par `matchMedia`** et non par `d-none`/`d-sm-flex` :
+  **jsdom n'évalue pas les media queries CSS**, donc sous pilotage CSS les deux variantes seraient
+  toujours dans le DOM du test (deux `aria-current`) et l'on ne pourrait jamais affirmer laquelle
+  l'utilisateur voit. Corollaire à connaître : `window.matchMedia` est **`undefined` sous jsdom** et
+  il n'y a **pas** de `setupFiles` — un test qui monte `App` sans le simuler obtient
+  silencieusement le `fallback` (`true` = desktop), si bien qu'`App.test.ts` n'exerce **que** le
+  groupe segmenté ; la barre du bas est couverte par `NavTabs.test.ts`, qui simule.
+  ⚠️ **Pas de `router-link-active`** : sur la route `/` il s'allumerait pour les deux liens ; l'état
+  actif vient d'une comparaison sur `route.name`, et l'actif porte `aria-current="page"` (ce sont
+  des liens, pas des bascules — donc jamais `aria-pressed`).
+  ⚠️ La hauteur de la barre est la variable **`--app-navtabs-h`** (`assets/app.css`) parce qu'elle a
+  **deux consommateurs** : `NavTabs` pour sa hauteur, et le **pied de page** d'`App.vue` pour son
+  `padding-bottom` sous `sm` — sans ce dégagement, la barre fixe masque la version et le lien
+  GitHub. Le calcul ajoute `env(safe-area-inset-bottom)`. Une seule valeur, donc pas de
+  désaccord possible. `NavTabs.test.ts`.
 - `src/types.ts` — miroir du contrat REST (`Extreme`, `TideOutput`, `TidesMeta`, `FlatTide`,
   `TideFilters`) ; découplage via le JSON, **pas de package partagé**.
 - `src/api/tides.ts` — `getTides(from,to,site)`, `getMeta`, `getSites` (`fetch`, chemins `/api/...`)
@@ -723,6 +746,8 @@ comme **tâche utilisateur** du Planificateur de tâches DSM (procédure + resta
 - `client/src/views/Dashboard.vue` + `client/src/components/*.vue` — dashboard.
 - `client/src/router.ts`, `client/src/views/FishingView.vue`, `client/src/lib/fishing.ts` — carnet
   de pêche.
+- `client/src/components/NavTabs.vue`, `client/src/composables/useMediaQuery.ts` — navigation
+  par onglets (barre du bas sur mobile, segment dans la navbar au-delà de `sm`).
 - Tests : `server/src/**/*.test.ts` (Vitest + supertest), `client/src/**/*.test.ts`
   (Vitest + @vue/test-utils, environnement `jsdom`).
 
