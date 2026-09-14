@@ -382,6 +382,23 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   pas `viewport-fit=cover` (absent aujourd'hui — l'ajouter changerait la mise en page de toute
   l'app, hors périmètre de la navigation par onglets). Une seule valeur, donc pas de désaccord
   possible si ce jour vient. `NavTabs.test.ts`.
+  ⚠️ **Les six boutons d'administration de la navbar sont passés de `sm` à `lg`** (`App.vue`,
+  `d-lg-inline-flex` / menu ⋮ `d-lg-none`) **à cause de ces onglets** : libellés, ils pèsent 179 px
+  là où l'ancien bouton icône en faisait 40, et la rangée d'actions réclamait alors 755 px quelle
+  que soit la fenêtre. Mesuré sur un compte admin : débordement horizontal dès 640 px (et déjà
+  577-624 px avant les onglets), navbar à 162 px de haut à 768 px. Au seuil `lg` : plus aucun
+  débordement de 360 à 1400 px et une navbar sur **une seule ligne (90 px) de 768 à 991 px**, soit
+  mieux qu'avant. Ne pas redescendre ce seuil « par cohérence » avec le reste sans re-mesurer —
+  le débordement revient à 640 px. Le prix assumé est un clic de plus (menu ⋮) pour un admin entre
+  768 et 991 px. Reste connu et **non corrigé** : entre 576 et 767 px la rangée passe encore à la
+  ligne (+24 px par rapport à l'état d'avant les onglets) ; masquer l'horloge sous `lg` ramènerait
+  la navbar à 81 px, mais c'est retirer une fonctionnalité, pas corriger une mise en page.
+  ⚠️ `useMediaQuery` **garde l'appel à `addEventListener`** (`typeof … === 'function'`) : avant
+  Safari 14 / iOS 14, `MediaQueryList` n'héritait pas d'`EventTarget`, l'appel levait dans le
+  `setup` et la page restait **blanche**. La garde troque cette panne totale contre la seule perte
+  de réactivité au redimensionnement ; l'API dépréciée `addListener` n'est **pas** reprise.
+  `useMediaQuery.test.ts` (5 tests) fige la valeur initiale, la réaction au `change`, le
+  désabonnement au démontage, le repli sans `matchMedia`, et ce cas Safari.
 - `src/types.ts` — miroir du contrat REST (`Extreme`, `TideOutput`, `TidesMeta`, `FlatTide`,
   `TideFilters`) ; découplage via le JSON, **pas de package partagé**.
 - `src/api/tides.ts` — `getTides(from,to,site)`, `getMeta`, `getSites` (`fetch`, chemins `/api/...`)
