@@ -3,6 +3,15 @@
 Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
 conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [1.8.1] — 14/09/2026
+
+### Corrections
+
+- **aflot** — Étalonne l'estimation de remise à flot sur les heures constatées
+
+### Documentation
+
+- **aflot** — Spec d'étalonnage de l'estimation sur les heures constatées
 ## [1.8.0] — 14/09/2026
 
 ### Fonctionnalités
