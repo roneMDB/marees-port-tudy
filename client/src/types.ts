@@ -41,8 +41,11 @@ export interface FlatTide extends Extreme {
   refTime?: string | null;
   /** Date `YYYY-MM-DD` de la marée Port-Tudy appariée (`refTime`) — clé des observations. */
   refDate?: string | null;
-  /** Estimation Navihan de remise à flot par **seuil de hauteur** (issue #4), `HH:MM` ou `null`. */
-  aflotEstimate?: string | null;
+  /**
+   * Estimation Navihan de remise à flot par **seuil de hauteur** (issue #4), **datée** : un à-flot
+   * franchit souvent minuit, et la règle du projet est de le ranger au jour où il a lieu.
+   */
+  aflotEstimate?: { date: string; time: string } | null;
   /** Heure de remise à flot **réellement constatée** (saisie), `HH:MM` ou `null`. */
   aflotObserved?: string | null;
 }
@@ -138,8 +141,8 @@ export interface Settings {
   startMode: 'today' | 'date';
   startDate: string | null; // YYYY-MM-DD quand startMode = 'date'
   rangeDays: number; // « Au » = début + rangeDays
-  navihan: NavihanOffsets; // décalages en minutes (basseMer/pleineMer ; aFlot déprécié, cf. aFlotThreshold)
-  aFlotThreshold: number; // hauteur d'eau (m) déclenchant la remise à flot (modèle seuil, issue #4)
+  navihan: NavihanOffsets; // décalages en minutes (basseMer/pleineMer ; aFlot = « Remise à flot » fixe)
+  aFlotRefHeight: number; // hauteur Port-Tudy (m) de flottaison au coef 70 — repli, cf. aflotCalibration
   aFlotDays: number; // carte « À flot · N prochains jours »
   coefDays: number; // durée (jours) du graphe des coefficients
   weatherLinks: WeatherLink[]; // liens sous la météo (éditables dans les réglages)

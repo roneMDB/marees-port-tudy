@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import type { FlatTide } from '../types';
 import type { DayTides } from '../lib/tides';
 import { groupByDay, matchesAflotWindow, matchesDayFilters } from '../lib/tides';
-import { addDays, formatDate, formatHeight, todayKey, coefBand, weekdayIndex } from '../lib/format';
+import { formatDate, formatHeight, todayKey, coefBand, weekdayIndex } from '../lib/format';
 import { shiftMoment } from '../lib/navihan';
 import { useNavihan } from '../composables/useNavihan';
 import { useNavihanDisplay, type NavihanKey } from '../composables/useNavihanDisplay';
@@ -122,11 +122,9 @@ const navihanByDate = computed(() => {
     const flot = flotMoment(t);
     const shown = matchesAflotWindow(flot.time, filters);
     push('flot', shown ? flot : null, 'navihan-pill--flot', 'bi-check-circle', 'Remise à flot (décalage fixe)');
-    // L'estimation n'a pas de date propre : elle suit la basse mer Navihan dont elle découle, et
-    // bascule au lendemain si son heure d'horloge est passée avant celle-ci (franchissement).
-    const est = t.aflotEstimate && shown
-      ? { date: t.aflotEstimate >= bm.time ? bm.date : addDays(bm.date, 1), time: t.aflotEstimate }
-      : null;
+    // L'estimation arrive **datée** (`aflotTimeByThreshold`) : elle est donc rangée directement au
+    // jour où elle a lieu, sans reconstruire sa date depuis celle de la basse mer.
+    const est = shown ? (t.aflotEstimate ?? null) : null;
     push('flotEst', est, 'navihan-pill--flot-est', 'bi-graph-up-arrow', 'Estimation remise à flot (seuil de hauteur)');
   }
 

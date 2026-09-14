@@ -4,11 +4,16 @@ import { useNavihan } from '../composables/useNavihan';
 import { formatOffset } from '../lib/navihan';
 import { DEFAULT_WEATHER_LINKS } from '../types';
 import type { NavihanOffsets, TidesMeta } from '../types';
+import { MIN_AFLOT_SAMPLES, type AflotCalibration } from '../lib/aflotCalibration';
 
 // Configuration **serveur** uniquement (rôle `admin`). Les filtres d'affichage, qui sont une
 // préférence personnelle par navigateur, ont leur propre barre ouverte à tous (`TideFiltersBar`).
+//
+// `calibration` vient du `Dashboard` (`useTides`) plutôt que d'un appel local : `useTides` n'est pas
+// un singleton, l'appeler ici relancerait tout un chargement de marées pour une ligne d'état.
 defineProps<{
   meta: TidesMeta | null;
+  calibration: AflotCalibration;
 }>();
 
 const { settings, saveError } = useSettings();
@@ -43,9 +48,9 @@ function setAFlotDays(event: Event): void {
   settings.aFlotDays = clamp(Number((event.target as HTMLInputElement).value), 1, 14);
 }
 
-function onAFlotThreshold(event: Event): void {
+function onAFlotRefHeight(event: Event): void {
   const n = Number((event.target as HTMLInputElement).value);
-  if (Number.isFinite(n)) settings.aFlotThreshold = Math.min(10, Math.max(0, n));
+  if (Number.isFinite(n)) settings.aFlotRefHeight = Math.min(10, Math.max(0, n));
 }
 
 function onRangeDays(event: Event): void {
@@ -86,7 +91,8 @@ function resetWeatherLinks(): void {
           <i class="bi bi-sliders me-1"></i> Réglages
         </h5>
         <span class="text-muted small">
-          Remise à flot +{{ formatOffset(offsets.aFlot) }} · estim. ≥ {{ settings.aFlotThreshold }} m ·
+          Remise à flot +{{ formatOffset(offsets.aFlot) }} ·
+          estim. ≥ {{ calibration.refHeight.toFixed(2).replace('.', ',') }} m ·
           {{ settings.aFlotDays }} j
         </span>
       </div>
@@ -181,7 +187,9 @@ function resetWeatherLinks(): void {
       </div>
       <div class="row g-3 mt-0">
         <div class="col-12">
-          <label class="form-label small text-muted mb-1">Seuil de remise à flot (estimation)</label>
+          <label class="form-label small text-muted mb-1">
+            Hauteur de flottaison de référence (Port-Tudy, coef 70)
+          </label>
           <div class="input-group">
             <input
               type="number"
@@ -189,16 +197,33 @@ function resetWeatherLinks(): void {
               min="0"
               max="10"
               step="0.05"
-              :value="settings.aFlotThreshold"
-              @input="onAFlotThreshold"
+              :value="settings.aFlotRefHeight"
+              @input="onAFlotRefHeight"
             />
             <span class="input-group-text">m</span>
           </div>
+          <div class="form-text" data-test="aflot-calibration">
+            <template v-if="calibration.calibrated">
+              <i class="bi bi-check-circle text-success me-1" aria-hidden="true"></i>
+              Étalonné sur {{ calibration.samples }} heure{{ calibration.samples > 1 ? 's' : '' }}
+              constatée{{ calibration.samples > 1 ? 's' : '' }} :
+              <strong>{{ calibration.refHeight.toFixed(2).replace('.', ',') }} m</strong><template
+                v-if="calibration.mae != null"
+              >, écart moyen {{ Math.round(calibration.mae) }} min</template>. La valeur ci-dessus
+              n'est plus utilisée.
+            </template>
+            <template v-else>
+              Moins de {{ MIN_AFLOT_SAMPLES }} heures constatées ({{ calibration.samples }}) : c'est
+              la valeur ci-dessus qui sert. Saisissez des heures dans la colonne « Constaté » du
+              tableau pour que l'estimation s'étalonne toute seule.
+            </template>
+          </div>
           <div class="form-text">
             pour l'<strong>estimation</strong> (pastille ↗ du tableau uniquement) : hauteur d'eau
-            (au-dessus du zéro) qui remet le bateau à flot ; le délai après la basse mer varie alors
-            avec le coefficient (issue #4). Cartes, marégramme et colonne « Constaté » utilisent
-            l'heure de <strong>remise à flot</strong> (décalage fixe ci-dessus).
+            <strong>Port-Tudy</strong> à laquelle le bateau flotte, au coefficient 70 ; le seuil
+            réel suit le coefficient et le délai après la basse mer varie donc avec lui (issue #4).
+            Cartes, marégramme et colonne « Constaté » utilisent l'heure de
+            <strong>remise à flot</strong> (décalage fixe ci-dessus).
           </div>
         </div>
         <div class="col-12">

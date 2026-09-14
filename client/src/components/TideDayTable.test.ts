@@ -73,7 +73,7 @@ describe('TideDayTable', () => {
     {
       date: '2026-07-25', time: '08:22', height: 1.6, type: 'low', coefficient: null,
       navihan: { 'Basse mer': '09:37', 'A flot': '11:02' },
-      refDate: '2026-07-25', refTime: '08:22', aflotEstimate: '11:13', aflotObserved: null
+      refDate: '2026-07-25', refTime: '08:22', aflotEstimate: { date: '2026-07-25', time: '11:13' }, aflotObserved: null
     },
     {
       date: '2026-07-25', time: '14:30', height: 4.9, type: 'high', coefficient: 60,
@@ -190,6 +190,26 @@ describe('TideDayTable', () => {
   it('shows the estimation (seuil) time as a Navihan pill', () => {
     const wrapper = mount(TideDayTable, { props: { tides: editable } });
     expect(wrapper.findAll('tbody tr')[0].text()).toContain('11:13'); // aflotEstimate
+  });
+
+  it("range l’estimation au jour où elle a lieu, pas à celui de sa basse mer", () => {
+    // L'estimation arrive **datée** : une basse mer tardive dont l'à-flot franchit minuit voit son
+    // estimation rendue sur la ligne du lendemain. Auparavant le composant reconstruisait cette
+    // date par heuristique sur l'heure d'horloge.
+    const spill: FlatTide[] = [
+      {
+        date: '2026-07-25', time: '23:00', height: 1.5, type: 'low', coefficient: null,
+        navihan: {}, refDate: '2026-07-25', refTime: '23:00',
+        aflotEstimate: { date: '2026-07-26', time: '01:50' }, aflotObserved: null
+      },
+      {
+        date: '2026-07-26', time: '11:30', height: 1.6, type: 'low', coefficient: null,
+        navihan: {}, refDate: '2026-07-26', refTime: '11:30', aflotObserved: null
+      }
+    ];
+    const rows = mount(TideDayTable, { props: { tides: spill } }).findAll('tbody tr');
+    expect(rows[0].text()).not.toContain('01:50'); // le 25 : rien
+    expect(rows[1].text()).toContain('01:50'); // le 26 : l'estimation de la veille
   });
 
   it('recalls the Navihan remise à flot time (not the estimation, not the basse mer) in the Constaté cell', () => {
@@ -398,11 +418,13 @@ describe('TideDayTable — filtres d’affichage au grain du jour', () => {
     const withEstimate: FlatTide[] = [
       {
         date: '2026-07-25', time: '01:39', height: 1.75, type: 'low', coefficient: null,
-        refDate: '2026-07-25', refTime: '01:39', aflotEstimate: '04:30', navihan: {}
+        refDate: '2026-07-25', refTime: '01:39',
+        aflotEstimate: { date: '2026-07-25', time: '04:30' }, navihan: {}
       },
       {
         date: '2026-07-25', time: '13:47', height: 1.83, type: 'low', coefficient: null,
-        refDate: '2026-07-25', refTime: '13:47', aflotEstimate: '16:35', navihan: {}
+        refDate: '2026-07-25', refTime: '13:47',
+        aflotEstimate: { date: '2026-07-25', time: '16:35' }, navihan: {}
       }
     ];
     const { filters } = useTideFilters();

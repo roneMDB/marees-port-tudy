@@ -10,10 +10,39 @@ export const DEFAULT_OFFSETS: NavihanOffsets = {
 };
 
 /**
- * Seuil de remise à flot par défaut (m), **rétro-calibré** sur les horaires Port-Tudy pour
- * reproduire ~2h40 après la basse mer au coefficient médian (~69). Cf. modèle seuil, issue #4.
+ * Hauteur de flottaison de référence par défaut (m), lue sur la courbe **Port-Tudy** au coefficient
+ * `AFLOT_COEF_REF`. Étalonnée sur les 18 heures de remise à flot **constatées** du 2026-07-25 au
+ * 2026-09-13 (cf. `docs/superpowers/specs/2026-09-14-etalonnage-aflot-observations-design.md`).
+ *
+ * Ne sert que de **repli** : dès qu'il y a assez de relevés, le niveau est recalculé sur eux
+ * (`lib/aflotCalibration.ts`). La valeur d'avant (2,8 m, rétro-calibrée sur le décalage fixe) était
+ * fausse de bout en bout — cf. `aflotTimeByThreshold`.
  */
-export const DEFAULT_AFLOT_THRESHOLD = 2.8;
+export const DEFAULT_AFLOT_REF_HEIGHT = 3.02;
+
+/** Coefficient auquel la hauteur de flottaison de référence est exprimée (médiane Port-Tudy). */
+export const AFLOT_COEF_REF = 70;
+
+/**
+ * Pente du seuil en fonction du coefficient (m par point de coefficient).
+ *
+ * Les relevés montrent que la hauteur implicite de flottaison **croît avec le coefficient**
+ * (corrélation 0,72 : 2,90 m à coef 40, 3,13 m à coef 100), très probablement parce que
+ * l'interpolation cosinus s'écarte de la vraie courbe d'autant plus que l'amplitude est grande.
+ * C'est donc une **correction empirique du modèle de courbe**, pas une grandeur physique : elle est
+ * figée ici, là où le niveau, lui, s'étalonne sur les relevés. La corriger divise l'erreur par
+ * trois (7,6 → 4,9 min de MAE) sans surapprentissage (validation leave-one-out : 5,6 min).
+ */
+export const AFLOT_COEF_SLOPE = 0.0037;
+
+/**
+ * Hauteur d'eau **Port-Tudy** à laquelle le bateau flotte, pour un coefficient donné.
+ * Coefficient inconnu → le niveau de référence seul.
+ */
+export function aflotThresholdFor(coefficient: number | null, refHeight: number): number {
+  if (coefficient == null || !Number.isFinite(coefficient)) return refHeight;
+  return refHeight + AFLOT_COEF_SLOPE * (coefficient - AFLOT_COEF_REF);
+}
 
 const DAY_MINUTES = 24 * 60;
 
@@ -67,19 +96,29 @@ function epochMinutes(date: string, time: string): number {
 }
 
 /**
- * **Estimation** de remise à flot (`HH:MM`) d'une basse mer, par **modèle seuil de hauteur**
- * (issue #4) — n'est affichée que dans le **tableau du dashboard** (pastille « Estimation ») :
- * instant où la courbe Navihan montante (basse mer → pleine mer suivante, décalées) atteint
- * `thresholdHeight`. Le décalage après la basse mer varie ainsi avec le coefficient. `null` si le
- * seuil n'est pas atteint avant la pleine mer (morte-eau extrême) ou s'il n'y a pas de pleine mer
- * suivante. `ptExtremes` = extrêmes **Port-Tudy** (les hauteurs de référence Navihan).
+ * **Estimation** de remise à flot d'une basse mer, par **modèle seuil de hauteur** (issue #4) —
+ * n'est affichée que dans le **tableau du dashboard** (pastille « Estimation ») : instant où la
+ * courbe **Port-Tudy** montante (basse mer → pleine mer suivante) atteint le seuil de flottaison du
+ * jour, `aflotThresholdFor(coefficient de la pleine mer suivante, refHeight)`. Le délai après la
+ * basse mer varie ainsi avec le coefficient.
+ *
+ * ⚠️ Le seuil est une **hauteur Port-Tudy**, pas une cote bathymétrique à Navihan : c'est un proxy
+ * empirique qui **absorbe la propagation** Port-Tudy → Navihan. Ne pas réintroduire les décalages
+ * `basseMer`/`pleineMer` dans le segment — c'était l'erreur d'origine (le seuil 2,8 m avait été
+ * rétro-calibré sur la courbe Port-Tudy, donc propagation déjà comprise, et la construire sur la
+ * courbe décalée l'ajoutait une seconde fois : **+59 min sur les 18 relevés constatés, sans
+ * exception**). Effet de bord utile : retoucher les décalages Navihan ne déforme plus l'estimation.
+ *
+ * Renvoie l'instant **daté** (`{ date, time }`) : un à-flot peut franchir minuit, et la règle du
+ * projet est qu'une heure Navihan est rangée au jour où elle a réellement lieu. `null` si le seuil
+ * n'est pas atteint avant la pleine mer (morte-eau extrême) ou s'il n'y a pas de pleine mer
+ * suivante. `ptExtremes` = extrêmes **Port-Tudy**.
  */
 export function aflotTimeByThreshold(
   ptExtremes: FlatTide[],
   low: FlatTide,
-  offsets: NavihanOffsets,
-  thresholdHeight: number
-): string | null {
+  refHeight: number
+): { date: string; time: string } | null {
   if (!Number.isFinite(low.height)) return null;
   const lowEpoch = epochMinutes(low.date, low.time);
   const nextHigh = ptExtremes
@@ -88,13 +127,13 @@ export function aflotTimeByThreshold(
     .filter(x => x.t > lowEpoch)
     .sort((p, q) => p.t - q.t)[0];
   if (!nextHigh) return null;
-  const a: OffsetPoint = { offset: lowEpoch + offsets.basseMer, height: low.height };
-  const b: OffsetPoint = { offset: nextHigh.t + offsets.pleineMer, height: nextHigh.e.height };
-  const cross = inverseCosineRising(a, b, thresholdHeight);
+  const a: OffsetPoint = { offset: lowEpoch, height: low.height };
+  const b: OffsetPoint = { offset: nextHigh.t, height: nextHigh.e.height };
+  const threshold = aflotThresholdFor(nextHigh.e.coefficient, refHeight);
+  const cross = inverseCosineRising(a, b, threshold);
   if (cross == null) return null;
-  const d = new Date(cross * 60000);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const dt = new Date(cross * 60000);
+  return { date: localDate(dt), time: localTime(dt) };
 }
 
 /** Prochain à-flot (basse mer + `aFlotOffset`) dont l'heure est ≥ `now`, avec sa basse source. */

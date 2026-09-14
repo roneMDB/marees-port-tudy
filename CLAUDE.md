@@ -327,11 +327,12 @@ défauts ; **utilisateurs** (si auth active) : génère le secret de session et 
 (`ensureAdminUser`) si la table `users` est vide. Idempotent.
 
 **Config** (`src/service/SettingsStore.ts`) : type `Settings` (`startMode`/`startDate`/`rangeDays`,
-`navihan` en minutes (basse/pleine mer ; `aFlot` déprécié), `aFlotThreshold` = **seuil de remise à
-flot** en m (défaut 2,8, 0–10, modèle issue #4), `aFlotDays`, `coefDays` = durée du graphe coef
+`navihan` en minutes (basse/pleine mer ; `aFlot` = « Remise à flot » fixe), `aFlotRefHeight` =
+**hauteur Port-Tudy de flottaison au coefficient de référence 70** en m (défaut **3,02**, 0–10),
+`aFlotDays`, `coefDays` = durée du graphe coef
 (défaut 20, 1–90), `weatherLinks` = liens météo éditables `{ label, url }`, défauts
 `DEFAULT_WEATHER_LINKS`), `DEFAULT_SETTINGS`, `sanitizeSettings` (validation/bornage — `clampFloat`
-pour le seuil, sans arrondi ; les
+pour la hauteur, sans arrondi ; les
 `weatherLinks` invalides — libellé vide ou URL non http(s) — sont écartés, liste plafonnée à 12 ;
 tableau absent → défauts, tableau vide explicite conservé), `readSettings`/`writeSettings`/
 `ensureSettings` (lignes `settings` de la base ; paramètre `db` injectable pour la testabilité).
@@ -486,15 +487,26 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   donc tableau/cartes/graphiques se mettent à jour en direct. La remise à flot d'une basse mer se
   décline en **trois valeurs** (issue #4) : **« Remise à flot »** = décalage **fixe** historique
   (`navihan['A flot']`, `settings.navihan.aFlot`, défaut 2h40) ; **« Estimation »** (`aflotEstimate`) =
-  **modèle de seuil de hauteur** — instant où la courbe montante (interpolation cosinus) atteint
-  `settings.aFlotThreshold` (m, défaut **2,8**, `DEFAULT_AFLOT_THRESHOLD`), donc délai qui **varie avec
-  le coefficient** (cf. `docs/superpowers/specs/2026-07-24-navihan-coefficient-design.md`) ;
+  **modèle de seuil de hauteur** — instant où la courbe montante **Port-Tudy** (interpolation
+  cosinus) atteint le seuil du jour, `aflotThresholdFor(coef de la pleine mer suivante, refHeight)`
+  = `refHeight + AFLOT_COEF_SLOPE × (coef − 70)` ; le délai après la basse mer **varie donc avec le
+  coefficient** (spec `2026-07-24-navihan-coefficient-design.md`, **recalibré** par
+  `2026-09-14-etalonnage-aflot-observations-design.md`) ;
   **« Constaté »** (`aflotObserved`) = heure **réellement saisie** (persistée serveur, cf. table
   `aflot_observations`). **Périmètre de l'estimation** : elle n'apparaît **que** dans le tableau du
   dashboard (pastille ↗ « Estimation »). Partout ailleurs — cartes « Prochaine(s) remise(s) à
   flot », marqueurs du **marégramme**, rappel de la colonne **Constaté** — c'est l'heure
-  **« Remise à flot »** (décalage **fixe** `aFlot`) qui est utilisée. Fonctions pures testées :
-  `inverseCosineRising`/`navihanAflotFixed` (`lib/maregram.ts`),
+  **« Remise à flot »** (décalage **fixe** `aFlot`) qui est utilisée.
+  ⚠️ **Le seuil est une hauteur Port-Tudy, pas une cote à Navihan** : c'est un proxy empirique qui
+  **absorbe** la propagation Port-Tudy → Navihan. Ne **jamais** réintroduire `basseMer`/`pleineMer`
+  dans le segment montant de `aflotTimeByThreshold` — c'était l'erreur d'origine (le seuil 2,8 m
+  ayant été rétro-calibré sur la courbe Port-Tudy, la propagation y était déjà comprise et la
+  construire sur la courbe décalée l'ajoutait une seconde fois : **+59 min sur les 18 heures
+  constatées, sans exception**). Abaisser le seuil pour compenser — ce qui avait été fait en prod
+  (2,05 m) — annule le biais moyen mais déplace le croisement vers le début de la montante, là où la
+  courbe est plate : la dispersion explose (MAE 27,7 min, max 80). Corollaire utile : l'estimation ne
+  dépend **plus** des décalages Navihan, les retoucher ne la déforme donc pas. Fonctions pures
+  testées : `inverseCosineRising`/`cosineHeightAt`/`navihanAflotFixed` (`lib/maregram.ts`),
   `aflotTimeByThreshold` (estimation, tableau) / `aflotEvents`/`nextAflot`/`aflotAgenda`
   (décalage fixe, cartes) / `shiftTime` (→ `HH:MM`) et `shiftMoment` (→ `{ date, time }`, à
   utiliser dès qu'une heure Navihan est **datée**, car les décalages franchissent minuit)
@@ -503,10 +515,32 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   secondaire. `src/composables/useAflotObservations.ts` (singleton : map `date+heure Port-Tudy →
   constaté`, `load`/`get`/`save`/`remove` via `api/aflotObservations.ts`) alimente `aflotObserved` et
   la saisie du tableau. `lib/navihan.test.ts`.
+- `src/lib/aflotCalibration.ts` + `useTides.aflotCalibration` — **étalonnage du modèle sur les
+  heures constatées** (`calibrateAflot(ptTides, observations, fallbackRefHeight, minSamples = 4)` →
+  `{ refHeight, samples, mae, calibrated }`, pur et testé). Le modèle a deux paramètres ; **seul le
+  niveau est étalonné**. La **pente** `AFLOT_COEF_SLOPE` (0,0037 m/point) reste figée dans
+  `lib/navihan.ts` : elle corrige un écart du **modèle de courbe** (la hauteur implicite de
+  flottaison croît avec le coefficient, corrélation 0,72 — l'interpolation cosinus s'écarte d'autant
+  plus de la vraie courbe que l'amplitude est grande), ce n'est **pas** une propriété du mouillage.
+  ⚠️ Ne pas « améliorer » en étalonnant aussi la pente : sur les 18 relevés, n'étalonner que le
+  niveau fait **mieux** (5,2 min contre 5,6 en validation leave-one-out) — un paramètre libre suffit
+  et il est plus stable. ⚠️ **Médiane, pas moyenne** : une saisie fausse de 30 min ne déplace alors
+  le niveau que de 0,017 m. Sous **4** relevés exploitables (`MIN_AFLOT_SAMPLES`), repli sur le
+  réglage `aFlotRefHeight` (défaut 3,02 m, lui-même issu des 18 relevés — une base neuve démarre
+  donc déjà juste) ; l'étalonnage converge dès 4 relevés et ne bouge plus après 8. Sont écartés :
+  basse mer introuvable, hauteur manquante, pas de pleine mer suivante, heure constatée hors de la
+  montante. Une heure constatée « avant » sa basse mer est reportée au **lendemain** (franchissement
+  de minuit). Résultat sur les 18 relevés : **MAE 4,9 min, max 17** — contre 9,7 pour le décalage
+  fixe. `lib/aflotCalibration.test.ts` porte la **fixture des 18 relevés réels** et asserte
+  MAE < 6 min / max < 20 : c'est le garde-fou du modèle, un test figeant des valeurs calculées ne
+  dirait rien de sa justesse.
 - `components/SettingsPanel.vue` — **un seul panneau repliable « Réglages »** (prop `meta`)
   regroupant 3 sections, **toutes de la configuration serveur** : **Période** (`startMode`
   `today`/`date` + `startDate` + `rangeDays` + `coefDays`), **Décalages Navihan** (basse/pleine
-  mer en minutes + **seuil de remise à flot** `aFlotThreshold` en m + `aFlotDays`, bouton défauts),
+  mer en minutes + **hauteur de flottaison de référence** `aFlotRefHeight` en m, suivie de l'état
+  d'étalonnage (« Étalonné sur N heures constatées… » / « Moins de 4 relevés ») + `aFlotDays`,
+  bouton défauts ; la calibration arrive en **prop** depuis le `Dashboard`, `useTides` n'étant pas
+  un singleton),
   **Liens météo** (liste éditable `settings.weatherLinks` — libellé + URL, ajout/suppression, bouton
   défauts). Remplace les anciens `TideFilters.vue` / `NavihanSettings.vue`. **Bouton + panneau masqués
   si le rôle n'est pas `admin`** (`useAuth().isAdmin`) : on ne montre pas des réglages non modifiables.
@@ -766,6 +800,8 @@ comme **tâche utilisateur** du Planificateur de tâches DSM (procédure + resta
 - `server/src/db/` (`index.ts`, `tidesRepository.ts`, `bootstrap.ts`) — persistance SQLite.
 - `server/src/lib/readTides.ts`, `server/src/resources/horaires_marees_port-tudy.json` — graines (import initial).
 - `client/src/composables/useTides.ts`, `client/src/lib/tides.ts` — état + filtrage.
+- `client/src/lib/navihan.ts`, `client/src/lib/aflotCalibration.ts` — heures Navihan, estimation par
+  seuil et étalonnage sur les heures constatées.
 - `client/src/views/Dashboard.vue` + `client/src/components/*.vue` — dashboard.
 - `client/src/router.ts`, `client/src/views/FishingView.vue`, `client/src/lib/fishing.ts` — carnet
   de pêche.

@@ -17,8 +17,11 @@ export interface Settings {
   startMode: 'today' | 'date';
   startDate: string | null; // YYYY-MM-DD quand startMode = 'date'
   rangeDays: number; // « Au » = début + rangeDays
-  navihan: NavihanOffsets; // décalages en minutes (basseMer/pleineMer ; aFlot déprécié, cf. aFlotThreshold)
-  aFlotThreshold: number; // hauteur d'eau (m) déclenchant la remise à flot (modèle seuil, issue #4)
+  navihan: NavihanOffsets; // décalages en minutes (basseMer/pleineMer ; aFlot = « Remise à flot » fixe)
+  // Hauteur d'eau **Port-Tudy** (m) à laquelle le bateau flotte, au coefficient de référence 70.
+  // Sert de **repli** : dès qu'il y a assez d'heures constatées, le niveau est étalonné sur elles
+  // (client `lib/aflotCalibration.ts`). Remplace `aFlotThreshold`, dont le sens était différent.
+  aFlotRefHeight: number;
   aFlotDays: number; // carte « À flot · N prochains jours »
   coefDays: number; // durée (jours) du graphe des coefficients
   weatherLinks: WeatherLink[]; // liens affichés sous la météo (éditables)
@@ -36,7 +39,7 @@ export const DEFAULT_SETTINGS: Settings = {
   startDate: null,
   rangeDays: 30,
   navihan: { basseMer: 75, pleineMer: 75, aFlot: 160 },
-  aFlotThreshold: 2.8,
+  aFlotRefHeight: 3.02,
   aFlotDays: 3,
   coefDays: 20,
   weatherLinks: DEFAULT_WEATHER_LINKS.map(l => ({ ...l }))
@@ -95,7 +98,7 @@ export function sanitizeSettings(input: unknown): Settings {
       pleineMer: clampInt(nav.pleineMer, 0, MAX_MINUTES, DEFAULT_SETTINGS.navihan.pleineMer),
       aFlot: clampInt(nav.aFlot, 0, MAX_MINUTES, DEFAULT_SETTINGS.navihan.aFlot)
     },
-    aFlotThreshold: clampFloat(o.aFlotThreshold, 0, 10, DEFAULT_SETTINGS.aFlotThreshold),
+    aFlotRefHeight: clampFloat(o.aFlotRefHeight, 0, 10, DEFAULT_SETTINGS.aFlotRefHeight),
     aFlotDays: clampInt(o.aFlotDays, 1, 14, DEFAULT_SETTINGS.aFlotDays),
     coefDays: clampInt(o.coefDays, 1, 90, DEFAULT_SETTINGS.coefDays),
     weatherLinks: sanitizeWeatherLinks(o.weatherLinks)

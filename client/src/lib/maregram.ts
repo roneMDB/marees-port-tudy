@@ -49,6 +49,17 @@ export function inverseCosineRising(a: OffsetPoint, b: OffsetPoint, threshold: n
   return a.offset + ratio * (b.offset - a.offset);
 }
 
+/**
+ * Hauteur sur le segment cosinus `a → b` à l'instant `offset` (même unité que les `offset` des
+ * points). Inverse exacte de `inverseCosineRising` ; suppose `a.offset ≤ offset ≤ b.offset`.
+ * Exportée pour que `lib/aflotCalibration.ts` lise la hauteur atteinte à une heure **constatée**
+ * avec la formule utilisée par le marégramme, plutôt que d'en dupliquer une seconde.
+ */
+export function cosineHeightAt(a: OffsetPoint, b: OffsetPoint, offset: number): number {
+  const ratio = (offset - a.offset) / (b.offset - a.offset);
+  return a.height + ((b.height - a.height) * (1 - Math.cos(Math.PI * ratio))) / 2;
+}
+
 /** Interpolation cosinus de la hauteur à l'instant `t` (min), ou null si non encadré. */
 function interpolate(pts: OffsetPoint[], t: number): number | null {
   let i = 0;
@@ -56,8 +67,7 @@ function interpolate(pts: OffsetPoint[], t: number): number | null {
   const a = pts[i];
   const b = pts[i + 1];
   if (!a || !b || t < a.offset || t > b.offset) return null;
-  const ratio = (t - a.offset) / (b.offset - a.offset);
-  return a.height + ((b.height - a.height) * (1 - Math.cos(Math.PI * ratio))) / 2;
+  return cosineHeightAt(a, b, t);
 }
 
 /** Échantillonne la courbe sur `[0, 1440]` minutes (instants non couverts omis). */

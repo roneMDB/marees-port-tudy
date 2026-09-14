@@ -47,26 +47,44 @@ describe('computeNavihan', () => {
 });
 
 describe('aflotTimeByThreshold', () => {
-  const offsets: NavihanOffsets = { basseMer: 75, pleineMer: 75, aFlot: 160 };
-
-  it('returns the HH:MM where the rising Navihan curve reaches the threshold', () => {
+  it('returns the moment where the rising Port-Tudy curve reaches the threshold', () => {
     const low = tide('2026-07-18', '02:00', 'low', 1);
     const high = tide('2026-07-18', '08:00', 'high', 5);
-    // Navihan : basse 03:15 (h1) → pleine 09:15 (h5). Seuil 3 = mi-hauteur → 06:15 (mi-temps).
-    expect(aflotTimeByThreshold([low, high], low, offsets, 3)).toBe('06:15');
+    // Port-Tudy : basse 02:00 (h1) → pleine 08:00 (h5). Seuil 3 = mi-hauteur → 05:00 (mi-temps).
+    expect(aflotTimeByThreshold([low, high], low, 3)).toEqual({ date: '2026-07-18', time: '05:00' });
+  });
+
+  it('ne décale pas le croisement des offsets Navihan (la propagation est dans le seuil)', () => {
+    // Garde-fou du bug corrigé le 2026-09-14 : le segment était construit sur la courbe décalée,
+    // ce qui ajoutait une seconde fois une propagation déjà comprise dans le seuil rétro-calibré
+    // (+59 min sur les 18 relevés constatés). Le résultat ne doit dépendre d'aucun décalage.
+    const low = tide('2026-07-18', '02:00', 'low', 1);
+    const high = tide('2026-07-18', '08:00', 'high', 5);
+    expect(aflotTimeByThreshold([low, high], low, 3)).toEqual({ date: '2026-07-18', time: '05:00' });
+  });
+
+  it('applique la pente en coefficient au seuil (vive-eau → seuil plus haut)', () => {
+    const low = tide('2026-07-18', '02:00', 'low', 1);
+    const calm = { ...tide('2026-07-18', '08:00', 'high', 5), coefficient: 40 };
+    const spring = { ...tide('2026-07-18', '08:00', 'high', 5), coefficient: 100 };
+    // Même courbe, seul le coefficient change : le seuil monte de 60 × 0,0037 = 0,222 m, donc le
+    // croisement est plus tardif. C'est bien le seuil qui bouge, pas la courbe.
+    const a = aflotTimeByThreshold([low, calm], low, 3)!;
+    const b = aflotTimeByThreshold([low, spring], low, 3)!;
+    expect(b.time > a.time).toBe(true);
   });
 
   it('returns null when the next high never reaches the threshold', () => {
     const low = tide('2026-07-18', '02:00', 'low', 1);
     const high = tide('2026-07-18', '08:00', 'high', 5);
-    expect(aflotTimeByThreshold([low, high], low, offsets, 5.5)).toBeNull();
+    expect(aflotTimeByThreshold([low, high], low, 5.5)).toBeNull();
   });
 
   it('wraps past midnight when the crossing falls on the next day', () => {
     const low = tide('2026-07-19', '23:00', 'low', 1);
     const high = tide('2026-07-20', '05:00', 'high', 5);
-    // Navihan : basse 00:15 (J+1) → pleine 06:15. Seuil 3 → +255 min après 23:00 = 03:15.
-    expect(aflotTimeByThreshold([low, high], low, offsets, 3)).toBe('03:15');
+    // Basse 23:00 (h1) → pleine 05:00 (h5). Seuil 3 = mi-hauteur → +180 min = 02:00 **le 20**.
+    expect(aflotTimeByThreshold([low, high], low, 3)).toEqual({ date: '2026-07-20', time: '02:00' });
   });
 });
 
@@ -227,7 +245,6 @@ describe('aflotAgenda', () => {
 // L'estimation (seuil de hauteur) n'alimente plus que le tableau : on garde la calibration du
 // modèle — le délai après la basse mer se raccourcit quand l'amplitude (coef) augmente.
 describe('modèle seuil — variation avec le coefficient', () => {
-  const offsets: NavihanOffsets = { basseMer: 75, pleineMer: 75, aFlot: 160 };
   const toMinutes = (hhmm: string): number => {
     const [h, m] = hhmm.split(':').map(Number);
     return h * 60 + m;
@@ -235,8 +252,8 @@ describe('modèle seuil — variation avec le coefficient', () => {
   const delay = (lowHeight: number, highHeight: number): number => {
     const low = tide('2026-08-01', '02:00', 'low', lowHeight);
     const high = tide('2026-08-01', '08:00', 'high', highHeight);
-    const t = aflotTimeByThreshold([low, high], low, offsets, 2.8);
-    return toMinutes(t!) - (120 + offsets.basseMer);
+    const t = aflotTimeByThreshold([low, high], low, 2.8);
+    return toMinutes(t!.time) - 120;
   };
 
   it('gives a shorter refloat delay in vive-eau (fort coef) than in morte-eau (faible coef)', () => {

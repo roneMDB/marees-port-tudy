@@ -3,6 +3,7 @@ import { getMeta, getTides } from '../api/tides';
 import { filterTides, flatten, matchNavihanReference, periodWindow, resolveWindow } from '../lib/tides';
 import { addDays } from '../lib/format';
 import { aflotTimeByThreshold, computeNavihan } from '../lib/navihan';
+import { calibrateAflot } from '../lib/aflotCalibration';
 import { useSettings } from './useSettings';
 import { useSite } from './useSite';
 import { useDataRefresh } from './useDataRefresh';
@@ -28,7 +29,8 @@ export function useTides() {
   const { settings, load: loadSettings } = useSettings();
   const { siteId, isReference, load: loadSites } = useSite();
   const { token: refreshToken } = useDataRefresh();
-  const { get: observedFor, load: loadObservations } = useAflotObservations();
+  const observations = useAflotObservations();
+  const { get: observedFor, load: loadObservations } = observations;
 
   // Décalage de période transitoire du tableau (navigation Précédent/Suivant, non persisté).
   const periodOffset = ref(0);
@@ -57,13 +59,19 @@ export function useTides() {
       .sort((a, b) => a.d - b.d)[0]?.e;
   }
 
+  // Étalonnage du niveau de flottaison sur les heures **constatées** : recalculé dès que les marées
+  // Port-Tudy ou la map d'observations changent. Sous 4 relevés, retombe sur le réglage.
+  const aflotCalibration = computed(() =>
+    calibrateAflot(allTides.value, observations.map, settings.aFlotRefHeight)
+  );
+
   // Remise à flot (« A flot ») d'une basse mer par **modèle seuil de hauteur** (issue #4), toujours
   // calculée sur la courbe **Port-Tudy** (`allTides`). Pour la référence, la ligne est déjà la basse
   // Port-Tudy ; sinon on retrouve la basse Port-Tudy appariée via `refTime`.
-  function aflotFor(t: FlatTide): string | null {
+  function aflotFor(t: FlatTide): { date: string; time: string } | null {
     if (!t.refTime) return null;
     const low = isReference.value ? t : resolvePortTudyLow(t.date, t.refTime);
-    return low ? aflotTimeByThreshold(allTides.value, low, settings.navihan, settings.aFlotThreshold) : null;
+    return low ? aflotTimeByThreshold(allTides.value, low, aflotCalibration.value.refHeight) : null;
   }
 
   // Fenêtre de dates + Navihan. Les **filtres d'affichage** ne passent plus par ici : ils portent sur
@@ -196,6 +204,7 @@ export function useTides() {
     coefDaysView,
     setCoefDaysView,
     allTides,
+    aflotCalibration,
     tableTides,
     tablePeriod,
     prevPeriod,

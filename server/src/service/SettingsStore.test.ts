@@ -19,20 +19,29 @@ describe('sanitizeSettings', () => {
       rangeDays: 9999,
       aFlotDays: 0,
       coefDays: 999,
-      aFlotThreshold: 99,
+      aFlotRefHeight: 99,
       navihan: { basseMer: -10, pleineMer: 5000, aFlot: 99 }
     });
     expect(s.rangeDays).toBe(365);
     expect(s.aFlotDays).toBe(1);
     expect(s.coefDays).toBe(90);
-    expect(s.aFlotThreshold).toBe(10); // borné à [0, 10] m
+    expect(s.aFlotRefHeight).toBe(10); // borné à [0, 10] m
     expect(s.navihan).toEqual({ basseMer: 0, pleineMer: 1439, aFlot: 99 });
   });
 
-  it('keeps a fractional aFlotThreshold (height in metres, not rounded)', () => {
-    expect(sanitizeSettings({ aFlotThreshold: 2.85 }).aFlotThreshold).toBe(2.85);
-    expect(sanitizeSettings({ aFlotThreshold: -1 }).aFlotThreshold).toBe(0);
-    expect(sanitizeSettings({}).aFlotThreshold).toBe(DEFAULT_SETTINGS.aFlotThreshold);
+  it('keeps a fractional aFlotRefHeight (height in metres, not rounded)', () => {
+    expect(sanitizeSettings({ aFlotRefHeight: 2.85 }).aFlotRefHeight).toBe(2.85);
+    expect(sanitizeSettings({ aFlotRefHeight: -1 }).aFlotRefHeight).toBe(0);
+    expect(sanitizeSettings({}).aFlotRefHeight).toBe(DEFAULT_SETTINGS.aFlotRefHeight);
+  });
+
+  // L'ancien `aFlotThreshold` mesurait autre chose (seuil lu sur la courbe décalée Navihan) : le
+  // reprendre tel quel donnerait une estimation fausse. Le renommage tient donc lieu de migration,
+  // `sanitizeSettings` reconstruisant l'objet clé par clé — la valeur périmée doit être ignorée.
+  it('ignores the legacy aFlotThreshold key and falls back to the default', () => {
+    const s = sanitizeSettings({ aFlotThreshold: 2.05 });
+    expect(s.aFlotRefHeight).toBe(DEFAULT_SETTINGS.aFlotRefHeight);
+    expect(s).not.toHaveProperty('aFlotThreshold');
   });
 
   it('normalises the start fields', () => {

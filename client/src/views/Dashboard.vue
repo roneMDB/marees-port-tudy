@@ -18,7 +18,7 @@ import HeightChart from '../components/HeightChart.vue';
 import CoefChart from '../components/CoefChart.vue';
 
 const {
-  loading, error, meta, coefTides, coefDaysView, setCoefDaysView, allTides, reload,
+  loading, error, meta, coefTides, coefDaysView, setCoefDaysView, allTides, aflotCalibration, reload,
   tableTides, tablePeriod, prevPeriod, nextPeriod, resetPeriod, canPrevPeriod, canNextPeriod, periodOffset
 } = useTides();
 const { current, isReference } = useSite();
@@ -59,7 +59,7 @@ const { activeCount: activeFilterCount } = useTideFilters();
 
       <ResourcesCard />
 
-      <SettingsPanel v-if="canEditSettings" :meta="meta" />
+      <SettingsPanel v-if="canEditSettings" :meta="meta" :calibration="aflotCalibration" />
 
       <StatCards :all-tides="allTides" />
 

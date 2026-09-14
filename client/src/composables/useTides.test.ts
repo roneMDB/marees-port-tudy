@@ -16,7 +16,7 @@ const SETTINGS: Settings = {
   startDate: '2026-07-05', // fenêtre déterministe (indépendante de « aujourd'hui »)
   rangeDays: 3,
   navihan: { basseMer: 75, pleineMer: 75, aFlot: 160 },
-  aFlotThreshold: 2.8,
+  aFlotRefHeight: 2.8,
   aFlotDays: 3,
   coefDays: 5,
   weatherLinks: []
@@ -137,6 +137,37 @@ describe('useTides — port de référence (Port-Tudy)', () => {
     // Une basse mer sans observation reste à null.
     const other = t.tableTides.value.find(x => x.type === 'low' && x.time === '15:00');
     expect(other!.aflotObserved).toBeNull();
+  });
+
+  it('étalonne le seuil sur les heures constatées et en dérive l’estimation', async () => {
+    // 4 relevés (le minimum) sur la basse mer de 03:00, tous à 06:30 — nettement plus tard que ce
+    // que donnerait le réglage de repli (2,8 m → ~05:32). L'estimation doit suivre l'étalonnage,
+    // ce qui prouve que `calibrateAflot` est bien branché sur `aflotFor` et pas seulement exposé.
+    getObservationsMock.mockResolvedValue(
+      ['2026-07-04', '2026-07-05', '2026-07-06', '2026-07-07'].map(date => ({
+        date, time: '03:00', observed: '06:30'
+      }))
+    );
+    const useTides = await freshUseTides();
+    const t = useTides();
+    await t.reload();
+
+    expect(t.aflotCalibration.value.calibrated).toBe(true);
+    expect(t.aflotCalibration.value.samples).toBe(4);
+    expect(t.aflotCalibration.value.refHeight).toBeGreaterThan(3.5); // bien au-dessus du repli 2,8
+    const low = t.tableTides.value.find(x => x.date === '2026-07-05' && x.time === '03:00');
+    expect(low!.aflotEstimate).toEqual({ date: '2026-07-05', time: '06:30' });
+  });
+
+  it('retombe sur le réglage tant qu’il n’y a pas assez de relevés', async () => {
+    const useTides = await freshUseTides();
+    const t = useTides();
+    await t.reload();
+    expect(t.aflotCalibration.value).toEqual({
+      refHeight: SETTINGS.aFlotRefHeight, samples: 0, mae: null, calibrated: false
+    });
+    const low = t.tableTides.value.find(x => x.date === '2026-07-05' && x.time === '03:00');
+    expect(low!.aflotEstimate).toEqual({ date: '2026-07-05', time: '05:32' });
   });
 
   it('borne la durée éphémère du graphe des coefficients (1–90)', async () => {
