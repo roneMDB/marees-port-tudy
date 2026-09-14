@@ -75,4 +75,20 @@ describe('useMediaQuery', () => {
     const { value } = mountHost('(min-width: 576px)', false);
     expect(value).toBe(false);
   });
+
+  it("lit la valeur initiale sans lever quand MediaQueryList n'expose pas addEventListener", () => {
+    // Avant Safari 14 / iOS 14, `MediaQueryList` n'héritait pas d'`EventTarget` : seules les
+    // méthodes dépréciées `addListener`/`removeListener` existaient. L'appel non gardé levait dans
+    // le `setup` du composant, l'erreur remontait et la page restait **blanche**. On accepte de
+    // perdre la réactivité au redimensionnement, pas d'effondrer l'app.
+    vi.stubGlobal('matchMedia', vi.fn(() => ({
+      matches: true,
+      media: '',
+      addListener: vi.fn(),
+      removeListener: vi.fn()
+    })));
+    const host = mountHost('(min-width: 576px)', false);
+    expect(host.value).toBe(true);
+    expect(() => host.wrapper.unmount()).not.toThrow();
+  });
 });

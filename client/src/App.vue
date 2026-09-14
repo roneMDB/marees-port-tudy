@@ -130,11 +130,26 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
           <!-- Navigation entre les pages (lecture ouverte : visible de tous). Sous `sm`, se rend
                en barre d'onglets fixe en bas de fenêtre et ne prend donc pas de place ici. -->
           <NavTabs />
-          <!-- ≥ sm : actions admin en ligne dans la navbar. -->
+          <!--
+            ≥ lg : actions admin en ligne dans la navbar. Le seuil était `sm` ; il est passé à `lg`
+            quand la navigation est devenue deux onglets libellés (179 px, contre 40 px pour
+            l'ancien bouton icône).
+
+            Deux mesures l'imposent, sur un compte admin. (1) Débordement horizontal : la rangée
+            demandait 755 px quelle que soit la fenêtre, donc elle débordait dès 640 px — et déjà
+            avant ce changement entre 577 et 624 px. (2) Hauteur : à `md`, la rangée passait à la
+            ligne et la navbar montait à 162 px à 768 px, 138 à 820, 114 à 900 (contre 114 px à
+            768 px avant les onglets). À `lg` elle tient sur **une seule ligne, 90 px**, de 768 à
+            991 px — mieux qu'avant.
+
+            Le prix assumé : entre 768 et 991 px, un admin passe par le menu ⋮ au lieu des six
+            boutons directs. C'est un clic contre 72 px de navbar. Ne pas redescendre le seuil sans
+            re-mesurer : le débordement revient à 640 px.
+          -->
           <button
             v-if="isAdmin"
             type="button"
-            class="btn btn-outline-light btn-sm d-none d-sm-inline-flex align-items-center"
+            class="btn btn-outline-light btn-sm d-none d-lg-inline-flex align-items-center"
             data-bs-toggle="offcanvas"
             data-bs-target="#statsOffcanvas"
             aria-controls="statsOffcanvas"
@@ -146,7 +161,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
           <button
             v-if="isAdmin"
             type="button"
-            class="btn btn-outline-light btn-sm d-none d-sm-inline-flex align-items-center"
+            class="btn btn-outline-light btn-sm d-none d-lg-inline-flex align-items-center"
             data-bs-toggle="offcanvas"
             data-bs-target="#importOffcanvas"
             aria-controls="importOffcanvas"
@@ -158,7 +173,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
           <button
             v-if="isAdmin"
             type="button"
-            class="btn btn-outline-light btn-sm d-none d-sm-inline-flex align-items-center"
+            class="btn btn-outline-light btn-sm d-none d-lg-inline-flex align-items-center"
             data-bs-toggle="offcanvas"
             data-bs-target="#usersOffcanvas"
             aria-controls="usersOffcanvas"
@@ -170,7 +185,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
           <button
             v-if="isAdmin"
             type="button"
-            class="btn btn-outline-light btn-sm d-none d-sm-inline-flex align-items-center"
+            class="btn btn-outline-light btn-sm d-none d-lg-inline-flex align-items-center"
             data-bs-toggle="offcanvas"
             data-bs-target="#lexiconOffcanvas"
             aria-controls="lexiconOffcanvas"
@@ -182,7 +197,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
           <button
             v-if="isAdmin"
             type="button"
-            class="btn btn-outline-light btn-sm d-none d-sm-inline-flex align-items-center"
+            class="btn btn-outline-light btn-sm d-none d-lg-inline-flex align-items-center"
             data-bs-toggle="offcanvas"
             data-bs-target="#fishingRefsOffcanvas"
             aria-controls="fishingRefsOffcanvas"
@@ -194,7 +209,7 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
           <button
             v-if="isAdmin"
             type="button"
-            class="btn btn-outline-light btn-sm d-none d-sm-inline-flex align-items-center"
+            class="btn btn-outline-light btn-sm d-none d-lg-inline-flex align-items-center"
             data-bs-toggle="offcanvas"
             data-bs-target="#settingsOffcanvas"
             aria-controls="settingsOffcanvas"
@@ -222,8 +237,8 @@ watch(showApp, (ok) => { if (ok) ensureAppData(); });
           >
             <i class="bi bi-box-arrow-right"></i>
           </button>
-          <!-- Mobile (< sm) : actions admin regroupées dans un menu ⋮ (placé à droite → déroulé aligné). -->
-          <div v-if="isAdmin" class="dropdown d-sm-none">
+          <!-- < lg : actions admin regroupées dans un menu ⋮ (placé à droite → déroulé aligné). -->
+          <div v-if="isAdmin" class="dropdown d-lg-none">
             <button
               type="button"
               class="btn btn-outline-light btn-sm"

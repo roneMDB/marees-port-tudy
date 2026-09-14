@@ -19,8 +19,16 @@ export function useMediaQuery(query: string, fallback = false) {
     const mql = window.matchMedia(query);
     matches.value = mql.matches;
     const onChange = (e: MediaQueryListEvent) => { matches.value = e.matches; };
-    mql.addEventListener('change', onChange);
-    onBeforeUnmount(() => mql.removeEventListener('change', onChange));
+    // Garde sur l'existence de la méthode : avant Safari 14 / iOS 14, `MediaQueryList` n'héritait
+    // pas d'`EventTarget` et n'exposait que `addListener`/`removeListener`. Sans ce test, l'appel
+    // lève dans le `setup` du composant, l'erreur remonte et la page reste **blanche** — une panne
+    // totale là où la seule perte acceptable est l'absence de réactivité au redimensionnement.
+    // On ne reprend pas l'API dépréciée : la valeur initiale suffit, seul l'effondrement est à
+    // éviter.
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', onChange);
+      onBeforeUnmount(() => mql.removeEventListener('change', onChange));
+    }
   }
 
   return readonly(matches);
