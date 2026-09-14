@@ -3,6 +3,24 @@
 Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
 conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [1.8.0] — 14/09/2026
+
+### Fonctionnalités
+
+- **nav** — Onglets de navigation entre les marées et le carnet
+
+### Corrections
+
+- **nav** — Navbar sur une ligne jusqu'à 991 px et garde Safari < 14
+- **nav** — Corrige les sept points de la revue finale sur les onglets
+
+### Documentation
+
+- **nav** — Consigne le seuil lg de la navbar et la garde Safari
+- **nav** — Documente les onglets de navigation
+- **nav** — Plan d'implémentation de la navigation par onglets
+- **nav** — Spec de la navigation par onglets
+- **nas** — Précise la portée et les pièges de la règle de pare-feu France
 ## [1.7.0] — 13/08/2026
 
 ### Fonctionnalités

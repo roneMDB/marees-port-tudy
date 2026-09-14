@@ -1,6 +1,6 @@
 {
   "name": "@marees/server",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "API REST des marées de Port-Tudy (Express + TypeScript).",
   "private": true,
   "main": "dist/index.js",
