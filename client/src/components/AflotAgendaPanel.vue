@@ -1,23 +1,23 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 import type { FlatTide } from '../types';
 import { aflotAgenda, shiftMoment } from '../lib/navihan';
 import { addDays, coefBand, formatDate, todayKey } from '../lib/format';
 import { useNavihan } from '../composables/useNavihan';
+import { useNow } from '../composables/useNow';
 
 const props = defineProps<{ allTides: FlatTide[] }>();
 
 const { offsets } = useNavihan();
 
 /**
- * `now` sert à estomper les heures déjà passées. Il est rafraîchi **à chaque ouverture** du
- * panneau : l'app reste volontiers ouverte des heures, et un agenda figé sur l'instant du montage
- * du dashboard afficherait comme « à venir » des remises à flot dépassées depuis longtemps.
+ * `now` sert à estomper les heures déjà passées. Il est **partagé** avec la carte
+ * « Prochaines remises à flot » (`useNow`), qui décrit les mêmes heures : deux instants distincts
+ * finiraient par se contredire. L'ouverture du panneau le rafraîchit **en plus** du retour au
+ * premier plan — l'app reste volontiers ouverte des heures, et un agenda figé afficherait comme
+ * « à venir » des remises à flot dépassées depuis longtemps.
  */
-const now = ref(new Date());
-function refresh(): void {
-  now.value = new Date();
-}
+const { now, refresh } = useNow();
 
 let el: HTMLElement | null = null;
 onMounted(() => {

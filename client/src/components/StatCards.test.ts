@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
+import { nextTick } from 'vue';
 import StatCards from './StatCards.vue';
 import { useSettings } from '../composables/useSettings';
+import { resetNowForTests, useNow } from '../composables/useNow';
 import type { FlatTide } from '../types';
 
 // `useSettings` persiste toute mutation via un `watch` débouncé : sans ce mock, piloter
@@ -20,6 +22,15 @@ const tides: FlatTide[] = Array.from({ length: 7 }, (_, i) => ({
   coefficient: null,
   navihan: {}
 }));
+
+/**
+ * Monte la carte sur l'instant **simulé courant** : `useNow` est un singleton, et sans ce
+ * réalignement un `setSystemTime` posé dans le corps d'un cas n'atteindrait pas le composant.
+ */
+const mountCards = (allTides: FlatTide[]) => {
+  resetNowForTests();
+  return mount(StatCards, { props: { allTides } });
+};
 
 /** Bouton d'ouverture du panneau d'agenda (offcanvas piloté par les attributs Bootstrap). */
 const agendaButton = (w: ReturnType<typeof mount>) =>
@@ -53,26 +64,26 @@ describe('StatCards — carte « Prochaines remises à flot »', () => {
   });
 
   it('liste les jours du réglage', () => {
-    const wrapper = mount(StatCards, { props: { allTides: tides } });
+    const wrapper = mountCards(tides);
     expect(rows(wrapper)).toHaveLength(3);
   });
 
   it('suit le réglage à la baisse', () => {
     useSettings().settings.aFlotDays = 2;
-    const wrapper = mount(StatCards, { props: { allTides: tides } });
+    const wrapper = mountCards(tides);
     expect(rows(wrapper)).toHaveLength(2);
   });
 
   // Le panneau n'est pas un « déplier autrement » : c'est une destination stable, dont l'accès ne
   // doit pas dépendre d'un réglage.
   it('offre toujours le panneau, même quand tous les jours tiennent dans la carte', () => {
-    const wrapper = mount(StatCards, { props: { allTides: tides } });
+    const wrapper = mountCards(tides);
     expect(agendaButton(wrapper).exists()).toBe(true);
     expect(agendaButton(wrapper).attributes('data-bs-toggle')).toBe('offcanvas');
   });
 
   it('ne déplie plus la carte', () => {
-    const wrapper = mount(StatCards, { props: { allTides: tides } });
+    const wrapper = mountCards(tides);
     expect(wrapper.text()).not.toContain('autres jours');
     expect(wrapper.text()).not.toContain('Voir moins');
   });
@@ -81,7 +92,7 @@ describe('StatCards — carte « Prochaines remises à flot »', () => {
   // (dim. 26) : ça se lisait comme une heure déjà passée aujourd'hui.
   it('situe la prochaine remise à flot sur son propre jour, pas sur celui de la basse mer', () => {
     vi.setSystemTime(new Date('2026-07-26T16:16:00'));
-    const card = nextCard(mount(StatCards, { props: { allTides: realDay } }));
+    const card = nextCard(mountCards(realDay));
 
     expect(card.text()).toContain('00:49');
     expect(card.text()).toContain('demain'); // l'à-flot tombe le 27, pas le 26
@@ -92,7 +103,7 @@ describe('StatCards — carte « Prochaines remises à flot »', () => {
   // (Port-Tudy 22:09 + décalage `basseMer` 1h15 = 23:24), pas l'heure Port-Tudy brute.
   it('cite la basse mer Navihan, pas celle de Port-Tudy', () => {
     vi.setSystemTime(new Date('2026-07-26T16:16:00'));
-    const card = nextCard(mount(StatCards, { props: { allTides: realDay } }));
+    const card = nextCard(mountCards(realDay));
 
     expect(card.text()).toContain('23:24');
     expect(card.text()).not.toContain('22:09');
@@ -105,7 +116,7 @@ describe('StatCards — carte « Prochaines remises à flot »', () => {
       { date: '2026-07-26', time: '23:30', height: 1.9, type: 'low', coefficient: null, navihan: {} }
     ];
     vi.setSystemTime(new Date('2026-07-26T20:00:00'));
-    const card = nextCard(mount(StatCards, { props: { allTides: lateLow } }));
+    const card = nextCard(mountCards(lateLow));
 
     expect(card.text()).toContain('02:10'); // à-flot : 23:30 + 2h40, le 27
     expect(card.text()).toContain('00:45'); // basse mer Navihan : 23:30 + 1h15, le 27 aussi
@@ -115,7 +126,7 @@ describe('StatCards — carte « Prochaines remises à flot »', () => {
 
   it("dit « aujourd'hui » quand la remise à flot tombe le jour même", () => {
     vi.setSystemTime(new Date('2026-07-26T08:00:00'));
-    const card = nextCard(mount(StatCards, { props: { allTides: realDay } }));
+    const card = nextCard(mountCards(realDay));
 
     expect(card.text()).toContain('12:24'); // 09:44 + 2h40, le 26
     expect(card.text()).toContain("aujourd'hui");
@@ -127,7 +138,7 @@ describe('StatCards — carte « Prochaines remises à flot »', () => {
   it('range chaque remise à flot au jour où elle a lieu et estompe les heures passées', () => {
     useSettings().settings.navihan.aFlot = 170; // 2h50, comme le réglage utilisé
     vi.setSystemTime(new Date('2026-07-26T16:16:00'));
-    const wrapper = mount(StatCards, { props: { allTides: realDay } });
+    const wrapper = mountCards(realDay);
 
     const [day26, day27] = rows(wrapper);
     expect(day26.text()).toContain('26/07');
@@ -140,10 +151,26 @@ describe('StatCards — carte « Prochaines remises à flot »', () => {
     expect(times27[0].classes()).not.toContain('aflot-past'); // le 27 à 00:59 est à venir
   });
 
+  // L'app reste ouverte des heures : figée sur l'instant du montage, la carte annonçait comme
+  // prochaine une remise à flot passée depuis longtemps.
+  it('suit l’instant courant au retour au premier plan', async () => {
+    vi.setSystemTime(new Date('2026-07-26T08:00:00'));
+    const wrapper = mountCards(realDay);
+    expect(nextCard(wrapper).text()).toContain('12:24');
+
+    vi.setSystemTime(new Date('2026-07-26T16:16:00'));
+    useNow().refresh();
+    await nextTick();
+
+    expect(nextCard(wrapper).text()).toContain('00:49'); // la 12:24 est passée
+    const [day26] = rows(wrapper);
+    expect(day26.findAll('.badge')[0].classes()).toContain('aflot-past');
+  });
+
   // Le bouton reste rendu même sans remise à flot à venir : le panneau, lui, sait dire « aucune ».
   it('n’affiche aucune ligne mais garde le bouton du panneau quand aucune remise à flot n’est à venir', () => {
     vi.setSystemTime(new Date('2026-08-01T00:00:00'));
-    const wrapper = mount(StatCards, { props: { allTides: tides } });
+    const wrapper = mountCards(tides);
     expect(rows(wrapper)).toHaveLength(0);
     expect(agendaButton(wrapper).exists()).toBe(true);
   });

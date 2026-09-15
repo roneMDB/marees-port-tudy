@@ -5,12 +5,16 @@ import { formatDate, formatHeight, relativeDayLabel, todayKey, coefBand } from '
 import { aflotAgenda, nextAflot, shiftMoment } from '../lib/navihan';
 import { groupByDay, tidalRange } from '../lib/tides';
 import { useNavihan } from '../composables/useNavihan';
+import { useNow } from '../composables/useNow';
 import { useSettings } from '../composables/useSettings';
 
 const props = defineProps<{ allTides: FlatTide[] }>();
 
 const { offsets } = useNavihan();
 const { settings } = useSettings();
+// Instant **partagé** avec le panneau d'agenda : figé sur le montage, il annonçait comme
+// prochaine une remise à flot passée depuis des heures (cf. `useNow`).
+const { now } = useNow();
 
 // Marnage du jour : amplitude (plus haute pleine mer − plus basse basse mer) d'aujourd'hui.
 const todayMarnage = computed(() => {
@@ -42,7 +46,7 @@ const todayBand = computed(() =>
 // Un plafond ici serait du code que rien ne peut atteindre. L'agenda complet est dans
 // `AflotAgendaPanel`.
 const aflotDays = computed(() =>
-  aflotAgenda(props.allTides, offsets, new Date(), settings.aFlotDays)
+  aflotAgenda(props.allTides, offsets, now.value, settings.aFlotDays)
 );
 
 /**
@@ -53,7 +57,7 @@ const aflotDays = computed(() =>
  * mer dont il découle peuvent tomber des jours différents.
  */
 const nextAflotCard = computed(() => {
-  const event = nextAflot(props.allTides, offsets, new Date());
+  const event = nextAflot(props.allTides, offsets, now.value);
   if (!event) return null;
   return {
     time: event.time,

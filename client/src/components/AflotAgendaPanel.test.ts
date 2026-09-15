@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import AflotAgendaPanel from './AflotAgendaPanel.vue';
 import { useSettings } from '../composables/useSettings';
+import { resetNowForTests } from '../composables/useNow';
 import type { FlatTide } from '../types';
 
 // `useSettings` persiste toute mutation via un `watch` débouncé : sans ce mock, piloter les
@@ -25,7 +26,14 @@ const tides: FlatTide[] = [
   { date: '2026-07-27', time: '16:38', height: 4.35, type: 'high', coefficient: 55, navihan: {} }
 ];
 
-const mountPanel = (allTides = tides) => mount(AflotAgendaPanel, { props: { allTides } });
+/**
+ * Monte le panneau sur l'instant **simulé courant** : `useNow` est un singleton, et sans ce
+ * réalignement un `setSystemTime` posé dans le corps d'un cas n'atteindrait pas le composant.
+ */
+const mountPanel = (allTides = tides) => {
+  resetNowForTests();
+  return mount(AflotAgendaPanel, { props: { allTides } });
+};
 const dayBlocks = (w: ReturnType<typeof mountPanel>) => w.findAll('.agenda-day');
 const slots = (w: ReturnType<typeof mountPanel>) => w.findAll('.agenda-slot');
 /** Le créneau dont la pastille d'heure porte `time`. */
