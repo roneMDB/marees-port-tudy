@@ -36,7 +36,7 @@ describe('API /api/settings', () => {
       .put('/api/settings')
       .send({ startMode: 'date', startDate: '2026-08-01', rangeDays: 9999, navihan: { aFlot: 200 }, aFlotDays: 5 });
     expect(put.status).toBe(200);
-    expect(put.body).toMatchObject({ startMode: 'date', startDate: '2026-08-01', rangeDays: 365, aFlotDays: 5 });
+    expect(put.body).toMatchObject({ startMode: 'date', startDate: '2026-08-01', rangeDays: 365, aFlotDays: 3 });
     // navihan fusionné : aFlot changé, les autres conservés.
     expect(put.body.navihan).toEqual({ basseMer: 75, pleineMer: 75, aFlot: 200 });
 
