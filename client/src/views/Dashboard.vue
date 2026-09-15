@@ -9,6 +9,7 @@ import { formatDate } from '../lib/format';
 import SettingsPanel from '../components/SettingsPanel.vue';
 import TideFiltersBar from '../components/TideFiltersBar.vue';
 import StatCards from '../components/StatCards.vue';
+import AflotAgendaPanel from '../components/AflotAgendaPanel.vue';
 import EphemerideCard from '../components/EphemerideCard.vue';
 import MotDuJourCard from '../components/MotDuJourCard.vue';
 import WeatherCard from '../components/WeatherCard.vue';
@@ -62,6 +63,7 @@ const { activeCount: activeFilterCount } = useTideFilters();
       <SettingsPanel v-if="canEditSettings" :meta="meta" :calibration="aflotCalibration" />
 
       <StatCards :all-tides="allTides" />
+      <AflotAgendaPanel :all-tides="allTides" />
 
       <EphemerideCard />
 

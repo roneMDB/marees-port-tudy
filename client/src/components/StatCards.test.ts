@@ -21,7 +21,9 @@ const tides: FlatTide[] = Array.from({ length: 7 }, (_, i) => ({
   navihan: {}
 }));
 
-const toggle = (w: ReturnType<typeof mount>) => w.find('[aria-controls="aflot-days-list"]');
+/** Bouton d'ouverture du panneau d'agenda (offcanvas piloté par les attributs Bootstrap). */
+const agendaButton = (w: ReturnType<typeof mount>) =>
+  w.find('[data-bs-target="#aflotAgendaOffcanvas"]');
 const rows = (w: ReturnType<typeof mount>) => w.findAll('.aflot-day');
 /** Carte « Prochaine remise à flot » (la première, aux couleurs de marque). */
 const nextCard = (w: ReturnType<typeof mount>) => w.get('.app-brand-card');
@@ -36,11 +38,11 @@ const realDay: FlatTide[] = [
   { date: '2026-07-27', time: '10:28', height: 1.88, type: 'low', coefficient: null, navihan: {} }
 ];
 
-describe('StatCards — repli de la carte « Prochaines remises à flot »', () => {
+describe('StatCards — carte « Prochaines remises à flot »', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-19T00:00:00'));
-    useSettings().settings.aFlotDays = 7; // singleton : on repart d'une valeur connue
+    useSettings().settings.aFlotDays = 3; // singleton : on repart d'une valeur connue
   });
 
   afterEach(() => {
@@ -50,54 +52,29 @@ describe('StatCards — repli de la carte « Prochaines remises à flot »', () 
     vi.useRealTimers();
   });
 
-  it('n’affiche que 3 jours au repos', () => {
+  it('liste les jours du réglage', () => {
     const wrapper = mount(StatCards, { props: { allTides: tides } });
     expect(rows(wrapper)).toHaveLength(3);
   });
 
-  it('annonce le nombre de jours masqués', () => {
-    const wrapper = mount(StatCards, { props: { allTides: tides } });
-    expect(toggle(wrapper).text()).toContain('+ 4 autres jours');
-    expect(toggle(wrapper).attributes('aria-expanded')).toBe('false');
-  });
-
-  it('déplie tous les jours au clic, puis replie', async () => {
-    const wrapper = mount(StatCards, { props: { allTides: tides } });
-
-    await toggle(wrapper).trigger('click');
-    expect(rows(wrapper)).toHaveLength(7);
-    expect(toggle(wrapper).text()).toContain('Voir moins');
-    expect(toggle(wrapper).attributes('aria-expanded')).toBe('true');
-
-    await toggle(wrapper).trigger('click');
-    expect(rows(wrapper)).toHaveLength(3);
-    expect(toggle(wrapper).text()).toContain('+ 4 autres jours');
-  });
-
-  it('n’affiche aucun bouton quand tous les jours tiennent', () => {
-    useSettings().settings.aFlotDays = 3;
-    const wrapper = mount(StatCards, { props: { allTides: tides } });
-    expect(rows(wrapper)).toHaveLength(3);
-    expect(toggle(wrapper).exists()).toBe(false);
-  });
-
-  it('accorde le libellé au singulier pour un seul jour masqué', () => {
-    useSettings().settings.aFlotDays = 4;
-    const wrapper = mount(StatCards, { props: { allTides: tides } });
-    expect(toggle(wrapper).text()).toContain('+ 1 autre jour');
-    expect(toggle(wrapper).text()).not.toContain('autres');
-  });
-
-  it('referme la carte si le réglage retombe sous le budget pendant qu’elle est dépliée', async () => {
-    const wrapper = mount(StatCards, { props: { allTides: tides } });
-    await toggle(wrapper).trigger('click');
-    expect(rows(wrapper)).toHaveLength(7);
-
+  it('suit le réglage à la baisse', () => {
     useSettings().settings.aFlotDays = 2;
-    await wrapper.vm.$nextTick();
-
-    expect(toggle(wrapper).exists()).toBe(false);
+    const wrapper = mount(StatCards, { props: { allTides: tides } });
     expect(rows(wrapper)).toHaveLength(2);
+  });
+
+  // Le panneau n'est pas un « déplier autrement » : c'est une destination stable, dont l'accès ne
+  // doit pas dépendre d'un réglage.
+  it('offre toujours le panneau, même quand tous les jours tiennent dans la carte', () => {
+    const wrapper = mount(StatCards, { props: { allTides: tides } });
+    expect(agendaButton(wrapper).exists()).toBe(true);
+    expect(agendaButton(wrapper).attributes('data-bs-toggle')).toBe('offcanvas');
+  });
+
+  it('ne déplie plus la carte', () => {
+    const wrapper = mount(StatCards, { props: { allTides: tides } });
+    expect(wrapper.text()).not.toContain('autres jours');
+    expect(wrapper.text()).not.toContain('Voir moins');
   });
 
   // La carte affichait l'heure de l'à-flot (00:49, demain) accolée à la date de la **basse mer**
@@ -163,10 +140,11 @@ describe('StatCards — repli de la carte « Prochaines remises à flot »', () 
     expect(times27[0].classes()).not.toContain('aflot-past'); // le 27 à 00:59 est à venir
   });
 
-  it('n’affiche ni ligne ni bouton quand aucune remise à flot n’est à venir', () => {
+  // Le bouton reste rendu même sans remise à flot à venir : le panneau, lui, sait dire « aucune ».
+  it('n’affiche aucune ligne mais garde le bouton du panneau quand aucune remise à flot n’est à venir', () => {
     vi.setSystemTime(new Date('2026-08-01T00:00:00'));
     const wrapper = mount(StatCards, { props: { allTides: tides } });
     expect(rows(wrapper)).toHaveLength(0);
-    expect(toggle(wrapper).exists()).toBe(false);
+    expect(agendaButton(wrapper).exists()).toBe(true);
   });
 });

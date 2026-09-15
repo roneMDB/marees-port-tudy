@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed } from 'vue';
 import type { FlatTide } from '../types';
 import { formatDate, formatHeight, relativeDayLabel, todayKey, coefBand } from '../lib/format';
 import { aflotAgenda, nextAflot, shiftMoment } from '../lib/navihan';
@@ -35,30 +35,15 @@ const todayBand = computed(() =>
 // Agenda des remises à flot (décalage fixe `aFlot`, pas l'estimation par seuil) sur les
 // `aFlotDays` prochains jours, chacune rangée au jour où elle a **réellement** lieu. Les heures
 // passées restent listées (estompées) : c'est un agenda, pas un compte à rebours.
+//
+// La carte est un **aperçu court** : son budget de 3 lignes — calé sur la hauteur des trois autres
+// cartes de la rangée, dont elle imposerait sinon la hauteur — est tenu par la **borne du
+// réglage** (`aFlotDays` ∈ [1, 3], bornée à la lecture comme à l'écriture par `sanitizeSettings`).
+// Un plafond ici serait du code que rien ne peut atteindre. L'agenda complet est dans
+// `AflotAgendaPanel`.
 const aflotDays = computed(() =>
   aflotAgenda(props.allTides, offsets, new Date(), settings.aFlotDays)
 );
-
-/**
- * Jours affichés au repos. Budget calé sur la hauteur des 3 autres cartes de la rangée (libellé +
- * valeur + sous-libellé = 3 lignes) : au-delà, la carte étirerait toute la rangée, puisque c'est
- * elle la plus haute. Le surplus est replié derrière « + N autres jours ».
- */
-const COLLAPSED_DAYS = 3;
-
-// Repli transitoire, non persisté — cf. ResourcesCard / MotDuJourCard.
-const expanded = ref(false);
-const shownAflotDays = computed(() =>
-  expanded.value ? aflotDays.value : aflotDays.value.slice(0, COLLAPSED_DAYS)
-);
-const hiddenDays = computed(() => Math.max(0, aflotDays.value.length - COLLAPSED_DAYS));
-const canExpand = computed(() => hiddenDays.value > 0);
-
-// `aFlotDays` peut retomber sous le budget alors que la carte est dépliée : on la referme, sinon
-// l'état resterait « déplié » sans bouton pour le défaire.
-watch(canExpand, possible => {
-  if (!possible) expanded.value = false;
-});
 
 /**
  * Carte « Prochaine remise à flot » : prochain à-flot à venir (heure **Remise à flot**, dérivée de
@@ -153,8 +138,8 @@ const nextAflotCard = computed(() => {
               <div class="text-uppercase small text-muted mb-1">Prochaines remises à flot</div>
               <div v-if="!aflotDays.length" class="small text-muted">—</div>
               <template v-else>
-                <div id="aflot-days-list" class="aflot-list small mb-0">
-                  <div v-for="d in shownAflotDays" :key="d.date" class="aflot-day">
+                <div class="aflot-list small mb-0">
+                  <div v-for="d in aflotDays" :key="d.date" class="aflot-day">
                     <span class="aflot-date text-muted text-capitalize">
                       {{ formatDate(d.date, { weekday: 'short', day: '2-digit', month: '2-digit' }) }}
                     </span>
@@ -171,21 +156,16 @@ const nextAflotCard = computed(() => {
                     </span>
                   </div>
                 </div>
-                <button
-                  v-if="canExpand"
-                  type="button"
-                  class="btn btn-link btn-sm p-0 mt-1 small text-decoration-none align-self-start"
-                  :aria-expanded="expanded"
-                  aria-controls="aflot-days-list"
-                  @click="expanded = !expanded"
-                >
-                  <i :class="expanded ? 'bi bi-chevron-up' : 'bi bi-chevron-down'" class="me-1"></i>
-                  <template v-if="expanded">Voir moins</template>
-                  <template v-else>
-                    + {{ hiddenDays }} autre{{ hiddenDays > 1 ? 's' : '' }} jour{{ hiddenDays > 1 ? 's' : '' }}
-                  </template>
-                </button>
               </template>
+              <button
+                type="button"
+                class="btn btn-link btn-sm p-0 mt-1 small text-decoration-none align-self-start"
+                data-bs-toggle="offcanvas"
+                data-bs-target="#aflotAgendaOffcanvas"
+                aria-controls="aflotAgendaOffcanvas"
+              >
+                Voir l'agenda complet<i class="bi bi-chevron-right ms-1"></i>
+              </button>
             </div>
             <i class="bi bi-life-preserver fs-3 text-success opacity-75 ms-2"></i>
           </div>
