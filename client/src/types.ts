@@ -143,7 +143,7 @@ export interface Settings {
   rangeDays: number; // « Au » = début + rangeDays
   navihan: NavihanOffsets; // décalages en minutes (basseMer/pleineMer ; aFlot = « Remise à flot » fixe)
   aFlotRefHeight: number; // hauteur Port-Tudy (m) de flottaison au coef 70 — repli, cf. aflotCalibration
-  aFlotDays: number; // carte « À flot · N prochains jours »
+  aFlotDays: number; // jours listés sur la carte « Prochaines remises à flot » (1–3)
   coefDays: number; // durée (jours) du graphe des coefficients
   weatherLinks: WeatherLink[]; // liens sous la météo (éditables dans les réglages)
 }

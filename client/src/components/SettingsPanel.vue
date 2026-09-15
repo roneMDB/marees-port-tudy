@@ -45,7 +45,7 @@ function setMinutes(key: OffsetKey, event: Event): void {
 }
 
 function setAFlotDays(event: Event): void {
-  settings.aFlotDays = clamp(Number((event.target as HTMLInputElement).value), 1, 14);
+  settings.aFlotDays = clamp(Number((event.target as HTMLInputElement).value), 1, 3);
 }
 
 function onAFlotRefHeight(event: Event): void {
@@ -227,16 +227,18 @@ function resetWeatherLinks(): void {
           </div>
         </div>
         <div class="col-12">
-          <label class="form-label small text-muted mb-1">Jours affichés (carte remise à flot)</label>
+          <label class="form-label small text-muted mb-1">Jours listés sur la carte (1–3)</label>
           <input
             type="number"
             class="form-control"
             min="1"
-            max="14"
+            max="3"
             :value="settings.aFlotDays"
             @input="setAFlotDays"
           />
-          <div class="form-text">nombre de jours listés sur la carte « Remise à flot »</div>
+          <div class="form-text">
+            aperçu de la carte « Prochaines remises à flot » ; l'agenda complet est dans le panneau
+          </div>
         </div>
       </div>
       <div class="mt-3 mb-4">

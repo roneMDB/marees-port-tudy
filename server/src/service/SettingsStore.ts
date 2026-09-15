@@ -22,7 +22,7 @@ export interface Settings {
   // Sert de **repli** : dès qu'il y a assez d'heures constatées, le niveau est étalonné sur elles
   // (client `lib/aflotCalibration.ts`). Remplace `aFlotThreshold`, dont le sens était différent.
   aFlotRefHeight: number;
-  aFlotDays: number; // carte « À flot · N prochains jours »
+  aFlotDays: number; // jours listés sur la **carte** (1–3) ; l'agenda complet est dans le panneau
   coefDays: number; // durée (jours) du graphe des coefficients
   weatherLinks: WeatherLink[]; // liens affichés sous la météo (éditables)
 }
@@ -99,7 +99,7 @@ export function sanitizeSettings(input: unknown): Settings {
       aFlot: clampInt(nav.aFlot, 0, MAX_MINUTES, DEFAULT_SETTINGS.navihan.aFlot)
     },
     aFlotRefHeight: clampFloat(o.aFlotRefHeight, 0, 10, DEFAULT_SETTINGS.aFlotRefHeight),
-    aFlotDays: clampInt(o.aFlotDays, 1, 14, DEFAULT_SETTINGS.aFlotDays),
+    aFlotDays: clampInt(o.aFlotDays, 1, 3, DEFAULT_SETTINGS.aFlotDays),
     coefDays: clampInt(o.coefDays, 1, 90, DEFAULT_SETTINGS.coefDays),
     weatherLinks: sanitizeWeatherLinks(o.weatherLinks)
   };

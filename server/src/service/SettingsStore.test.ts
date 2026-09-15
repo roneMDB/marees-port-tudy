@@ -35,6 +35,13 @@ describe('sanitizeSettings', () => {
     expect(sanitizeSettings({}).aFlotRefHeight).toBe(DEFAULT_SETTINGS.aFlotRefHeight);
   });
 
+  // La carte n'a la place que de 3 lignes : au-delà, le réglage ne ferait plus rien. Les bases
+  // amorcées avant le panneau d'agenda stockent encore 7 ou 14 — `sanitizeSettings` passant aussi
+  // à la **lecture**, elles sont servies bornées, sans migration.
+  it('borne aFlotDays au budget de la carte', () => {
+    expect(sanitizeSettings({ aFlotDays: 14 }).aFlotDays).toBe(3);
+  });
+
   // L'ancien `aFlotThreshold` mesurait autre chose (seuil lu sur la courbe décalée Navihan) : le
   // reprendre tel quel donnerait une estimation fausse. Le renommage tient donc lieu de migration,
   // `sanitizeSettings` reconstruisant l'objet clé par clé — la valeur périmée doit être ignorée.
