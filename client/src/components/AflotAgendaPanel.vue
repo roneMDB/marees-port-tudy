@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted } from 'vue';
 import type { FlatTide } from '../types';
 import { aflotAgenda, shiftMoment } from '../lib/navihan';
-import { addDays, coefBand, formatDate, todayKey } from '../lib/format';
+import { coefBand, formatDate, relativeDayHint, todayKey } from '../lib/format';
 import { useNavihan } from '../composables/useNavihan';
 import { useNow } from '../composables/useNow';
 
@@ -26,30 +26,47 @@ onMounted(() => {
 });
 onUnmounted(() => el?.removeEventListener('show.bs.offcanvas', refresh));
 
-// Pas de `days` : toute la plage disponible, du jour courant à la fin des horaires.
-const days = computed(() => aflotAgenda(props.allTides, offsets, now.value));
-
-/** Date longue, pour un panneau qui court sur plusieurs mois (« lundi 27 juillet »). */
-const longDate = (date: string): string =>
-  formatDate(date, { weekday: 'long', day: '2-digit', month: 'long' });
-
 /**
- * « aujourd'hui » / « demain », sinon `null` : la date longue est déjà en tête de bloc, et
- * `relativeDayLabel` la répéterait pour tous les autres jours.
+ * Date longue, pour un panneau qui court sur plusieurs mois. Majuscule sur la **seule** première
+ * lettre, posée en JS : `text-capitalize` en mettrait une à chaque mot (« Dimanche 26 Juillet »),
+ * alors qu'en français les mois s'écrivent en minuscules. Quantième en `numeric` : « 01 juillet »
+ * ne s'écrit pas en prose.
  */
-function dayHint(date: string): string | null {
-  const today = todayKey();
-  if (date === today) return "aujourd'hui";
-  if (date === addDays(today, 1)) return 'demain';
-  return null;
+function longDate(date: string): string {
+  const text = formatDate(date, { weekday: 'long', day: 'numeric', month: 'long' });
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /**
- * Basse mer **Navihan** dont une remise à flot découle, datée de son **propre** jour : le décalage
- * `basseMer` franchit lui aussi minuit.
+ * Tout ce que le template affiche est préparé ici : rendu tel quel, il rappelait les mêmes
+ * fonctions deux ou trois fois par créneau (dont `shiftMoment` et `coefBand`) à chaque re-rendu.
  */
-const lowMoment = (basse: FlatTide): { date: string; time: string } =>
-  shiftMoment(basse.date, basse.time, offsets.basseMer);
+const days = computed(() => {
+  const today = todayKey();
+  // Pas de `days` : toute la plage disponible, du jour courant à la fin des horaires.
+  return aflotAgenda(props.allTides, offsets, now.value).map(day => ({
+    date: day.date,
+    longDate: longDate(day.date),
+    /** « aujourd'hui » / « demain », sinon `null` : la date longue est déjà en tête de bloc. */
+    hint: relativeDayHint(day.date, today),
+    slots: day.times.map(t => {
+      /*
+       * Basse mer **Navihan** dont la remise à flot découle, datée de son **propre** jour : le
+       * décalage `basseMer` franchit lui aussi minuit.
+       */
+      const low = shiftMoment(t.basse.date, t.basse.time, offsets.basseMer);
+      return {
+        time: t.time,
+        past: t.past,
+        coefficient: t.coefficient,
+        band: coefBand(t.coefficient),
+        lowTime: low.time,
+        // Date de la basse mer écrite **seulement** si elle diffère du jour de la remise à flot.
+        lowDate: low.date === day.date ? null : formatDate(low.date)
+      };
+    })
+  }));
+});
 </script>
 
 <template>
@@ -82,15 +99,15 @@ const lowMoment = (basse: FlatTide): { date: string; time: string } =>
       </p>
 
       <div v-for="d in days" :key="d.date" class="agenda-day border-bottom py-2">
-        <div class="fw-semibold text-capitalize">
-          {{ longDate(d.date) }}
-          <span v-if="dayHint(d.date)" class="fw-normal text-muted small ms-1">
-            · {{ dayHint(d.date) }}
+        <div class="agenda-date fw-semibold">
+          {{ d.longDate }}
+          <span v-if="d.hint" class="agenda-hint fw-normal text-muted small ms-1">
+            · {{ d.hint }}
           </span>
         </div>
 
         <div
-          v-for="t in d.times"
+          v-for="t in d.slots"
           :key="t.time"
           class="agenda-slot d-flex flex-wrap align-items-baseline gap-2 mt-1"
         >
@@ -104,14 +121,14 @@ const lowMoment = (basse: FlatTide): { date: string; time: string } =>
 
           <span
             class="agenda-coef badge rounded-pill"
-            :class="coefBand(t.coefficient).badgeClass"
-            :title="`Coefficient · ${coefBand(t.coefficient).label}`"
+            :class="t.band.badgeClass"
+            :title="`Coefficient · ${t.band.label}`"
           >{{ t.coefficient ?? '—' }}</span>
 
           <span class="small text-muted">
-            Basse mer Navihan · {{ lowMoment(t.basse).time }}
-            <template v-if="lowMoment(t.basse).date !== d.date">
-              · <span class="text-capitalize">{{ formatDate(lowMoment(t.basse).date) }}</span>
+            Basse mer Navihan · {{ t.lowTime }}
+            <template v-if="t.lowDate">
+              · <span class="text-capitalize">{{ t.lowDate }}</span>
             </template>
           </span>
         </div>

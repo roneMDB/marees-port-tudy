@@ -91,6 +91,36 @@ describe('AflotAgendaPanel', () => {
     expect(slotAt(mountPanel(), '12:24').text()).not.toContain('juil.');
   });
 
+  // `text-capitalize` met une majuscule à **chaque mot** (« Dimanche 26 Juillet ») : en français
+  // les mois s'écrivent en minuscules. La majuscule est donc posée en JS, sur la seule initiale.
+  it('capitalise la date longue en JS, sans toucher au mois', () => {
+    const header = dayBlocks(mountPanel())[0].get('.agenda-date');
+    expect(header.text()).toContain('Dimanche 26 juillet');
+    expect(header.classes()).not.toContain('text-capitalize');
+  });
+
+  // `text-transform` s'hérite : un `text-capitalize` sur le bloc de date afficherait
+  // « · Aujourd'hui », là où la carte sœur écrit « aujourd'hui » en minuscule.
+  it('laisse le repère de jour en minuscules', () => {
+    const wrapper = mountPanel();
+    const header = dayBlocks(wrapper)[0].get('.agenda-date');
+    expect(header.get('.agenda-hint').text()).toContain("aujourd'hui");
+    expect(wrapper.findAll('.text-capitalize').some(e => e.text().includes("aujourd'hui"))).toBe(
+      false
+    );
+  });
+
+  // « 01 septembre » ne s'écrit pas en prose française (ce serait « 1er ») : jour en `numeric`.
+  it('n’écrit pas le quantième sur deux chiffres', () => {
+    vi.setSystemTime(new Date('2026-09-01T06:00:00'));
+    const first: FlatTide[] = [
+      { date: '2026-09-01', time: '09:00', height: 1.9, type: 'low', coefficient: null, navihan: {} }
+    ];
+    const header = dayBlocks(mountPanel(first))[0].get('.agenda-date');
+    expect(header.text()).toContain('Mardi 1 septembre');
+    expect(header.text()).not.toContain('01 septembre');
+  });
+
   it("repère aujourd'hui et demain", () => {
     const wrapper = mountPanel();
     expect(dayBlocks(wrapper)[0].text()).toContain("aujourd'hui");
