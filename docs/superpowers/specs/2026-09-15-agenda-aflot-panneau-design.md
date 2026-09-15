@@ -146,8 +146,10 @@ chevron droit, aux attributs `data-bs-*` du §3. Toujours présent **même quand
 panneau n'est pas un « déplier autrement », c'est une destination stable ; son accès ne doit pas
 dépendre d'un réglage.
 
-La liste montre `min(settings.aFlotDays, COLLAPSED_DAYS)` jours, `COLLAPSED_DAYS = 3` — budget
-inchangé, calé sur la hauteur des trois autres cartes de la rangée.
+La liste montre `settings.aFlotDays` jours, **sans plafond dans le composant** : le budget de
+3 lignes — calé sur la hauteur des trois autres cartes de la rangée — est désormais tenu par la
+borne du réglage (§7), qui s'applique aussi **à la lecture**. Un `min(…, 3)` ici serait du code que
+rien ne peut atteindre. La constante `COLLAPSED_DAYS` disparaît avec le dépliement.
 
 ## 7. Le réglage `aFlotDays`
 
@@ -157,9 +159,9 @@ delà de 3 il ne ferait plus rien : la borne suit.
 - `server/src/service/SettingsStore.ts` : `clampInt(o.aFlotDays, 1, 3, …)`. Défaut **3** inchangé.
 - `client/src/components/SettingsPanel.vue` : `max="3"`, `clamp(…, 1, 3)`, libellé et texte d'aide
   reformulés (« jours listés sur la carte ; l'agenda complet est dans le panneau »).
-- **Valeurs héritées** (7, 14 en base) : relues telles quelles — `sanitizeSettings` ne borne qu'à
-  l'écriture —, neutralisées par le `min(…, 3)` de la carte, et ramenées à 3 à la première écriture
-  des réglages. Aucune migration.
+- **Valeurs héritées** (7, 14 en base) : aucune migration nécessaire. `readSettings` passe par
+  `sanitizeSettings` **à la lecture** comme à l'écriture ; une base qui stocke 14 sert donc déjà 3.
+  C'est ce qui permet à la carte de ne porter aucun plafond de son côté (§6).
 
 Le réglage garde donc un sens : ne montrer qu'un ou deux jours sur la carte.
 
@@ -173,9 +175,9 @@ Le réglage garde donc un sens : ne montrer qu'un ou deux jours sur la carte.
   coefficient rendu avec sa bande ; basse mer Navihan datée de la **veille** quand le décalage
   franchit minuit (et date omise sinon) ; heure passée estompée ; plage vide → message.
 - `client/src/components/StatCards.test.ts` : bouton d'ouverture présent **même à ≤ 3 jours**, avec
-  le bon `data-bs-target` ; plus aucun « + N autres jours » ; carte plafonnée à 3 jours quand
-  `aFlotDays` vaut davantage.
-- `server/src/service/SettingsStore.test.ts` : `aFlotDays` borné à 3.
+  le bon `data-bs-target` ; plus aucun « + N autres jours » ; la carte rend bien `aFlotDays` jours.
+- `server/src/service/SettingsStore.test.ts` : `aFlotDays` borné à 3 à l'écriture **et** une valeur
+  héritée de 14 relue à 3 — c'est ce second test qui protège le budget de la carte.
 - `npm test` **et** `npm run type-check` (Vitest passe par esbuild et ne vérifie aucun type).
 
 ## 9. Écarté
