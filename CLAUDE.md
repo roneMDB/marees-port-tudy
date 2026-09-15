@@ -573,12 +573,27 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   donc listé au **lendemain**, jamais sur le jour de la basse mer d'origine. Sur des données
   saines, un jour porte au plus 2 remises à flot. Les heures **déjà passées restent listées,
   estompées** (`.aflot-past`) : la carte est un agenda stable, elle ne se vide pas au fil de la
-  journée. Comme cette carte est la plus haute de la rangée, elle **imposerait** sa
-  hauteur : au-delà de **3 jours** (budget calé sur les 3 autres cartes) le surplus est **replié**
-  derrière « + N autres jours » / « Voir moins » — repli **éphémère** (`ref` local, la liste est
-  tronquée en JS ; bouton `btn btn-link` + chevron, aucun JS Bootstrap, cf.
-  `ResourcesCard`/`MotDuJourCard`), refermé automatiquement si `aFlotDays` retombe sous le budget.
+  journée. Comme cette carte est la plus haute de la rangée, elle **imposerait** sa hauteur : son budget est
+  de **3 lignes** (calé sur les 3 autres cartes), tenu non par un plafond dans le composant mais par
+  la **borne du réglage** `aFlotDays` ∈ [1, 3] — `sanitizeSettings` bornant à la **lecture** comme à
+  l'écriture, une base antérieure qui stocke 7 ou 14 est servie bornée, sans migration. L'agenda
+  complet vit dans **`AflotAgendaPanel`** (cf. ci-dessous), ouvert par un bouton **toujours présent**
+  de la carte : le panneau est une destination stable, son accès ne doit pas dépendre d'un réglage.
+  ⚠️ Ne pas réintroduire le dépliement « + N autres jours » qu'il remplace : déplier étirait toute
+  la rangée, c'est-à-dire exactement ce que le budget cherchait à éviter.
   `StatCards.test.ts`. Le **marnage du jour** de cette carte vient de `tidalRange` (`lib/tides.ts`).
+- `components/AflotAgendaPanel.vue` — **panneau « Remises à flot »** (offcanvas `offcanvas-end`,
+  monté par `Dashboard.vue` en frère de `StatCards`) : agenda des remises à flot sur **toute la
+  plage disponible** (aujourd'hui → fin des horaires), un bloc par jour, chaque créneau portant
+  l'heure « Remise à flot » (décalage **fixe**, jamais l'estimation par seuil), le **coefficient de
+  la pleine mer suivante** (`AflotTime.coefficient` — une basse mer n'en porte pas, et le coef « du
+  jour » serait faux pour un à-flot rangé au lendemain) et la **basse mer Navihan** dont il découle,
+  datée de son propre jour et **écrite seulement** quand elle diffère. ⚠️ **Ouvert à tous les
+  rôles**, contrairement aux six autres offcanvas, tous admin-only : lire un agenda de marées n'est
+  pas de l'administration. `now` est rafraîchi sur `show.bs.offcanvas` (l'app reste ouverte des
+  heures ; sinon des remises à flot dépassées s'afficheraient comme à venir). `aflotAgenda` appelée
+  **sans `days`** rend toute la plage. `.aflot-past` a quitté le `scoped` de `StatCards` pour
+  `assets/app.css`, deux composants la rendant désormais. `AflotAgendaPanel.test.ts`.
 - **Éphéméride du jour** (`components/EphemerideCard.vue`, `lib/ephemeride.ts`, `lib/saints.ts`,
   `composables/useEphemeride.ts`, issue #13) — carte **pleine largeur** placée après `StatCards`,
   quatre tuiles : **Soleil** (lever → coucher, durée du jour et son écart avec la veille, midi
@@ -803,6 +818,7 @@ comme **tâche utilisateur** du Planificateur de tâches DSM (procédure + resta
 - `client/src/lib/navihan.ts`, `client/src/lib/aflotCalibration.ts` — heures Navihan, estimation par
   seuil et étalonnage sur les heures constatées.
 - `client/src/views/Dashboard.vue` + `client/src/components/*.vue` — dashboard.
+- `client/src/components/AflotAgendaPanel.vue` — panneau latéral d'agenda des remises à flot.
 - `client/src/router.ts`, `client/src/views/FishingView.vue`, `client/src/lib/fishing.ts` — carnet
   de pêche.
 - `client/src/components/NavTabs.vue`, `client/src/composables/useMediaQuery.ts` — navigation
