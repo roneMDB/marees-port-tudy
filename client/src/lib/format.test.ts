@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { relativeDayLabel, weekdayIndex } from './format';
+import { relativeDayHint, relativeDayLabel, weekdayIndex } from './format';
 
 describe('relativeDayLabel', () => {
   const today = '2026-07-26';
@@ -20,6 +20,26 @@ describe('relativeDayLabel', () => {
 
   it('falls back to the formatted date for a past day', () => {
     expect(relativeDayLabel('2026-07-25', today)).toBe('sam. 25 juil.');
+  });
+});
+
+describe('relativeDayHint', () => {
+  const today = '2026-07-26';
+
+  it('nomme aujourd’hui et demain', () => {
+    expect(relativeDayHint(today, today)).toBe("aujourd'hui");
+    expect(relativeDayHint('2026-07-27', today)).toBe('demain');
+  });
+
+  // C'est tout l'intérêt du repère : il se tait quand la date est déjà écrite à côté.
+  it('se tait au-delà de demain, plutôt que de formater la date', () => {
+    expect(relativeDayHint('2026-07-28', today)).toBeNull();
+    expect(relativeDayHint('2026-07-25', today)).toBeNull();
+  });
+
+  it('franchit les bornes de mois et d’année', () => {
+    expect(relativeDayHint('2026-08-01', '2026-07-31')).toBe('demain');
+    expect(relativeDayHint('2027-01-01', '2026-12-31')).toBe('demain');
   });
 });
 

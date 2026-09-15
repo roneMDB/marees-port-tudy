@@ -50,14 +50,23 @@ export function todayKey(): string {
 }
 
 /**
+ * Repère relatif d'une date : « aujourd'hui », « demain », sinon `null`. Le `null` sert aux
+ * affichages qui écrivent déjà la date à côté (l'agenda des remises à flot, dont chaque bloc de
+ * jour est titré) : la répéter n'apprendrait rien.
+ */
+export function relativeDayHint(dateKey: string, today: string): string | null {
+  if (dateKey === today) return "aujourd'hui";
+  if (dateKey === addDays(today, 1)) return 'demain';
+  return null;
+}
+
+/**
  * Situe une date par rapport à `today` : « aujourd'hui », « demain », sinon la date formatée.
  * Sert à lever l'ambiguïté d'une heure seule (ex. une remise à flot à 00:49 qui tombe le
  * lendemain se lirait comme une heure déjà passée).
  */
 export function relativeDayLabel(dateKey: string, today: string): string {
-  if (dateKey === today) return "aujourd'hui";
-  if (dateKey === addDays(today, 1)) return 'demain';
-  return formatDate(dateKey);
+  return relativeDayHint(dateKey, today) ?? formatDate(dateKey);
 }
 
 /** Ajoute `days` jours à une date `YYYY-MM-DD` (midi local pour éviter tout décalage). */
