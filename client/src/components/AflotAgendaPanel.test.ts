@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
+import { nextTick } from 'vue';
 import AflotAgendaPanel from './AflotAgendaPanel.vue';
 import { useSettings } from '../composables/useSettings';
 import { resetNowForTests } from '../composables/useNow';
@@ -27,12 +28,17 @@ const tides: FlatTide[] = [
 ];
 
 /**
- * Monte le panneau sur l'instant **simulé courant** : `useNow` est un singleton, et sans ce
- * réalignement un `setSystemTime` posé dans le corps d'un cas n'atteindrait pas le composant.
+ * Monte le panneau **attaché au document** : le composant retrouve son offcanvas par
+ * `getElementById` pour y écouter `show.bs.offcanvas`, et un montage détaché ne poserait jamais
+ * l'écouteur (convention de `StatsPanel.test.ts`). Réaligne au passage `useNow`, singleton qu'un
+ * `setSystemTime` posé dans le corps d'un cas n'atteindrait pas sinon.
  */
+const mounted: ReturnType<typeof mount>[] = [];
 const mountPanel = (allTides = tides) => {
   resetNowForTests();
-  return mount(AflotAgendaPanel, { props: { allTides } });
+  const wrapper = mount(AflotAgendaPanel, { props: { allTides }, attachTo: document.body });
+  mounted.push(wrapper);
+  return wrapper;
 };
 const dayBlocks = (w: ReturnType<typeof mountPanel>) => w.findAll('.agenda-day');
 const slots = (w: ReturnType<typeof mountPanel>) => w.findAll('.agenda-slot');
@@ -49,6 +55,9 @@ describe('AflotAgendaPanel', () => {
   });
 
   afterEach(() => {
+    // Attachés au document, les panneaux y resteraient : deux `#aflotAgendaOffcanvas` dans la page
+    // et `getElementById` rendrait celui d'un cas précédent.
+    mounted.splice(0).forEach(w => w.unmount());
     // Réglages = singleton partagé : on restaure les défauts pour ne pas contaminer les cas suivants.
     useSettings().settings.aFlotDays = 3;
     useSettings().settings.navihan.aFlot = 160;
@@ -133,6 +142,22 @@ describe('AflotAgendaPanel', () => {
     const wrapper = mountPanel();
     expect(slotAt(wrapper, '12:24').get('.agenda-time').classes()).toContain('aflot-past');
     expect(slotAt(wrapper, '13:08').get('.agenda-time').classes()).not.toContain('aflot-past');
+  });
+
+  /*
+   * L'ouverture du panneau est le second déclencheur de `useNow` (avec le retour au premier plan).
+   * Ce cas exige un montage **attaché au document** : détaché, `getElementById` ne trouverait rien
+   * et l'écouteur ne serait jamais posé — le mécanisme resterait alors non exercé.
+   */
+  it('rafraîchit l’instant courant à l’ouverture du panneau', async () => {
+    const wrapper = mountPanel(); // monté à 08:00 : la remise à flot de 12:24 est à venir
+    expect(slotAt(wrapper, '12:24').get('.agenda-time').classes()).not.toContain('aflot-past');
+
+    vi.setSystemTime(new Date('2026-07-26T16:00:00'));
+    document.getElementById('aflotAgendaOffcanvas')?.dispatchEvent(new Event('show.bs.offcanvas'));
+    await nextTick();
+
+    expect(slotAt(wrapper, '12:24').get('.agenda-time').classes()).toContain('aflot-past');
   });
 
   it('annonce une plage vide plutôt qu’une liste blanche', () => {
