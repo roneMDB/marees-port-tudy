@@ -180,7 +180,7 @@ const nextAflotCard = computed(() => {
 </template>
 
 <style scoped>
-/* Une ligne par jour, ce qui rend le repli à N jours net et lisible. */
+/* Une ligne par jour : la troncature se fait en **jours**, et se lit donc au premier coup d'œil. */
 .aflot-list {
   display: flex;
   flex-direction: column;
@@ -191,8 +191,8 @@ const nextAflotCard = computed(() => {
  * Un jour = sa date à gauche, ses horaires à droite. `wrap` est nécessaire : une journée peut
  * porter **trois** remises à flot (quand le décalage fixe de la basse mer de la veille franchit
  * minuit), ce qui déborde de la carte en `col-lg-3` étroite (~230 px vers 992 px de viewport).
- * On passe alors à la ligne plutôt que de rogner un horaire. Le repli tronquant en **jours** et
- * non en pixels, une ligne plus haute est sans conséquence : elle ne décale aucun budget.
+ * On passe alors à la ligne plutôt que de rogner un horaire. La troncature se faisant en **jours**
+ * et non en pixels, une ligne plus haute est sans conséquence : elle ne décale aucun budget.
  */
 .aflot-day {
   display: flex;
@@ -212,5 +212,4 @@ const nextAflotCard = computed(() => {
   flex-wrap: wrap;
   gap: 0.25rem;
 }
-
 </style>

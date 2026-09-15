@@ -574,7 +574,9 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   saines, un jour porte au plus 2 remises à flot. Les heures **déjà passées restent listées,
   estompées** (`.aflot-past`) : la carte est un agenda stable, elle ne se vide pas au fil de la
   journée. Comme cette carte est la plus haute de la rangée, elle **imposerait** sa hauteur : son budget est
-  de **3 lignes** (calé sur les 3 autres cartes), tenu non par un plafond dans le composant mais par
+  de **3 lignes de jours + la ligne du bouton** « Voir l'agenda complet » (celui-ci étant désormais
+  toujours rendu, la carte est au repos un peu plus haute qu'au temps du dépliement — rien ne
+  déborde pour autant), tenu non par un plafond dans le composant mais par
   la **borne du réglage** `aFlotDays` ∈ [1, 3] — `sanitizeSettings` bornant à la **lecture** comme à
   l'écriture, une base antérieure qui stocke 7 ou 14 est servie bornée, sans migration. L'agenda
   complet vit dans **`AflotAgendaPanel`** (cf. ci-dessous), ouvert par un bouton **toujours présent**
@@ -590,9 +592,17 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   jour » serait faux pour un à-flot rangé au lendemain) et la **basse mer Navihan** dont il découle,
   datée de son propre jour et **écrite seulement** quand elle diffère. ⚠️ **Ouvert à tous les
   rôles**, contrairement aux six autres offcanvas, tous admin-only : lire un agenda de marées n'est
-  pas de l'administration. `now` est rafraîchi sur `show.bs.offcanvas` (l'app reste ouverte des
-  heures ; sinon des remises à flot dépassées s'afficheraient comme à venir). `aflotAgenda` appelée
-  **sans `days`** rend toute la plage. `.aflot-past` a quitté le `scoped` de `StatCards` pour
+  pas de l'administration. L'instant courant vient du singleton **`composables/useNow.ts`** (cf.
+  ci-dessous) et le panneau le rafraîchit **en plus** sur `show.bs.offcanvas`. ⚠️ Le test doit
+  monter le composant **`attachTo: document.body`** : détaché, `getElementById` ne trouve pas
+  l'offcanvas et l'écouteur n'est jamais posé — le mécanisme resterait non exercé.
+  `aflotAgenda` appelée **sans `days`** rend toute la plage. ⚠️ La **date longue** d'un bloc de jour
+  est capitalisée **en JS** (seule l'initiale), comme dans `EphemerideCard` et `FishingTripCard` :
+  `text-capitalize` donnerait « Dimanche 26 Juillet », or les mois s'écrivent en minuscules en
+  français, et `text-transform` s'héritant, il débordait aussi sur le repère « · Aujourd'hui ». Le
+  quantième est en `numeric` (« 01 septembre » ne s'écrit pas en prose). La date **courte** de la
+  basse mer, elle, garde `text-capitalize` — c'est l'usage du projet (`StatCards`, `HeightChart`).
+  Tout l'affichage est préparé dans le `computed` (le template n'appelle aucune fonction). `.aflot-past` a quitté le `scoped` de `StatCards` pour
   `assets/app.css`, deux composants la rendant désormais. `AflotAgendaPanel.test.ts`.
 - **Éphéméride du jour** (`components/EphemerideCard.vue`, `lib/ephemeride.ts`, `lib/saints.ts`,
   `composables/useEphemeride.ts`, issue #13) — carte **pleine largeur** placée après `StatCards`,
@@ -724,6 +734,17 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   ligne sous `sm`** (à 4 colonnes sur un téléphone, « 24 km/h O · 4 Bft » se disloque). Le libellé est
   précédé d'une **virgule** et non d'un espace : Vue élague les blancs en début de nœud texte, ce qui
   collait « 3 Bftpetite brise ». `WeatherCard.test.ts`.
+- `src/composables/useNow.ts` — **instant courant partagé** (singleton) : `now` (ref) et
+  `refresh()`. La carte « Prochaine(s) remise(s) à flot » et `AflotAgendaPanel` décrivent **les
+  mêmes heures** — deux instants distincts se contrediraient, et poser un écouteur par composant
+  pour une notion unique serait absurde. Rafraîchi au **retour au premier plan**
+  (`visibilitychange`, comme `useVisitPing`), l'app restant volontiers ouverte des heures : figée
+  sur l'instant du montage, la carte annonçait comme prochaine une remise à flot dépassée depuis
+  le matin. Pas d'intervalle : un agenda ne change qu'aux heures. `resetNowForTests()` réaligne le
+  singleton entre les tests (sur le modèle de `resetWeatherForTests`) — les fixtures de `StatCards`
+  et d'`AflotAgendaPanel` l'appellent au montage, sans quoi un `setSystemTime` posé dans le corps
+  d'un cas n'atteindrait pas le composant. ⚠️ À ne pas confondre avec `useClock` (horloge de la
+  navbar, **par composant**, `setInterval` d'une seconde). `useNow.test.ts`.
 - `src/composables/useTheme.ts` — thème clair/sombre (singleton). Applique `data-bs-theme`
   (mode couleur natif Bootstrap 5.3) sur `<html>`, persiste dans `localStorage`, défaut =
   préférence système. Bascule via le bouton de la navbar ; les graphiques Chart.js lisent
@@ -819,6 +840,7 @@ comme **tâche utilisateur** du Planificateur de tâches DSM (procédure + resta
   seuil et étalonnage sur les heures constatées.
 - `client/src/views/Dashboard.vue` + `client/src/components/*.vue` — dashboard.
 - `client/src/components/AflotAgendaPanel.vue` — panneau latéral d'agenda des remises à flot.
+- `client/src/composables/useNow.ts` — instant courant partagé (carte et panneau).
 - `client/src/router.ts`, `client/src/views/FishingView.vue`, `client/src/lib/fishing.ts` — carnet
   de pêche.
 - `client/src/components/NavTabs.vue`, `client/src/composables/useMediaQuery.ts` — navigation
