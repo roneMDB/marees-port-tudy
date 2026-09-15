@@ -96,6 +96,26 @@ function epochMinutes(date: string, time: string): number {
 }
 
 /**
+ * Première pleine mer **de hauteur exploitable** après `low` : la montante sur laquelle le bateau
+ * se remet à flot. La comparaison porte sur les **instants**, donc une basse mer de fin de soirée
+ * trouve bien sa pleine mer au petit matin du lendemain.
+ *
+ * ⚠️ `lib/aflotCalibration.ts` garde sa propre version : la sienne ajoute un garde
+ * (hauteur de la pleine mer **supérieure** à celle de la basse mer) et son comportement est figé
+ * par la fixture des 18 relevés réels. La mutualiser déplacerait le modèle d'étalonnage sans rien
+ * gagner : le partage s'arrête où les sémantiques divergent.
+ */
+export function nextHighAfter(ptExtremes: FlatTide[], low: FlatTide): FlatTide | null {
+  const lowEpoch = epochMinutes(low.date, low.time);
+  const next = ptExtremes
+    .filter(e => e.type === 'high' && Number.isFinite(e.height))
+    .map(e => ({ e, t: epochMinutes(e.date, e.time) }))
+    .filter(x => x.t > lowEpoch)
+    .sort((p, q) => p.t - q.t)[0];
+  return next ? next.e : null;
+}
+
+/**
  * **Estimation** de remise à flot d'une basse mer, par **modèle seuil de hauteur** (issue #4) —
  * n'est affichée que dans le **tableau du dashboard** (pastille « Estimation ») : instant où la
  * courbe **Port-Tudy** montante (basse mer → pleine mer suivante) atteint le seuil de flottaison du
@@ -121,15 +141,11 @@ export function aflotTimeByThreshold(
 ): { date: string; time: string } | null {
   if (!Number.isFinite(low.height)) return null;
   const lowEpoch = epochMinutes(low.date, low.time);
-  const nextHigh = ptExtremes
-    .filter(e => e.type === 'high' && Number.isFinite(e.height))
-    .map(e => ({ e, t: epochMinutes(e.date, e.time) }))
-    .filter(x => x.t > lowEpoch)
-    .sort((p, q) => p.t - q.t)[0];
+  const nextHigh = nextHighAfter(ptExtremes, low);
   if (!nextHigh) return null;
   const a: OffsetPoint = { offset: lowEpoch, height: low.height };
-  const b: OffsetPoint = { offset: nextHigh.t, height: nextHigh.e.height };
-  const threshold = aflotThresholdFor(nextHigh.e.coefficient, refHeight);
+  const b: OffsetPoint = { offset: epochMinutes(nextHigh.date, nextHigh.time), height: nextHigh.height };
+  const threshold = aflotThresholdFor(nextHigh.coefficient, refHeight);
   const cross = inverseCosineRising(a, b, threshold);
   if (cross == null) return null;
   const dt = new Date(cross * 60000);

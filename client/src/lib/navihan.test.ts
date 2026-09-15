@@ -7,6 +7,7 @@ import {
   DEFAULT_OFFSETS,
   formatOffset,
   nextAflot,
+  nextHighAfter,
   shiftMoment,
   shiftTime
 } from './navihan';
@@ -267,5 +268,44 @@ describe('formatOffset', () => {
     expect(formatOffset(160)).toBe('2h40');
     expect(formatOffset(120)).toBe('2h');
     expect(formatOffset(0)).toBe('0h');
+  });
+});
+
+describe('nextHighAfter', () => {
+  const low = tide('2026-07-26', '09:44', 'low', 2.07);
+
+  it('renvoie la première pleine mer qui suit la basse mer', () => {
+    const tides = [
+      tide('2026-07-26', '03:39', 'high', 3.99), // avant : ignorée
+      tide('2026-07-26', '15:54', 'high', 4.3),
+      tide('2026-07-27', '04:20', 'high', 4.05)
+    ];
+    expect(nextHighAfter(tides, low)?.time).toBe('15:54');
+  });
+
+  // Une basse mer de fin de soirée trouve sa pleine mer au petit matin **du lendemain** : la
+  // comparaison doit porter sur les instants, pas sur les seules heures.
+  it('franchit minuit', () => {
+    const lateLow = tide('2026-07-26', '22:09', 'low', 1.95);
+    const tides = [
+      tide('2026-07-26', '15:54', 'high', 4.3),
+      tide('2026-07-27', '04:20', 'high', 4.05)
+    ];
+    const next = nextHighAfter(tides, lateLow);
+    expect([next?.date, next?.time]).toEqual(['2026-07-27', '04:20']);
+  });
+
+  // Une hauteur manquante rend la pleine mer inexploitable par le modèle de courbe : on prend la
+  // suivante plutôt que de renvoyer une entrée inutilisable.
+  it('ignore une pleine mer sans hauteur exploitable', () => {
+    const tides = [
+      tide('2026-07-26', '15:54', 'high', Number.NaN),
+      tide('2026-07-27', '04:20', 'high', 4.05)
+    ];
+    expect(nextHighAfter(tides, low)?.time).toBe('04:20');
+  });
+
+  it('renvoie null quand aucune pleine mer ne suit', () => {
+    expect(nextHighAfter([tide('2026-07-26', '03:39', 'high', 3.99)], low)).toBeNull();
   });
 });
