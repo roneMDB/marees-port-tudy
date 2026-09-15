@@ -210,6 +210,14 @@ export function nextAflot(tides: FlatTide[], offsets: NavihanOffsets, now: Date)
 export interface AflotTime {
   time: string; // heure `HH:MM`
   past: boolean; // déjà passée par rapport à `now`
+  /** Basse mer **Port-Tudy** dont cette remise à flot découle (pour en citer l'heure Navihan). */
+  basse: FlatTide;
+  /**
+   * Coefficient de la pleine mer **suivante** — la montante qui remet le bateau à flot. Une basse
+   * mer n'en porte pas, et le coefficient « du jour » serait faux au bord : une remise à flot
+   * rangée au lendemain après minuit se verrait attribuer celui d'un jour dont elle ne dépend pas.
+   */
+  coefficient: number | null;
 }
 
 /** Les remises à flot qui ont lieu un jour donné. */
@@ -220,7 +228,8 @@ export interface AflotDay {
 
 /**
  * Agenda des remises à flot (heure « Remise à flot », décalage fixe `aFlot`) sur les `days`
- * premiers jours à partir de celui de `now` (inclus).
+ * premiers jours à partir de celui de `now` (inclus), ou sur **toute la plage
+ * disponible** si `days` est omis.
  *
  * Le regroupement se fait par **date réelle de la remise à flot** : une basse mer tardive dont le
  * décalage franchit minuit voit donc son à-flot rangé au **lendemain**, là où il a effectivement
@@ -233,24 +242,28 @@ export function aflotAgenda(
   tides: FlatTide[],
   offsets: NavihanOffsets,
   now: Date,
-  days: number
+  days?: number
 ): AflotDay[] {
   const today = localDate(now);
   const byDay = new Map<string, AflotTime[]>();
 
   // `aflotEvents` est déjà trié : l'ordre d'insertion des heures est donc chronologique.
-  for (const { dt } of aflotEvents(tides, offsets)) {
+  for (const { dt, basse } of aflotEvents(tides, offsets)) {
     const date = localDate(dt);
     if (date < today) continue;
     const times = byDay.get(date) ?? [];
-    times.push({ time: localTime(dt), past: dt < now });
+    times.push({
+      time: localTime(dt),
+      past: dt < now,
+      basse,
+      coefficient: nextHighAfter(tides, basse)?.coefficient ?? null
+    });
     byDay.set(date, times);
   }
 
-  return Array.from(byDay.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(0, days)
-    .map(([date, times]) => ({ date, times }));
+  const sorted = Array.from(byDay.entries()).sort(([a], [b]) => a.localeCompare(b));
+  // `days` omis → toute la plage disponible (c'est ce dont le panneau latéral a besoin).
+  return (days == null ? sorted : sorted.slice(0, days)).map(([date, times]) => ({ date, times }));
 }
 
 /** Formate des minutes en libellé `XhYY` (ex. 75 → "1h15", 120 → "2h"). */

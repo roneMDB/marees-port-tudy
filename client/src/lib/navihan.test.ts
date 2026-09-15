@@ -241,6 +241,40 @@ describe('aflotAgenda', () => {
     expect(aflotAgenda(tides, offsets, new Date('2026-08-10T00:00:00'), 3)).toEqual([]);
     expect(aflotAgenda([], offsets, new Date('2026-07-26T00:00:00'), 3)).toEqual([]);
   });
+
+  // Le panneau latéral (`AflotAgendaPanel`) liste toute la plage : `days` y est omis.
+  it('liste toute la plage disponible quand `days` est omis', () => {
+    const days = aflotAgenda(tides, offsets, new Date('2026-07-26T00:00:00'));
+    expect(days.map(d => d.date)).toEqual([
+      '2026-07-26',
+      '2026-07-27',
+      '2026-07-28',
+      '2026-07-29'
+    ]);
+  });
+
+  it('porte la basse mer Port-Tudy dont chaque remise à flot découle', () => {
+    const [day26] = aflotAgenda(tides, offsets, new Date('2026-07-26T00:00:00'), 1);
+    expect([day26.times[0].basse.date, day26.times[0].basse.time]).toEqual([
+      '2026-07-26',
+      '09:44'
+    ]);
+  });
+
+  // Une basse mer ne porte pas de coefficient : c'est celui de la **pleine mer suivante**, la
+  // montante sur laquelle on se remet à flot, qui qualifie la remise à flot.
+  it('porte le coefficient de la pleine mer suivante', () => {
+    const withCoef: FlatTide[] = [
+      { date: '2026-07-26', time: '09:44', height: 2.07, type: 'low', coefficient: null, navihan: {} },
+      { date: '2026-07-26', time: '15:54', height: 4.3, type: 'high', coefficient: 48, navihan: {} },
+      { date: '2026-07-26', time: '22:09', height: 1.95, type: 'low', coefficient: null, navihan: {} },
+      { date: '2026-07-27', time: '04:20', height: 4.05, type: 'high', coefficient: 52, navihan: {} }
+    ];
+    const days = aflotAgenda(withCoef, offsets, new Date('2026-07-26T00:00:00'));
+    // 09:44 → coef de la pleine mer de 15:54 ; 22:09 (à-flot le 27) → coef de celle du 27 à 04:20.
+    expect(days[0].times.map(t => t.coefficient)).toEqual([48]);
+    expect(days[1].times.map(t => t.coefficient)).toEqual([52]);
+  });
 });
 
 // L'estimation (seuil de hauteur) n'alimente plus que le tableau : on garde la calibration du
