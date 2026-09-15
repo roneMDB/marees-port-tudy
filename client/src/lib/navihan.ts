@@ -247,16 +247,32 @@ export function aflotAgenda(
   const today = localDate(now);
   const byDay = new Map<string, AflotTime[]>();
 
+  /*
+   * Pleines mers triées **une seule fois**, hors de la boucle. Appeler `nextHighAfter` par basse
+   * mer refiltrait, remappait et retriait l'intégralité des pleines mers à chaque tour — soit
+   * ~28 ms par appel sur les 612 marées de la graine, payés deux fois (carte et panneau) et
+   * rejoués à chaque frappe dans les réglages Navihan. Les basses mers arrivant elles aussi dans
+   * l'ordre (`aflotEvents` est trié et le décalage `aFlot` est constant, donc préserve l'ordre),
+   * un simple curseur qui n'avance jamais en arrière suffit : le parcours devient linéaire.
+   */
+  const highs = tides
+    .filter(e => e.type === 'high' && Number.isFinite(e.height))
+    .map(e => ({ e, t: epochMinutes(e.date, e.time) }))
+    .sort((p, q) => p.t - q.t);
+  let cursor = 0;
+
   // `aflotEvents` est déjà trié : l'ordre d'insertion des heures est donc chronologique.
   for (const { dt, basse } of aflotEvents(tides, offsets)) {
     const date = localDate(dt);
+    const lowEpoch = epochMinutes(basse.date, basse.time);
+    while (cursor < highs.length && highs[cursor].t <= lowEpoch) cursor++;
     if (date < today) continue;
     const times = byDay.get(date) ?? [];
     times.push({
       time: localTime(dt),
       past: dt < now,
       basse,
-      coefficient: nextHighAfter(tides, basse)?.coefficient ?? null
+      coefficient: highs[cursor]?.e.coefficient ?? null
     });
     byDay.set(date, times);
   }
