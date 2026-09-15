@@ -269,3 +269,9 @@ button.navihan-toggle:hover .navihan-toggle-label {
 .navihan-toggle--off .navihan-toggle-label {
   text-decoration: line-through;
 }
+
+/* Remise à flot déjà passée : listée mais estompée, pour garder un agenda stable sur la journée.
+   Globale (pas `scoped`) : la carte `StatCards` **et** le panneau `AflotAgendaPanel` la rendent. */
+.aflot-past {
+  opacity: 0.55;
+}

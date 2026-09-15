@@ -229,8 +229,4 @@ const nextAflotCard = computed(() => {
   gap: 0.25rem;
 }
 
-/* Heure déjà passée : listée mais estompée, pour garder un agenda stable sur la journée. */
-.aflot-past {
-  opacity: 0.55;
-}
 </style>
