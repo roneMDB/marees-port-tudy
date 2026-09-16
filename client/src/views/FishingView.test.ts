@@ -161,12 +161,14 @@ describe('FishingView', () => {
     expect(wrapper.find('form').exists()).toBe(true);
   });
 
-  it('masque « Nouvelle sortie » hors admin', async () => {
+  it('masque « Nouvelle sortie » hors admin, mais garde le bilan', async () => {
     isAdminRef().value = false;
     getTripsMock.mockResolvedValue([]);
     const wrapper = mount(FishingView);
     await flushPromises();
     expect(wrapper.find('[data-test="new-trip"]').exists()).toBe(false);
+    // Lire un bilan de ses propres sorties n'est pas de l'administration.
+    expect(wrapper.find('[data-test="stats"]').exists()).toBe(true);
   });
 
   it('charge les marées Port-Tudy sur une plage couvrant sorties et fenêtre de saisie', async () => {

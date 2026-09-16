@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import FishingTripCard from '../components/FishingTripCard.vue';
 import FishingTripForm from '../components/FishingTripForm.vue';
+import FishingStatsPanel from '../components/FishingStatsPanel.vue';
 import { useFishing } from '../composables/useFishing';
 import { useFishingRefs } from '../composables/useFishingRefs';
 import { useSettings } from '../composables/useSettings';
@@ -115,15 +116,27 @@ async function onRemove(id: number): Promise<void> {
   <div class="container-xxl py-3">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h1 class="h4 mb-0"><i class="bi bi-bucket me-2"></i>Carnet de pêche</h1>
-      <button
-        v-if="isAdmin"
-        type="button"
-        class="btn btn-primary btn-sm"
-        data-test="new-trip"
-        @click="openNew"
-      >
-        <i class="bi bi-plus-lg me-1"></i>Nouvelle sortie
-      </button>
+      <div class="d-flex gap-2">
+        <!-- Le bilan est ouvert à tous les rôles : le lire n'est pas de l'administration. -->
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm"
+          data-test="stats"
+          data-bs-toggle="offcanvas"
+          data-bs-target="#fishingStatsOffcanvas"
+        >
+          <i class="bi bi-bar-chart-line me-1"></i>Bilan
+        </button>
+        <button
+          v-if="isAdmin"
+          type="button"
+          class="btn btn-primary btn-sm"
+          data-test="new-trip"
+          @click="openNew"
+        >
+          <i class="bi bi-plus-lg me-1"></i>Nouvelle sortie
+        </button>
+      </div>
     </div>
 
     <div v-if="actionError" class="alert alert-warning py-2 small" role="alert">
@@ -166,5 +179,7 @@ async function onRemove(id: number): Promise<void> {
       @edit="openEdit"
       @remove="onRemove"
     />
+
+    <FishingStatsPanel :trips="trips" :refs="refs" :tides="tides" />
   </div>
 </template>

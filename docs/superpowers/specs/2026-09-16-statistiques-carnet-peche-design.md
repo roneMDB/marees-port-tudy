@@ -17,12 +17,12 @@ Rien ne dit donc ce qui a été pris en tout, ni si boëtter change quelque chos
 qu'un carnet sert à savoir, et toutes les données sont déjà là : le contexte de marée lui-même est
 recalculé depuis la date (`tripTideContext`), sans rien stocker.
 
-État de la base au moment du design : **11 sorties, 19 prises saisies, 115 individus** (dont
+État de la base au moment du design : **11 sorties, 19 prises saisies, 118 individus** (dont
 96 crevettes bouquet), 6 sorties boëttées contre 5, `size_cm` / `weight_g` **jamais** renseignés.
 
 ## 2. Le piège central : les espèces ne se somment pas
 
-19 prises saisies font 115 individus, dont 96 crevettes. Toute moyenne « prises par sortie » calculée
+19 prises saisies font 118 individus, dont 96 crevettes. Toute moyenne « prises par sortie » calculée
 sur un total toutes espèces confondues serait, en pratique, **un compteur de crevettes** : une sortie
 à 25 crevettes pèserait vingt-cinq fois une sortie à un homard, et la comparaison « boëtté ou non »
 ne mesurerait plus que le casier à crevettes.

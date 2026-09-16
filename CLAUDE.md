@@ -720,6 +720,28 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   La vue charge les marées **Port-Tudy** sur une plage couvrant les sorties **et** la fenêtre de
   pré-remplissage (± 7 j) ; horaires indisponibles, les cartes disent « marée inconnue » au lieu de
   faire échouer la page.
+- **Bilan de pêche** (`components/FishingStatsPanel.vue`, `lib/fishingStats.ts`) — panneau
+  (offcanvas) ouvert par le bouton « Bilan » de l'en-tête du carnet, **ouvert à tous les rôles**
+  comme `AflotAgendaPanel` : lire un bilan de ses propres sorties n'est pas de l'administration.
+  **Sans état** — `{ trips, refs, tides }` en props, tout en `computed` : `useFishing` a déjà chargé
+  **toutes** les sorties et la vue les marées Port-Tudy, donc ni chargement ni écouteur
+  `show.bs.offcanvas` (ce qui le distingue de `StatsPanel`, qui doit interroger `/api/stats`).
+  ⚠️ **« Prises » et « individus » sont deux chiffres distincts, et aucune comparaison ne porte sur
+  un total toutes espèces mêlées** : 19 prises saisies font 118 individus dont 96 crevettes, donc
+  une moyenne « prises par sortie » serait en réalité un compteur de crevettes, et le croisement
+  « boëtté ou non » ne mesurerait plus que le casier à crevettes. Les six croisements
+  (`buildDimensions` : boëtte, bande de coefficient via `coefBand`, mois, vent `beaufort`,
+  température de l'eau, ciel WMO) rendent donc des moyennes **par espèce**, en colonnes — les
+  **3 premières** du classement, au-delà la table devient illisible. Chaque ligne porte son
+  effectif `n` et le bloc s'ouvre sur un avertissement : à 11 sorties rien n'est prouvé, et
+  **aucun test de significativité n'est calculé**, qui donnerait une autorité que ces effectifs
+  n'ont pas. Une sortie que la dimension ne sait pas classer (`weather` `null` — la capture est
+  best-effort — ou jour hors des horaires connus) est comptée et **écrite sous la table**, jamais
+  escamotée. ⚠️ Le classement prend le pluriel dans le **référentiel** et un id disparu s'affiche
+  brut, comme `summarizeCatches` ; `dayCoefficient` a été **exportée** de `lib/fishing.ts` plutôt
+  que réécrite. Pas de Chart.js : quelques barres horizontales en CSS ne le justifient pas (même
+  arbitrage que `MiniBars`). Spec :
+  `docs/superpowers/specs/2026-09-16-statistiques-carnet-peche-design.md`.
 - `Dashboard.vue` affiche un encart explicatif : heures **Port-Tudy** = référence, le but est
   d'en déduire les heures **Navihan** (basse mer, pleine mer, « remise à flot »).
 - `src/composables/useWeather.ts` — **météo partagée** (singleton) : `weather`/`loading`/`error`,
@@ -843,6 +865,8 @@ comme **tâche utilisateur** du Planificateur de tâches DSM (procédure + resta
 - `client/src/composables/useNow.ts` — instant courant partagé (carte et panneau).
 - `client/src/router.ts`, `client/src/views/FishingView.vue`, `client/src/lib/fishing.ts` — carnet
   de pêche.
+- `client/src/lib/fishingStats.ts`, `client/src/components/FishingStatsPanel.vue` — bilan du
+  carnet de pêche (agrégats purs, panneau latéral).
 - `client/src/components/NavTabs.vue`, `client/src/composables/useMediaQuery.ts` — navigation
   par onglets (barre du bas sur mobile, segment dans la navbar au-delà de `sm`).
 - Tests : `server/src/**/*.test.ts` (Vitest + supertest), `client/src/**/*.test.ts`

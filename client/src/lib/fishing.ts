@@ -15,7 +15,7 @@ function localTime(dt: Date): string {
 }
 
 /** Coefficient d'un jour = le plus fort de ses pleines mers (les basses mers n'en portent pas). */
-function dayCoefficient(tides: FlatTide[], date: string): number | null {
+export function dayCoefficient(tides: FlatTide[], date: string): number | null {
   const coefs = tides
     .filter(t => t.date === date && t.coefficient != null)
     .map(t => t.coefficient as number);
