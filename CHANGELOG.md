@@ -3,6 +3,41 @@
 Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
 conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [1.8.2] — 16/09/2026
+
+### Fonctionnalités
+
+- **now** — Composable useNow partagé par la carte et le panneau
+- **settings** — Borne aFlotDays au budget de la carte (1-3)
+- **aflot** — La carte ouvre le panneau d'agenda au lieu de se déplier
+- **aflot** — Panneau latéral listant toutes les remises à flot
+- **navihan** — AflotAgenda sans plafond, avec basse mer et coefficient
+
+### Corrections
+
+- **aflot** — Capitalise la date longue en JS et prépare le view-model du panneau
+
+### Performances
+
+- **navihan** — AflotAgenda cesse de retrier les pleines mers par basse mer
+
+### Refontes internes
+
+- **format** — Extrait relativeDayHint de relativeDayLabel
+- **navihan** — Extrait nextHighAfter de aflotTimeByThreshold
+
+### Documentation
+
+- **aflot** — Met la carte du projet à jour et nettoie les commentaires périmés
+- **aflot** — Consigne le panneau d'agenda et le budget de la carte
+- **aflot** — Plan d'implémentation du panneau d'agenda
+- **aflot** — Corrige le bornage d'aFlotDays (sanitize aussi à la lecture)
+- **aflot** — Spec du panneau latéral d'agenda des remises à flot
+
+### Tests
+
+- **aflot** — Exerce le rafraîchissement de now à l'ouverture du panneau
+- Corrige l'assertion du test de clampage aFlotDays
 ## [1.8.1] — 14/09/2026
 
 ### Corrections
