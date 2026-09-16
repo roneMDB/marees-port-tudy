@@ -3,6 +3,15 @@
 Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
 conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [1.9.0] — 16/09/2026
+
+### Fonctionnalités
+
+- **peche** — Bilan du carnet dans un panneau latéral
+
+### Documentation
+
+- **peche** — Spec des statistiques du carnet
 ## [1.8.2] — 16/09/2026
 
 ### Fonctionnalités
