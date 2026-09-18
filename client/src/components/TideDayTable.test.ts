@@ -135,8 +135,9 @@ describe('TideDayTable', () => {
 
   it('annonce le coefficient dans la légende de lecture des marées', () => {
     const wrapper = mount(TideDayTable, { props: { tides } });
-    expect(wrapper.text()).toContain("hauteur d'eau (m)");
-    expect(wrapper.text()).toContain('coefficient (pleines mers)');
+    const legende = wrapper.find('div.small.text-muted.px-3.pt-2').text();
+    expect(legende).toContain("hauteur d'eau (m)");
+    expect(legende).toMatch(/coef\s+coefficient \(pleines mers\)/);
   });
 
   it('renders the Navihan column with basse mer, à flot and pleine mer times', () => {

@@ -183,7 +183,7 @@ const hiddenCount = computed(() => allRows.value.length - rows.value.length);
   <div class="small text-muted px-3 pt-2">
     Chaque marée : <span class="fw-semibold text-body">heure</span>
     · <i class="bi bi-water text-primary"></i> <span class="text-body">hauteur d'eau (m)</span>
-    · <span class="text-body">coef</span> <span>coefficient (pleines mers)</span>
+    · <span class="fw-semibold text-body">coef</span> <span>coefficient (pleines mers)</span>
   </div>
   <!--
     Légende **statique** : c'est la clé de lecture des pastilles, elle doit rester visible sans
