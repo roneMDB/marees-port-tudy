@@ -95,9 +95,42 @@ describe('TideDayTable', () => {
 
   it('shows the day coefficient as the max of the day highs', () => {
     const wrapper = mount(TideDayTable, { props: { tides } });
-    const firstRow = wrapper.findAll('tbody tr')[0].text();
-    expect(firstRow).toContain('71');
-    expect(firstRow).not.toContain('69'); // seul le max est affiché
+    // Assertion portée sur la **cellule** et non sur la ligne : depuis que chaque pleine mer
+    // affiche son propre coefficient, 69 apparaît légitimement dans « Pleines mers ».
+    const coef = wrapper.findAll('tbody tr')[0].find('td[data-label="Coef"]').text();
+    expect(coef).toContain('71');
+    expect(coef).not.toContain('69'); // la colonne Coef ne montre que le max du jour
+  });
+
+  it('affiche le coefficient de chaque pleine mer, et pas seulement le max du jour', () => {
+    const wrapper = mount(TideDayTable, { props: { tides } });
+    const row = wrapper.findAll('tbody tr').find(r => r.text().includes('22 juil.'))!;
+    const highs = row.find('td[data-label="Pleines mers"]').text();
+    expect(highs).toContain('coef 71'); // pleine mer de 07:10
+    expect(highs).toContain('coef 69'); // pleine mer de 19:18, masquée jusqu'ici par le max du jour
+  });
+
+  it("n'affiche aucun coefficient sur les basses mers", () => {
+    const wrapper = mount(TideDayTable, { props: { tides } });
+    const row = wrapper.findAll('tbody tr').find(r => r.text().includes('22 juil.'))!;
+    expect(row.find('td[data-label="Basses mers"]').text()).not.toContain('coef');
+  });
+
+  it("n'écrit rien pour une pleine mer dont le coefficient est absent", () => {
+    // Les graines sont complètes aujourd'hui, mais `check-tides` a déjà trouvé des journées
+    // trouées : l'absence doit rester silencieuse, sans « coef — ».
+    const sansCoef: FlatTide[] = [
+      {
+        date: '2026-07-22', time: '07:10', height: 4.44, type: 'high', coefficient: null,
+        navihan: { 'Pleine mer': '08:25' }
+      }
+    ];
+    const wrapper = mount(TideDayTable, { props: { tides: sansCoef } });
+    const highs = wrapper.find('td[data-label="Pleines mers"]').text();
+    expect(highs).toContain('07:10');
+    expect(highs).toContain('4.44 m');
+    expect(highs).not.toContain('coef');
+    expect(highs).not.toContain('—');
   });
 
   it('renders the Navihan column with basse mer, à flot and pleine mer times', () => {

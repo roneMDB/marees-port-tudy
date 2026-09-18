@@ -264,6 +264,17 @@ const hiddenCount = computed(() => allRows.value.length - rows.value.length);
                 <span class="text-muted small ms-1" title="Hauteur d'eau">
                   <i class="bi bi-water"></i> {{ formatHeight(h.height) }}
                 </span>
+                <!--
+                  Le coefficient est une propriété de **cette pleine mer**, pas du jour : la colonne
+                  « Coef » n'en montre que le maximum (`groupByDay`), or 143 des 153 jours de la
+                  graine en portent deux, avec un écart médian de 4 points. Écrit ici comme la
+                  hauteur, à côté de la marée qu'il décrit. Absent → rien, jamais « coef — ».
+                -->
+                <span
+                  v-if="h.coefficient != null"
+                  class="text-muted small ms-1"
+                  title="Coefficient de marée"
+                >coef {{ h.coefficient }}</span>
               </span>
             </span>
           </td>
