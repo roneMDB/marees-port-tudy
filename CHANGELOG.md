@@ -3,6 +3,28 @@
 Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
 conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [1.9.1] — 19/09/2026
+
+### Fonctionnalités
+
+- **tableau** — Une pastille de coefficient par pleine mer
+- **tableau** — Annonce le coefficient dans la légende des marées
+- **tableau** — Affiche le coefficient de chaque pleine mer
+
+### Corrections
+
+- **docs** — Corrige le nombre de tests citant le sélecteur data-label
+- **tableau** — Dit en légende que la pastille Coef est un maximum
+- **tableau** — Raccourcit le qualificatif de l'en-tête « Coef »
+- **tableau** — Nomme le max du jour, espace le coef et durcit son test
+- **tableau** — Durcit le test de légende et met « coef » en gras
+
+### Documentation
+
+- **tableau** — Documente la clé de lecture de la pastille Coef
+- Met la carte du projet à jour pour le coefficient par pleine mer
+- **tableau** — Plan d'implémentation du coefficient par pleine mer
+- **tableau** — Spec du coefficient par pleine mer
 ## [1.9.0] — 16/09/2026
 
 ### Fonctionnalités
