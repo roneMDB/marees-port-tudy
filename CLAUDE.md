@@ -786,8 +786,19 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
 - Tableau `TideDayTable.vue` — **une ligne par jour** (`lib/tides.groupByDay`, pure/testée).
   Colonnes = **Jour · Coef · Pleines mers · Basses mers · Navihan · Constaté**. Chaque cellule
   Pleines/Basses mers liste les marées du **port sélectionné** en `HH:MM · 🌊 h,hh m` (heure +
-  hauteur d'eau inline, icône `bi-water` + légende) ; le **Coef** du jour = max des coef des pleines
-  mers (Port-Tudy). La colonne **Navihan** (dérivée Port-Tudy) affiche des **pastilles triées par
+  hauteur d'eau inline, icône `bi-water` + légende) ; **chaque pleine mer porte en plus son propre
+  coefficient** (`coef 71`, absent → rien, jamais « coef — »), une basse mer n'en ayant pas. La
+  colonne **Coef** garde, elle, le **max des coef des pleines mers** du jour : c'est le miroir du
+  filtre « Coef min/max », qui sélectionne des lignes sur ce max. ⚠️ Le maximum apparaît donc deux
+  fois par ligne — redondance **assumée**, la pastille colorée restant le repère de balayage
+  vertical. La légende de tête reprend le mot : « coef » y est en `fw-semibold`, **comme** « heure »
+  — c'est le littéral affiché, pas son explication. Corollaire pour les tests : une assertion sur un
+  coefficient doit cibler `td[data-label="Coef"]` et non le texte de la ligne, où les deux
+  coefficients sont désormais écrits ; et le test de légende cible le bloc
+  `div.small.text-muted.px-3.pt-2` en assérant l'espacement par
+  `toMatch(/coef\s+coefficient \(pleines mers\)/)` — un `toContain` **resterait vert** si « coef »
+  se collait à son explication, le piège des blancs élagués par Vue déjà rencontré sur `WeatherCard`
+  (« 3 Bftpetite brise »). La colonne **Navihan** (dérivée Port-Tudy) affiche des **pastilles triées par
   heure**, une par **type affichable** (`useNavihanDisplay`, 5 types masquables **depuis
   `TideFiltersBar`**, persistés localStorage) : basse mer (↓), **Remise à flot** fixe (✓ vert),
   **Estimation** seuil (↗ cyan), **Constaté** (violet) et pleine mer (↑). **Chaque pastille est
