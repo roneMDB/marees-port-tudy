@@ -209,7 +209,7 @@ const hiddenCount = computed(() => allRows.value.length - rows.value.length);
       <thead class="table-dark">
         <tr>
           <th>Jour</th>
-          <th>Coef <span class="fw-normal opacity-75">· max du jour</span></th>
+          <th>Coef <span class="fw-normal opacity-75">· max</span></th>
           <th>Pleines mers <span class="fw-normal opacity-75">· {{ siteLabel }}</span></th>
           <th>Basses mers <span class="fw-normal opacity-75">· {{ siteLabel }}</span></th>
           <th class="fw-bold">
