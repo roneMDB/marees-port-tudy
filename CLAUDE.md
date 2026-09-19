@@ -791,11 +791,21 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   colonne **Coef** garde, elle, le **max des coef des pleines mers** du jour : c'est le miroir du
   filtre « Coef min/max », qui sélectionne des lignes sur ce max. ⚠️ Le maximum apparaît donc deux
   fois par ligne — redondance **assumée**, la pastille colorée restant le repère de balayage
-  vertical. La légende de tête reprend le mot : « coef » y est en `fw-semibold`, **comme** « heure »
-  — c'est le littéral affiché, pas son explication. Corollaire pour les tests : une assertion sur un
-  coefficient doit cibler `td[data-label="Coef"]` et non le texte de la ligne, où les deux
-  coefficients sont désormais écrits ; et le test de légende cible le bloc
-  `div.small.text-muted.px-3.pt-2` en assérant l'espacement par
+  vertical. Deux endroits disent que cette pastille **est un maximum**, et il en faut bien deux :
+  l'en-tête `<th>` porte « Coef **· max** », mais ⚠️ **sous 768 px `app.css` masque le `thead`** et
+  reconstruit les libellés depuis `data-label` — l'en-tête n'existe donc pas sur téléphone, là où
+  cette PWA est le plus utilisée. La **légende** porte pour cela une seconde ligne, « Pastille
+  **Coef** : le plus fort des coefficients du jour », visible aux deux largeurs. Sans elle, le
+  filtre « Coef min/max » se lisait comme défaillant sur mobile : une ligne retenue à `minCoef = 70`
+  affiche un `coef 69`, qui est **correct** (le filtre est au grain du **jour**, cf. issue #10) mais
+  inexplicable. ⚠️ Ne pas « unifier » en mettant le qualificatif dans `data-label="Coef"` : cinq
+  tests s'en servent comme **sélecteur**. La légende de tête reprend le mot : « coef » y est en
+  `fw-semibold`, **comme** « heure » — c'est le littéral affiché, pas son explication. Corollaire
+  pour les tests : une assertion sur un coefficient doit cibler `td[data-label="Coef"]` et non le
+  texte de la ligne, où les deux coefficients sont désormais écrits ; la clé de lecture de la
+  pastille a un crochet **stable**, `.tide-legend-coef` (patron de `.navihan-legend`) ; et le test
+  de légende cible, lui, le bloc `div.small.text-muted.px-3.pt-2` — **pile d'utilitaires Bootstrap
+  à ne pas imiter**, elle casse à la première retouche de marge — en assérant l'espacement par
   `toMatch(/coef\s+coefficient \(pleines mers\)/)` — un `toContain` **resterait vert** si « coef »
   se collait à son explication, le piège des blancs élagués par Vue déjà rencontré sur `WeatherCard`
   (« 3 Bftpetite brise »). La colonne **Navihan** (dérivée Port-Tudy) affiche des **pastilles triées par
