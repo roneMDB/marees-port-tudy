@@ -89,35 +89,43 @@ describe('TideDayTable', () => {
     const text = wrapper.text();
     expect(text).toContain('07:10');
     expect(text).toContain('4.44 m'); // hauteur inline
-    expect(text).toContain('71'); // coef du jour = max(71, 69)
+    expect(text).toContain('71'); // coefficient de la pleine mer de 07:10 (pastille)
     expect(wrapper.find('thead').text()).toContain('Port-Tudy');
-  });
-
-  it('shows the day coefficient as the max of the day highs', () => {
-    const wrapper = mount(TideDayTable, { props: { tides } });
-    // Assertion portée sur la **cellule** et non sur la ligne : depuis que chaque pleine mer
-    // affiche son propre coefficient, 69 apparaît légitimement dans « Pleines mers ».
-    const coef = wrapper.findAll('tbody tr')[0].find('td[data-label="Coef"]').text();
-    expect(coef).toContain('71');
-    expect(coef).not.toContain('69'); // la colonne Coef ne montre que le max du jour
   });
 
   it('affiche le coefficient de chaque pleine mer, et pas seulement le max du jour', () => {
     const wrapper = mount(TideDayTable, { props: { tides } });
     const row = wrapper.findAll('tbody tr').find(r => r.text().includes('22 juil.'))!;
     const highs = row.find('td[data-label="Pleines mers"]').text();
-    expect(highs).toContain('coef 71'); // pleine mer de 07:10
-    expect(highs).toContain('coef 69'); // pleine mer de 19:18, masquée jusqu'ici par le max du jour
+    expect(highs).toContain('71'); // pleine mer de 07:10
+    expect(highs).toContain('69'); // pleine mer de 19:18, masquée jusqu'ici par le max du jour
   });
 
-  it('sépare la hauteur et le coefficient par un espace dans la cellule « Pleines mers »', () => {
-    // Même famille de défaut que « 3 Bftpetite brise » sur WeatherCard : un saut de ligne dans le
-    // template entre deux `<span>` est supprimé par Vue, et un `toContain('coef 71')` ne le
-    // détecterait pas (il matche tout aussi bien dans « 4.44 mcoef 71 »).
+  it('affiche le coefficient de chaque pleine mer sous forme de pastille séparée, pas de texte concaténé', () => {
+    // Remplace l'ancien test d'espacement (« 4.44 m coef 71 ») : la forme n'est plus un texte
+    // accolé à la hauteur mais une pastille distincte (même patron que l'ex-colonne « Coef »).
+    // Ce qui compte désormais n'est plus l'espace dans une chaîne de texte, mais que le
+    // coefficient de CHAQUE pleine mer soit porté par son propre élément `.badge`.
     const wrapper = mount(TideDayTable, { props: { tides } });
     const row = wrapper.findAll('tbody tr').find(r => r.text().includes('22 juil.'))!;
-    const highs = row.find('td[data-label="Pleines mers"]').text();
-    expect(highs).toMatch(/4\.44 m\s+coef 71/);
+    const badges = row.find('td[data-label="Pleines mers"]').findAll('.badge.rounded-pill');
+    expect(badges).toHaveLength(2); // une pastille par pleine mer (07:10 et 19:18)
+    expect(badges[0].text()).toBe('71');
+    expect(badges[1].text()).toBe('69');
+  });
+
+  it('colore chaque pastille selon la bande de son propre coefficient', () => {
+    // Deux pleines mers de bandes différentes (97 → Grande vive-eau, 93 → Vive-eau) : leurs
+    // pastilles doivent porter des classes de couleur distinctes, preuve que la bande est
+    // recalculée par pleine mer et non plus une seule fois pour le jour.
+    const bandes: FlatTide[] = [
+      { date: '2026-08-01', time: '07:00', height: 5.1, type: 'high', coefficient: 97, navihan: {} },
+      { date: '2026-08-01', time: '19:00', height: 4.8, type: 'high', coefficient: 93, navihan: {} }
+    ];
+    const wrapper = mount(TideDayTable, { props: { tides: bandes } });
+    const badges = wrapper.find('td[data-label="Pleines mers"]').findAll('.badge.rounded-pill');
+    expect(badges).toHaveLength(2);
+    expect(badges[0].classes()).not.toEqual(badges[1].classes());
   });
 
   it("n'affiche aucun coefficient sur les basses mers", () => {
@@ -125,16 +133,18 @@ describe('TideDayTable', () => {
     // Port-Tudy, 0/476 à Étel), mais le test vise le **template** (la cellule « Basses mers » ne
     // doit pas reprendre le rendu du coefficient), pas la propreté des données — un `coefficient:
     // null` sur toutes les basses mers de `tides` laisserait passer un copier-coller du fragment
-    // (v-if compris) depuis « Pleines mers ».
+    // (v-if compris) depuis « Pleines mers ». Vérifié sur l'élément `.badge` (et plus la sous-chaîne
+    // « coef », qui n'existe plus dans le rendu) : c'est l'apparition d'une pastille qui trahirait le
+    // copier-coller.
     const sansGarde: FlatTide[] = tides.map(t => (t === tides[2] ? { ...t, coefficient: 71 } : t));
     const wrapper = mount(TideDayTable, { props: { tides: sansGarde } });
     const row = wrapper.findAll('tbody tr').find(r => r.text().includes('22 juil.'))!;
-    expect(row.find('td[data-label="Basses mers"]').text()).not.toContain('coef');
+    expect(row.find('td[data-label="Basses mers"]').find('.badge').exists()).toBe(false);
   });
 
   it("n'écrit rien pour une pleine mer dont le coefficient est absent", () => {
     // Les graines sont complètes aujourd'hui, mais `check-tides` a déjà trouvé des journées
-    // trouées : l'absence doit rester silencieuse, sans « coef — ».
+    // trouées : l'absence doit rester silencieuse, sans pastille vide ni « — ».
     const sansCoef: FlatTide[] = [
       {
         date: '2026-07-22', time: '07:10', height: 4.44, type: 'high', coefficient: null,
@@ -142,28 +152,18 @@ describe('TideDayTable', () => {
       }
     ];
     const wrapper = mount(TideDayTable, { props: { tides: sansCoef } });
-    const highs = wrapper.find('td[data-label="Pleines mers"]').text();
-    expect(highs).toContain('07:10');
-    expect(highs).toContain('4.44 m');
-    expect(highs).not.toContain('coef');
-    expect(highs).not.toContain('—');
+    const cell = wrapper.find('td[data-label="Pleines mers"]');
+    expect(cell.text()).toContain('07:10');
+    expect(cell.text()).toContain('4.44 m');
+    expect(cell.find('.badge').exists()).toBe(false);
+    expect(cell.text()).not.toContain('—');
   });
 
-  it('annonce le coefficient dans la légende de lecture des marées', () => {
+  it('annonce la pastille de coefficient dans la légende de lecture des marées', () => {
     const wrapper = mount(TideDayTable, { props: { tides } });
     const legende = wrapper.find('div.small.text-muted.px-3.pt-2').text();
     expect(legende).toContain("hauteur d'eau (m)");
-    expect(legende).toMatch(/coef\s+coefficient \(pleines mers\)/);
-  });
-
-  it('annonce que la pastille Coef est le maximum du jour', () => {
-    // Cette clé de lecture ne peut PAS vivre dans l'en-tête : sous 768 px, `app.css` masque le
-    // `thead` et régénère les libellés depuis `data-label`, donc le « · max » du `<th>` n'existe
-    // pas sur téléphone — là où cette PWA est le plus utilisée. La légende, elle, reste visible
-    // aux deux largeurs. Crochet de classe stable plutôt qu'une pile d'utilitaires Bootstrap.
-    const wrapper = mount(TideDayTable, { props: { tides } });
-    const cle = wrapper.find('.tide-legend-coef').text();
-    expect(cle).toMatch(/Pastille\s+Coef\s*:\s*le plus fort des coefficients du jour/);
+    expect(legende).toMatch(/pastille\s+coefficient \(pleines mers\)/);
   });
 
   it('renders the Navihan column with basse mer, à flot and pleine mer times', () => {
@@ -432,7 +432,9 @@ describe('TideDayTable — filtres d’affichage au grain du jour', () => {
     const row = wrapper.findAll('tbody tr').find(r => r.text().includes('22 juil.'))!;
     expect(row.find('td[data-label="Basses mers"]').text()).toContain('01:39');
     expect(row.find('td[data-label="Navihan"]').text()).toContain('04:19'); // remise à flot
-    expect(row.find('td[data-label="Coef"]').text()).toContain('71');
+    // Le coefficient (qui sert au filtre) n'a plus de colonne dédiée : la ligne est retenue
+    // à cause de lui, mais reste vérifiée là où il s'affiche désormais (pastille par pleine mer).
+    expect(row.find('td[data-label="Pleines mers"]').text()).toContain('71');
   });
 
   it('annonce le nombre de jours masqués et permet de réinitialiser', async () => {
@@ -477,7 +479,7 @@ describe('TideDayTable — filtres d’affichage au grain du jour', () => {
     const row23 = wrapper.findAll('tbody tr').find(r => r.text().includes('23 juil.'))!;
     expect(row23.find('td[data-label="Navihan"]').text()).not.toContain('09:02');
     expect(row23.find('td[data-label="Basses mers"]').text()).toContain('06:22');
-    expect(row23.find('td[data-label="Coef"]').text()).toContain('35');
+    expect(row23.find('td[data-label="Pleines mers"]').text()).toContain('35');
   });
 
   it('emporte l’estimation et la colonne « Constaté » de l’à-flot masqué', () => {

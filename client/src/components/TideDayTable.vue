@@ -167,11 +167,18 @@ function constateRows(day: DayTides): { low: FlatTide; flot: string }[] {
  * La liste plate `props.tides` n'est volontairement **pas** filtrée en amont — `navihanByDate` et
  * `constateByDate` s'y construisent, donc les heures d'un jour masqué (ou du jour d'amorce) qui
  * franchissent minuit restent rendues sur le jour visible suivant.
+ * `day.coefficient` (le max du jour) reste calculé par `groupByDay` et sert **uniquement** au
+ * filtre « Coef min/max » (`matchesDayFilters`) : il n'est plus affiché comme tel — chaque pleine
+ * mer porte désormais sa propre pastille (`highBands`), construite ici pour que le template
+ * n'appelle jamais `coefBand()` lui-même.
  */
 const rows = computed(() =>
   allRows.value
     .filter(day => matchesDayFilters({ coefficient: day.coefficient, weekday: weekdayIndex(day.date) }, filters))
-    .map(day => ({ day, band: coefBand(day.coefficient) }))
+    .map(day => ({
+      day,
+      highBands: day.highs.map(h => coefBand(h.coefficient))
+    }))
 );
 
 // Un filtre est **persisté** : sans ce compteur, on reviendrait sur un tableau tronqué sans savoir
@@ -183,18 +190,7 @@ const hiddenCount = computed(() => allRows.value.length - rows.value.length);
   <div class="small text-muted px-3 pt-2">
     Chaque marée : <span class="fw-semibold text-body">heure</span>
     · <i class="bi bi-water text-primary"></i> <span class="text-body">hauteur d'eau (m)</span>
-    · <span class="fw-semibold text-body">coef</span> <span>coefficient (pleines mers)</span>
-  </div>
-  <!--
-    La clé de lecture de la **pastille** ne peut pas vivre dans le `<th>` : sous 768 px, `app.css`
-    masque le `thead` et reconstruit les libellés depuis `data-label`, si bien que le « · max » de
-    l'en-tête n'existe pas sur téléphone — là où cette PWA est le plus utilisée. Une ligne dans la
-    légende, visible aux deux largeurs, dit ce que l'en-tête ne peut dire qu'au bureau. Crochet de
-    classe **stable** (`.tide-legend-coef`) plutôt qu'une pile d'utilitaires Bootstrap : un test
-    qui cible `div.small.text-muted.px-3.pt-2` casse dès qu'on retouche une marge.
-  -->
-  <div class="small text-muted px-3 tide-legend-coef">
-    Pastille <span class="fw-semibold text-body">Coef</span> : le plus fort des coefficients du jour.
+    · pastille <span class="fw-semibold text-body">coefficient</span> (pleines mers)
   </div>
   <!--
     Légende **statique** : c'est la clé de lecture des pastilles, elle doit rester visible sans
@@ -220,7 +216,6 @@ const hiddenCount = computed(() => allRows.value.length - rows.value.length);
       <thead class="table-dark">
         <tr>
           <th>Jour</th>
-          <th>Coef <span class="fw-normal opacity-75">· max</span></th>
           <th>Pleines mers <span class="fw-normal opacity-75">· {{ siteLabel }}</span></th>
           <th>Basses mers <span class="fw-normal opacity-75">· {{ siteLabel }}</span></th>
           <th class="fw-bold">
@@ -241,10 +236,10 @@ const hiddenCount = computed(() => allRows.value.length - rows.value.length);
       </thead>
       <tbody>
         <tr v-if="rows.length === 0">
-          <td :colspan="visible.flotObs ? 6 : 5" class="text-center text-muted py-4">Aucune marée pour ces filtres.</td>
+          <td :colspan="visible.flotObs ? 5 : 4" class="text-center text-muted py-4">Aucune marée pour ces filtres.</td>
         </tr>
         <tr
-          v-for="{ day, band } in rows"
+          v-for="{ day, highBands } in rows"
           :key="day.date"
           :class="{ 'is-today': day.date === today }"
         >
@@ -257,36 +252,30 @@ const hiddenCount = computed(() => allRows.value.length - rows.value.length);
             ></i>
             {{ formatDate(day.date, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) }}
           </td>
-          <td data-label="Coef">
-            <span
-              v-if="day.coefficient != null"
-              class="badge rounded-pill"
-              :class="band.badgeClass"
-              :title="band.label"
-            >
-              <i v-if="band.icon" :class="['bi', band.icon, 'me-1']"></i>{{ day.coefficient }}
-            </span>
-            <span v-else class="text-muted">—</span>
-          </td>
           <td data-label="Pleines mers">
             <span v-if="!day.highs.length" class="text-muted">—</span>
             <span v-else class="tide-values">
-              <span v-for="h in day.highs" :key="h.time" class="tide-cell text-nowrap">
+              <span v-for="(h, i) in day.highs" :key="h.time" class="tide-cell text-nowrap">
                 <span class="fw-semibold">{{ h.time }}</span>
                 <span class="text-muted small ms-1" title="Hauteur d'eau">
                   <i class="bi bi-water"></i> {{ formatHeight(h.height) }}
                 </span>
                 <!--
-                  Le coefficient est une propriété de **cette pleine mer**, pas du jour : la colonne
-                  « Coef » n'en montre que le maximum (`groupByDay`), or 143 des 153 jours de la
-                  graine en portent deux, avec un écart médian de 4 points. Écrit ici comme la
-                  hauteur, à côté de la marée qu'il décrit. Absent → rien, jamais « coef — ».
+                  Le coefficient est une propriété de **cette pleine mer**, pas du jour : chaque
+                  pleine mer porte donc sa propre pastille, colorée selon sa propre bande
+                  (`highBands`, préparé dans le `computed` pour ne pas appeler `coefBand()` dans le
+                  template). Absent → rien, jamais une pastille vide. Une colonne « Coef » portait
+                  auparavant le seul **max du jour** : elle écrivait ce maximum deux fois par ligne
+                  et demandait deux mentions pour dire que c'en était un (cf. `CLAUDE.md`).
                 -->
                 <span
                   v-if="h.coefficient != null"
-                  class="text-muted small ms-1"
-                  title="Coefficient de marée"
-                > coef {{ h.coefficient }}</span>
+                  class="badge rounded-pill ms-1"
+                  :class="highBands[i].badgeClass"
+                  :title="highBands[i].label"
+                >
+                  <i v-if="highBands[i].icon" :class="['bi', highBands[i].icon, 'me-1']"></i>{{ h.coefficient }}
+                </span>
               </span>
             </span>
           </td>
@@ -341,7 +330,7 @@ const hiddenCount = computed(() => allRows.value.length - rows.value.length);
           </td>
         </tr>
         <tr v-if="hiddenCount > 0" class="hidden-days-row">
-          <td :colspan="visible.flotObs ? 6 : 5" class="text-center text-muted small py-2">
+          <td :colspan="visible.flotObs ? 5 : 4" class="text-center text-muted small py-2">
             <i class="bi bi-funnel me-1"></i>
             {{ hiddenCount }} jour{{ hiddenCount > 1 ? 's' : '' }} masqué{{ hiddenCount > 1 ? 's' : '' }}
             par les filtres
@@ -396,16 +385,26 @@ const hiddenCount = computed(() => allRows.value.length - rows.value.length);
   font-size: 0.7rem;
 }
 
-/* Regroupe les horaires d'une cellule (2 marées) ; sur mobile ils s'alignent à droite. */
+/*
+  Les 2 marées d'une cellule, **côte à côte et alignées** d'une ligne à l'autre : `1fr 1fr` plutôt
+  qu'un `inline-flex`, où la 2ᵉ marée démarrait juste après la 1ʳᵉ et se décalait donc selon la
+  largeur de celle-ci (« coef 102 » est plus large que « coef 28 »). Les `<td>` d'une même colonne
+  de tableau ayant tous la même largeur, deux fractions égales font tomber les 2ᵉˢ marées au même
+  endroit sur **toutes** les lignes. ⚠️ Ne pas repasser en `flex-wrap` : la mise en page
+  dépendrait de nouveau de la largeur restante, donc du nombre de colonnes du tableau. Un jour à
+  une seule marée n'occupe que la 1ʳᵉ fraction, ce qui la laisse alignée avec les autres.
+*/
 .tide-values {
-  display: inline-flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0.25rem 0.9rem;
 }
 
 @media (max-width: 767.98px) {
   .tide-values {
-    justify-content: flex-end;
+    /* Cartes empilées : 2 marées côte à côte ne tiennent pas à 360 px — une par ligne, à droite. */
+    grid-template-columns: 1fr;
+    justify-items: end;
     text-align: right;
   }
 

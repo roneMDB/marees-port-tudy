@@ -784,31 +784,33 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   Labels x sur deux lignes (date + heure). Données du Dashboard (`HeightChart` = `allTides` ;
   `CoefChart` = `coefTides`).
 - Tableau `TideDayTable.vue` — **une ligne par jour** (`lib/tides.groupByDay`, pure/testée).
-  Colonnes = **Jour · Coef · Pleines mers · Basses mers · Navihan · Constaté**. Chaque cellule
+  Colonnes = **Jour · Pleines mers · Basses mers · Navihan · Constaté**. Chaque cellule
   Pleines/Basses mers liste les marées du **port sélectionné** en `HH:MM · 🌊 h,hh m` (heure +
-  hauteur d'eau inline, icône `bi-water` + légende) ; **chaque pleine mer porte en plus son propre
-  coefficient** (`coef 71`, absent → rien, jamais « coef — »), une basse mer n'en ayant pas. La
-  colonne **Coef** garde, elle, le **max des coef des pleines mers** du jour : c'est le miroir du
-  filtre « Coef min/max », qui sélectionne des lignes sur ce max. ⚠️ Le maximum apparaît donc deux
-  fois par ligne — redondance **assumée**, la pastille colorée restant le repère de balayage
-  vertical. Deux endroits disent que cette pastille **est un maximum**, et il en faut bien deux :
-  l'en-tête `<th>` porte « Coef **· max** », mais ⚠️ **sous 768 px `app.css` masque le `thead`** et
-  reconstruit les libellés depuis `data-label` — l'en-tête n'existe donc pas sur téléphone, là où
-  cette PWA est le plus utilisée. La **légende** porte pour cela une seconde ligne, « Pastille
-  **Coef** : le plus fort des coefficients du jour », visible aux deux largeurs. Sans elle, le
-  filtre « Coef min/max » se lisait comme défaillant sur mobile : une ligne retenue à `minCoef = 70`
-  affiche un `coef 69`, qui est **correct** (le filtre est au grain du **jour**, cf. issue #10) mais
-  inexplicable. ⚠️ Ne pas « unifier » en mettant le qualificatif dans `data-label="Coef"` : trois
-  tests s'en servent comme **sélecteur** (`TideDayTable.test.ts:100,435,480`). La légende de tête reprend le mot : « coef » y est en
-  `fw-semibold`, **comme** « heure » — c'est le littéral affiché, pas son explication. Corollaire
-  pour les tests : une assertion sur un coefficient doit cibler `td[data-label="Coef"]` et non le
-  texte de la ligne, où les deux coefficients sont désormais écrits ; la clé de lecture de la
-  pastille a un crochet **stable**, `.tide-legend-coef` (patron de `.navihan-legend`) ; et le test
-  de légende cible, lui, le bloc `div.small.text-muted.px-3.pt-2` — **pile d'utilitaires Bootstrap
-  à ne pas imiter**, elle casse à la première retouche de marge — en assérant l'espacement par
-  `toMatch(/coef\s+coefficient \(pleines mers\)/)` — un `toContain` **resterait vert** si « coef »
-  se collait à son explication, le piège des blancs élagués par Vue déjà rencontré sur `WeatherCard`
-  (« 3 Bftpetite brise »). La colonne **Navihan** (dérivée Port-Tudy) affiche des **pastilles triées par
+  hauteur d'eau inline, icône `bi-water` + légende) ; **chaque pleine mer porte en plus sa propre
+  pastille de coefficient**, colorée selon **sa** bande (`coefBand`), absente → rien, jamais une
+  pastille vide ; une basse mer n'en a pas. Les bandes sont préparées dans le `computed` `rows`
+  (`highBands`, une par ligne) — le template n'appelle jamais `coefBand()` lui-même.
+  ⚠️ **Il y avait une colonne « Coef »** portant la pastille du **max du jour** ; elle a été
+  **retirée**. Elle écrivait ce maximum une seconde fois par ligne, et il fallait **deux** endroits
+  pour dire que c'en était un : un qualificatif dans le `<th>` — invisible sur téléphone, `app.css`
+  masquant le `thead` sous 768 px — **et** une ligne de légende pour rattraper cela. Ne pas la
+  réintroduire sans revoir ces deux points.
+  ⚠️ **`day.coefficient` (le max du jour) est toujours calculé** par `groupByDay` et sert
+  **uniquement** au filtre « Coef min/max » (`matchesDayFilters`) : il n'est plus affiché nulle
+  part. Conséquence à connaître : à `minCoef = 70`, une ligne retenue peut montrer une pastille
+  **69** — le filtre est au grain du **jour** (issue #10), c'est **correct** et plus rien ne
+  l'explique à l'écran.
+  ⚠️ **14 % des jours** (16 % à Étel) ont leurs deux coefficients dans des **bandes différentes**,
+  presque toujours à **un point d'écart** (70/69, 94/95) : deux couleurs franches y signalent donc
+  une différence minime. C'est le coût assumé de la couleur par marée.
+  Les 2 marées d'une cellule sont disposées en **grille `1fr 1fr`** (`.tide-values`) et non en
+  `inline-flex` : les `<td>` d'une colonne ayant tous la même largeur, les 2ᵉˢ marées tombent au
+  même endroit sur **toutes** les lignes. ⚠️ Ne pas repasser en `flex-wrap`, où la 2ᵉ marée se
+  décalait selon la largeur de la 1ʳᵉ et où l'empilement dépendait de la place restante, donc du
+  nombre de colonnes. Une seule fraction sous 768 px (2 marées ne tiennent pas à 360 px).
+  ⚠️ Le test de légende cible le bloc `div.small.text-muted.px-3.pt-2` — **pile d'utilitaires
+  Bootstrap à ne pas imiter**, elle casse à la première retouche de marge ; préférer un crochet de
+  classe stable, patron de `.navihan-legend`. La colonne **Navihan** (dérivée Port-Tudy) affiche des **pastilles triées par
   heure**, une par **type affichable** (`useNavihanDisplay`, 5 types masquables **depuis
   `TideFiltersBar`**, persistés localStorage) : basse mer (↓), **Remise à flot** fixe (✓ vert),
   **Estimation** seuil (↗ cyan), **Constaté** (violet) et pleine mer (↑). **Chaque pastille est
