@@ -110,8 +110,24 @@ describe('TideDayTable', () => {
     expect(highs).toContain('coef 69'); // pleine mer de 19:18, masquée jusqu'ici par le max du jour
   });
 
-  it("n'affiche aucun coefficient sur les basses mers", () => {
+  it('sépare la hauteur et le coefficient par un espace dans la cellule « Pleines mers »', () => {
+    // Même famille de défaut que « 3 Bftpetite brise » sur WeatherCard : un saut de ligne dans le
+    // template entre deux `<span>` est supprimé par Vue, et un `toContain('coef 71')` ne le
+    // détecterait pas (il matche tout aussi bien dans « 4.44 mcoef 71 »).
     const wrapper = mount(TideDayTable, { props: { tides } });
+    const row = wrapper.findAll('tbody tr').find(r => r.text().includes('22 juil.'))!;
+    const highs = row.find('td[data-label="Pleines mers"]').text();
+    expect(highs).toMatch(/4\.44 m\s+coef 71/);
+  });
+
+  it("n'affiche aucun coefficient sur les basses mers", () => {
+    // Fixture locale avec une basse mer coefficientée : aucune donnée réelle n'en porte (0/592 à
+    // Port-Tudy, 0/476 à Étel), mais le test vise le **template** (la cellule « Basses mers » ne
+    // doit pas reprendre le rendu du coefficient), pas la propreté des données — un `coefficient:
+    // null` sur toutes les basses mers de `tides` laisserait passer un copier-coller du fragment
+    // (v-if compris) depuis « Pleines mers ».
+    const sansGarde: FlatTide[] = tides.map(t => (t === tides[2] ? { ...t, coefficient: 71 } : t));
+    const wrapper = mount(TideDayTable, { props: { tides: sansGarde } });
     const row = wrapper.findAll('tbody tr').find(r => r.text().includes('22 juil.'))!;
     expect(row.find('td[data-label="Basses mers"]').text()).not.toContain('coef');
   });
