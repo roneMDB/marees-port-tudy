@@ -156,6 +156,16 @@ describe('TideDayTable', () => {
     expect(legende).toMatch(/coef\s+coefficient \(pleines mers\)/);
   });
 
+  it('annonce que la pastille Coef est le maximum du jour', () => {
+    // Cette clé de lecture ne peut PAS vivre dans l'en-tête : sous 768 px, `app.css` masque le
+    // `thead` et régénère les libellés depuis `data-label`, donc le « · max » du `<th>` n'existe
+    // pas sur téléphone — là où cette PWA est le plus utilisée. La légende, elle, reste visible
+    // aux deux largeurs. Crochet de classe stable plutôt qu'une pile d'utilitaires Bootstrap.
+    const wrapper = mount(TideDayTable, { props: { tides } });
+    const cle = wrapper.find('.tide-legend-coef').text();
+    expect(cle).toMatch(/Pastille\s+Coef\s*:\s*le plus fort des coefficients du jour/);
+  });
+
   it('renders the Navihan column with basse mer, à flot and pleine mer times', () => {
     const wrapper = mount(TideDayTable, { props: { tides } });
     expect(wrapper.find('thead').text()).toContain('Navihan');

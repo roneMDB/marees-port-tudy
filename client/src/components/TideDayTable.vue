@@ -186,6 +186,17 @@ const hiddenCount = computed(() => allRows.value.length - rows.value.length);
     · <span class="fw-semibold text-body">coef</span> <span>coefficient (pleines mers)</span>
   </div>
   <!--
+    La clé de lecture de la **pastille** ne peut pas vivre dans le `<th>` : sous 768 px, `app.css`
+    masque le `thead` et reconstruit les libellés depuis `data-label`, si bien que le « · max » de
+    l'en-tête n'existe pas sur téléphone — là où cette PWA est le plus utilisée. Une ligne dans la
+    légende, visible aux deux largeurs, dit ce que l'en-tête ne peut dire qu'au bureau. Crochet de
+    classe **stable** (`.tide-legend-coef`) plutôt qu'une pile d'utilitaires Bootstrap : un test
+    qui cible `div.small.text-muted.px-3.pt-2` casse dès qu'on retouche une marge.
+  -->
+  <div class="small text-muted px-3 tide-legend-coef">
+    Pastille <span class="fw-semibold text-body">Coef</span> : le plus fort des coefficients du jour.
+  </div>
+  <!--
     Légende **statique** : c'est la clé de lecture des pastilles, elle doit rester visible sans
     ouvrir quoi que ce soit. Les bascules d'affichage, elles, vivent dans `TideFiltersBar`
     (issue #10) ; un type masqué s'affiche ici atténué et barré pour que l'état reste lisible
