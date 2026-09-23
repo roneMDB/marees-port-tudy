@@ -3,6 +3,27 @@
 Toutes les modifications notables de **Marées Navihan**. Format dérivé des messages de commit
 conventionnels ; versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [1.10.0] — 23/09/2026
+
+### Fonctionnalités
+
+- **peche** — Engin par défaut réglable dans le panneau des référentiels
+- **peche** — Choisir une espèce pré-sélectionne son engin
+- **peche** — Règle defaultGearFor et contrat client de l'engin par défaut
+- **peche** — Routes des référentiels acceptent l'engin par défaut
+- **peche** — Engin par défaut d'une espèce en base (schéma v10)
+
+### Corrections
+
+- **peche** — Le complément v10 des référentiels ne rejoue plus après un rollback
+- **peche** — Nettoie l’engin par défaut côté client quand l’engin est supprimé
+
+### Documentation
+
+- **peche** — Corrige le déclencheur v10 et la justification du @change
+- **peche** — Documente l'engin par défaut d'une espèce
+- **peche** — Plan d'implémentation de l'engin par défaut d'une espèce
+- **peche** — Spec de l'engin par défaut d'une espèce
 ## [1.9.1] — 19/09/2026
 
 ### Fonctionnalités
