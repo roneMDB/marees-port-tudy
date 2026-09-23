@@ -227,6 +227,20 @@ Routes carnet de pêche (`src/routes/fishing.ts`, issue #3) :
   est une donnée de service, pas de schéma) complète les entrées **de la graine** dont le libellé
   n'a pas été renommé et dont le pluriel est encore `NULL`. Un renommage ou un pluriel déjà saisi
   n'est jamais écrasé.
+- **Engin par défaut d'une espèce** (`defaultGearId`, v10) : l'engin que le formulaire
+  pré-sélectionne quand on choisit l'espèce — **une donnée saisie** dans le panneau, pas une règle
+  (même raison que le pluriel : `fishing_refs` ne sait pas ce qu'est un casier). `POST`/`PUT`
+  l'acceptent **facultatif** : absent, `null` ou `''` = aucun ; un id qui n'est pas un engin
+  existant → **400** (pas de clé étrangère, la route tient la cohérence) ; forcé à `NULL` pour un
+  engin. Le `PUT` **remplace** : absent, il efface le défaut. Supprimer un engin **efface** le défaut
+  des espèces qui le portaient au lieu de refuser — ce n'est qu'une commodité de saisie.
+  ⚠️ Le complément d'une base existante (entrées ajoutées à la graine en v10 — casier à morgates,
+  morgate — puis défauts des espèces de la graine au libellé inchangé) est fait **dans le palier de
+  migration**, donc **une seule fois**, et **pas** rejoué par `initStorage` comme
+  `backfillSeedPlurals` : un pluriel `NULL` voulait toujours dire « jamais renseigné », alors qu'un
+  défaut `NULL` peut être un choix ; rejoué, il remettrait un défaut retiré ou une entrée
+  supprimée. Le palier ne fait rien sur une table vide (base neuve : l'amorçage s'en charge).
+  Spec : `docs/superpowers/specs/2026-09-23-engin-par-defaut-espece-design.md`.
 - **Ordre des référentiels** (`POST /api/fishing/refs/reorder` `{ kind, ids }`, `reorderRefs`) :
   réordonne **une section** (les espèces entre elles, les engins entre eux), les deux listes n'étant
   jamais affichées ensemble. `ids` doit être **exactement** l'ensemble des ids de ce `kind`, sinon
@@ -295,8 +309,8 @@ sur `DATA_DIR/marees.db` ; `openDb` crée le dossier parent ; `openDb(':memory:'
 (`getRefs`/`addRef`/`updateRef`/`deleteRef`/`resetFishingRefs`/`seedFishingRefsIfEmpty`),
 `bootstrap.ts` (`initStorage(logger?, db?)`,
 **async** : le seed admin hache un mot de passe ; amorce aussi le lexique via `seedLexiconIfEmpty`
-et les référentiels de pêche via `seedFishingRefsIfEmpty`).
-Schéma **v9** : tables `tides` (par site),
+et les référentiels de pêche via `seedFishingRefsIfEmpty`, `upgradeFishingRefsToV10`).
+Schéma **v10** : tables `tides` (par site),
 `settings` (document JSON, ligne unique `id=1`), `access_log` (dont colonne **`login`** nullable
 (v3) et **`kind`** nullable (v6, issue #16 : `visit`/`page`/`login`, NULL relu comme `page`)),
 **`users`** (login unique
@@ -308,14 +322,15 @@ colonne `observed`) et **`lexicon`** (v5 : lexique éditable du « mot du jour �
 **`fishing_trips`** / **`fishing_catches`** / **`fishing_refs`** (v7, issue #3 : carnet de pêche —
 une sortie porte N prises ; `weather` est un instantané JSON **figé à la création**, le contexte
 marée n'est **pas** stocké), la colonne **`fishing_refs.label_plural`** (v8 : libellé au pluriel,
-**saisi**, cf. routes ci-dessus) et la colonne **`fishing_trips.baited`** (v9 : casiers boëttés ou
+**saisi**, cf. routes ci-dessus), la colonne **`fishing_trips.baited`** (v9 : casiers boëttés ou
 non, `INTEGER NOT NULL DEFAULT 0` — les sorties antérieures basculent donc à « non », décision
 assumée plutôt qu'un troisième état « non renseigné » à traiter partout ; le `NOT NULL` n'est permis
-que parce que le `DEFAULT` est non nul). ⚠️ `openDb` active désormais **`PRAGMA foreign_keys = ON`** :
+que parce que le `DEFAULT` est non nul) et la colonne **`fishing_refs.default_gear_id`**
+(v10 : engin par défaut d'une espèce, cf. routes ci-dessus). ⚠️ `openDb` active désormais **`PRAGMA foreign_keys = ON`** :
 better-sqlite3 le laisse à `OFF`, et le `ON DELETE CASCADE` de `fishing_catches` serait resté
 lettre morte. Migration
 additive par palier `if (version < N)`. ⚠️ `ALTER TABLE … ADD COLUMN` **n'est pas idempotent** en
-SQLite : les paliers v3, v6, v8 et v9 testent d'abord `PRAGMA table_info` (robustesse à un rollback ayant
+SQLite : les paliers v3, v6, v8, v9 et v10 testent d'abord `PRAGMA table_info` (robustesse à un rollback ayant
 remis `user_version` en arrière puis re-migré).
 
 **Amorçage/migration** : `initStorage()` (appelé au boot par `src/index.ts`, remplace les anciens
@@ -717,6 +732,12 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   dont le `v-if` la mangerait sur une sortie **bredouille au casier**, le cas le plus intéressant ;
   et le « non » ne s'affiche **pas** (il serait absurde sur une sortie à la ligne, et toutes les
   sorties antérieures à la v9 le portent sans qu'on l'ait saisi).
+  **Engin par défaut** : choisir une espèce dans le formulaire sélectionne son `defaultGearId`
+  (`lib/fishing.defaultGearFor`, qui rend `null` si l'engin n'est pas dans la liste) ; une espèce
+  sans défaut laisse l'engin tel quel, et un engin changé à la main tient jusqu'au prochain
+  changement d'espèce. ⚠️ Branché sur **`@change`**, pas sur un `watch` de `speciesId` : un `watch`
+  partirait aussi à l'ouverture d'une sortie existante et réécrirait l'engin saisi. Une prise
+  ajoutée démarre sur l'engin par défaut de la première espèce.
   La vue charge les marées **Port-Tudy** sur une plage couvrant les sorties **et** la fenêtre de
   pré-remplissage (± 7 j) ; horaires indisponibles, les cartes disent « marée inconnue » au lieu de
   faire échouer la page.
