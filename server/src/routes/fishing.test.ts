@@ -55,13 +55,13 @@ describe('API /api/fishing/refs', () => {
   });
 
   it('POST ajoute une espèce puis PUT la renomme', async () => {
-    const post = await request(app).post('/api/fishing/refs').send({ kind: 'species', label: 'Homard' });
+    const post = await request(app).post('/api/fishing/refs').send({ kind: 'species', label: 'Langouste' });
     expect(post.status).toBe(201);
-    expect(post.body).toMatchObject({ id: 'homard', kind: 'species', label: 'Homard' });
+    expect(post.body).toMatchObject({ id: 'langouste', kind: 'species', label: 'Langouste' });
 
-    const put = await request(app).put('/api/fishing/refs/homard').send({ label: 'Homard bleu' });
+    const put = await request(app).put('/api/fishing/refs/langouste').send({ label: 'Langouste rose' });
     expect(put.status).toBe(200);
-    expect(put.body.label).toBe('Homard bleu');
+    expect(put.body.label).toBe('Langouste rose');
   });
 
   it('POST refuse un type inconnu ou un libellé vide (400)', async () => {
@@ -101,7 +101,7 @@ describe('API /api/fishing/refs', () => {
 
   it('DELETE renvoie 404 sur un id inconnu, 204 sinon', async () => {
     expect((await request(app).delete('/api/fishing/refs/inconnu')).status).toBe(404);
-    expect((await request(app).delete('/api/fishing/refs/homard')).status).toBe(204);
+    expect((await request(app).delete('/api/fishing/refs/langouste')).status).toBe(204);
   });
 
   it('POST /reorder réordonne une section sans toucher à l’autre', async () => {
@@ -127,6 +127,49 @@ describe('API /api/fishing/refs', () => {
     expect((await request(app).post('/api/fishing/refs/reorder').send({ kind: 'poisson', ids: especes })).status).toBe(400);
     expect((await request(app).post('/api/fishing/refs/reorder').send({ kind: 'species', ids: especes.slice(1) })).status).toBe(400);
     expect((await request(app).post('/api/fishing/refs/reorder').send({ kind: 'species', ids: 'nope' })).status).toBe(400);
+  });
+
+  it('GET expose l’engin par défaut de chaque espèce', async () => {
+    const res = await request(app).get('/api/fishing/refs');
+    const byId = (id: string) => res.body.find((r: any) => r.id === id);
+    expect(byId('crevette-bouquet').defaultGearId).toBe('casier-crevettes');
+    expect(byId('morgate').defaultGearId).toBe('casier-morgates');
+    expect(byId('bar').defaultGearId).toBeNull();
+  });
+
+  it('POST et PUT enregistrent l’engin par défaut, vide = aucun', async () => {
+    const post = await request(app)
+      .post('/api/fishing/refs')
+      .send({ kind: 'species', label: 'Bouquet géant', defaultGearId: 'casier-crevettes' });
+    expect(post.status).toBe(201);
+    expect(post.body.defaultGearId).toBe('casier-crevettes');
+
+    const put = await request(app)
+      .put(`/api/fishing/refs/${post.body.id}`)
+      .send({ label: 'Bouquet géant', defaultGearId: '' });
+    expect(put.status).toBe(200);
+    expect(put.body.defaultGearId).toBeNull();
+
+    expect((await request(app).delete(`/api/fishing/refs/${post.body.id}`)).status).toBe(204);
+  });
+
+  it('refuse un engin par défaut inconnu ou qui est une espèce (400)', async () => {
+    const inconnu = await request(app)
+      .post('/api/fishing/refs')
+      .send({ kind: 'species', label: 'Truite', defaultGearId: 'filet' });
+    expect(inconnu.status).toBe(400);
+    const espece = await request(app).put('/api/fishing/refs/bar').send({ label: 'Bar', defaultGearId: 'tourteau' });
+    expect(espece.status).toBe(400);
+    const pasUneChaine = await request(app).put('/api/fishing/refs/bar').send({ label: 'Bar', defaultGearId: 3 });
+    expect(pasUneChaine.status).toBe(400);
+  });
+
+  it('ignore l’engin par défaut d’un engin', async () => {
+    const put = await request(app)
+      .put('/api/fishing/refs/ligne')
+      .send({ label: 'Ligne', labelPlural: 'Lignes', defaultGearId: 'casier-crabes' });
+    expect(put.status).toBe(200);
+    expect(put.body.defaultGearId).toBeNull();
   });
 });
 

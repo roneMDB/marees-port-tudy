@@ -84,6 +84,20 @@ function parseTrip(body: unknown): FishingTripInput | null {
 }
 
 /**
+ * `defaultGearId` du corps d'un référentiel : absent, `null` ou `''` → `null` (aucun défaut) ; un
+ * id d'engin existant → cet id ; toute autre valeur → `undefined`, que la route traduit en 400.
+ * Pas de clé étrangère en base (cf. `deleteRef`) : c'est ici que la cohérence est tenue.
+ */
+function parseDefaultGear(o: Record<string, unknown>): string | null | undefined {
+  const v = o.defaultGearId;
+  if (v === undefined || v === null || v === '') return null;
+  if (typeof v !== 'string' || !refExists(getDb(), v, 'gear')) return undefined;
+  return v;
+}
+
+const BAD_DEFAULT_GEAR = { error: 'defaultGearId doit désigner un engin existant.' };
+
+/**
  * Routeur du **carnet de pêche** (issue #3), monté sous `/api`. Lecture ouverte à tout compte
  * connecté (comme les horaires), écriture réservée au rôle `admin` :
  * - `GET /fishing/trips?from&to` : sorties + prises, plage **inclusive**.
@@ -96,6 +110,7 @@ function parseTrip(body: unknown): FishingTripInput | null {
  *   `POST /fishing/refs/reorder`.
  *   `POST`/`PUT` acceptent un `labelPlural` optionnel (le pluriel est une donnée saisie, pas une
  *   règle calculée, issue #3) ; absent ou vide, il vaut `label` (repli posé dans le repository).
+ *   `defaultGearId` facultatif sur `POST`/`PUT` (engin existant, sinon 400).
  */
 export function createFishingRouter(logger: Logger): Router {
   const router = Router();
@@ -123,7 +138,9 @@ export function createFishingRouter(logger: Logger): Router {
       if (!kind || !label || label.length > MAX_LABEL || labelPlural.length > MAX_LABEL) {
         return res.status(400).json({ error: 'kind (species|gear) et label requis.' });
       }
-      res.status(201).json(addRef(getDb(), kind, label, labelPlural));
+      const defaultGearId = parseDefaultGear(o);
+      if (defaultGearId === undefined) return res.status(400).json(BAD_DEFAULT_GEAR);
+      res.status(201).json(addRef(getDb(), kind, label, labelPlural, defaultGearId));
     } catch (err) {
       next(err);
     }
@@ -138,7 +155,10 @@ export function createFishingRouter(logger: Logger): Router {
       if (!label || label.length > MAX_LABEL || labelPlural.length > MAX_LABEL) {
         return res.status(400).json({ error: 'label requis.' });
       }
-      const updated = updateRef(getDb(), req.params.id, label, labelPlural);
+      const defaultGearId = parseDefaultGear(o);
+      if (defaultGearId === undefined) return res.status(400).json(BAD_DEFAULT_GEAR);
+      // Pour un engin, le repository force `NULL` : un défaut valide y est simplement ignoré.
+      const updated = updateRef(getDb(), req.params.id, label, labelPlural, defaultGearId);
       if (!updated) return res.status(404).json({ error: 'Référentiel introuvable.' });
       res.json(updated);
     } catch (err) {
