@@ -70,7 +70,7 @@ describe('FishingRefsPanel', () => {
     await wrapper.find('[data-test="add-form"]').trigger('submit');
     await flushPromises();
 
-    expect(api.addRef).toHaveBeenCalledWith('species', 'Homard', 'Homards');
+    expect(api.addRef).toHaveBeenCalledWith('species', 'Homard', 'Homards', null);
     expect(wrapper.text()).toContain('Homards');
   });
 
@@ -89,7 +89,7 @@ describe('FishingRefsPanel', () => {
     await wrapper.find('[data-test="add-form"]').trigger('submit');
     await flushPromises();
 
-    expect(api.addRef).toHaveBeenCalledWith('gear', 'Épuisette', '');
+    expect(api.addRef).toHaveBeenCalledWith('gear', 'Épuisette', '', null);
   });
 
   it('renomme une entrée, singulier et pluriel', async () => {
@@ -110,7 +110,7 @@ describe('FishingRefsPanel', () => {
     await row.find('[data-test="edit-save"]').trigger('click');
     await flushPromises();
 
-    expect(api.updateRef).toHaveBeenCalledWith('bar', 'Bar rayé', 'Bars rayés');
+    expect(api.updateRef).toHaveBeenCalledWith('bar', 'Bar rayé', 'Bars rayés', null);
     expect(wrapper.text()).toContain('Bars rayés');
   });
 

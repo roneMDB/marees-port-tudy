@@ -43,26 +43,35 @@ export function getRefs(): Promise<FishingRef[]> {
 
 /**
  * POST /api/fishing/refs (**admin**). `labelPlural` est facultatif : vide ou absent, le serveur
- * le fait valoir `label`.
+ * le fait valoir `label`. `defaultGearId` n'a de sens que pour une espèce (`null` = aucun).
  */
 export function addRef(
   kind: FishingRefKind,
   label: string,
-  labelPlural = ''
+  labelPlural = '',
+  defaultGearId: string | null = null
 ): Promise<FishingRef> {
   return fetchJson<FishingRef>('/api/fishing/refs', {
     method: 'POST',
     headers: JSON_HEADERS,
-    body: JSON.stringify({ kind, label, labelPlural })
+    body: JSON.stringify({ kind, label, labelPlural, defaultGearId })
   });
 }
 
-/** PUT /api/fishing/refs/:id (**admin**) — les libellés changent ; l'id et le type sont figés. */
-export function updateRef(id: string, label: string, labelPlural = ''): Promise<FishingRef> {
+/**
+ * PUT /api/fishing/refs/:id (**admin**) — libellés et engin par défaut changent ; l'id et le type
+ * sont figés. C'est un remplacement : `defaultGearId` à `null` efface le défaut.
+ */
+export function updateRef(
+  id: string,
+  label: string,
+  labelPlural = '',
+  defaultGearId: string | null = null
+): Promise<FishingRef> {
   return fetchJson<FishingRef>(`/api/fishing/refs/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: JSON_HEADERS,
-    body: JSON.stringify({ label, labelPlural })
+    body: JSON.stringify({ label, labelPlural, defaultGearId })
   });
 }
 

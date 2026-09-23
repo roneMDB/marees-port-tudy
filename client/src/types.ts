@@ -222,6 +222,12 @@ export interface FishingRef {
    * quand il n'est pas fourni.
    */
   labelPlural: string;
+  /**
+   * Engin pré-sélectionné quand on choisit cette espèce dans le formulaire de sortie (`null` =
+   * aucun ; toujours `null` pour un engin). Le serveur l'envoie toujours ; facultatif ici pour que
+   * les fixtures de test antérieures restent valides.
+   */
+  defaultGearId?: string | null;
 }
 
 /** Une ligne de prise. `sizeCm`/`weightG` sont optionnels : sans objet pour 40 crevettes. */

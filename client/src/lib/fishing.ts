@@ -51,6 +51,16 @@ export function summarizeCatches(catches: FishingCatch[], refs: FishingRef[]): s
     .join(' · ');
 }
 
+/**
+ * Engin à pré-sélectionner pour une espèce : son `defaultGearId` s'il désigne un engin **présent
+ * dans la liste**, sinon `null` — l'appelant garde alors l'engin courant. Un défaut vers un engin
+ * disparu (référentiel modifié dans un autre onglet) ne doit pas sélectionner une option absente.
+ */
+export function defaultGearFor(speciesId: string, species: FishingRef[], gears: FishingRef[]): string | null {
+  const gearId = species.find(s => s.id === speciesId)?.defaultGearId;
+  return gearId && gears.some(g => g.id === gearId) ? gearId : null;
+}
+
 /** Une remise à flot proposée au pré-remplissage du formulaire de sortie. */
 export interface AflotChoice {
   /** Clé de la basse mer Port-Tudy d'origine (`YYYY-MM-DD HH:MM`) — identifie le choix. */

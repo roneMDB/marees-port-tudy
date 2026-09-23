@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aflotChoices, nearestAflot, summarizeCatches, tripTideContext } from './fishing';
+import { aflotChoices, defaultGearFor, nearestAflot, summarizeCatches, tripTideContext } from './fishing';
 import type { FishingCatch, FishingRef, FlatTide, NavihanOffsets } from '../types';
 
 const REFS: FishingRef[] = [
@@ -151,6 +151,36 @@ describe('nearestAflot', () => {
 
   it('renvoie null quand aucune marée n’est disponible', () => {
     expect(nearestAflot([], new Date('2026-08-10T12:00:00'))).toBeNull();
+  });
+});
+
+describe('defaultGearFor', () => {
+  const species: FishingRef[] = [
+    { id: 'tourteau', kind: 'species', label: 'Tourteau', labelPlural: 'Tourteaux', defaultGearId: 'casier-crabes' },
+    { id: 'bar', kind: 'species', label: 'Bar', labelPlural: 'Bars', defaultGearId: null },
+    { id: 'morgate', kind: 'species', label: 'Morgate', labelPlural: 'Morgates', defaultGearId: 'casier-morgates' },
+    { id: 'vieille', kind: 'species', label: 'Vieille', labelPlural: 'Vieilles' }
+  ];
+  const gears: FishingRef[] = [
+    { id: 'ligne', kind: 'gear', label: 'Ligne', labelPlural: 'Lignes', defaultGearId: null },
+    { id: 'casier-crabes', kind: 'gear', label: 'Casier à crabes', labelPlural: 'Casiers à crabes', defaultGearId: null }
+  ];
+
+  it('rend l’engin par défaut de l’espèce', () => {
+    expect(defaultGearFor('tourteau', species, gears)).toBe('casier-crabes');
+  });
+
+  it('rend null pour une espèce sans défaut, même si le champ est absent', () => {
+    expect(defaultGearFor('bar', species, gears)).toBeNull();
+    expect(defaultGearFor('vieille', species, gears)).toBeNull();
+  });
+
+  it('rend null si le défaut désigne un engin absent de la liste', () => {
+    expect(defaultGearFor('morgate', species, gears)).toBeNull();
+  });
+
+  it('rend null pour une espèce inconnue', () => {
+    expect(defaultGearFor('licorne', species, gears)).toBeNull();
   });
 });
 
