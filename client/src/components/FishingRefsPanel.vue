@@ -12,17 +12,26 @@ const error = ref<string | null>(null);
 /**
  * Le pluriel est **saisi**, pas calculé (« lieu jaune » → « lieus jaunes »). Il reste facultatif :
  * laissé vide, le serveur le fait valoir le singulier, ce qui convient à « Crevette bouquet » comme
- * à un engin qu'on ne comptera jamais.
+ * à un engin qu'on ne comptera jamais. `defaultGearId` : `''` = aucun (valeur de l'option vide).
  */
-const draft = reactive<{ kind: FishingRefKind; label: string; labelPlural: string }>({
+const draft = reactive<{ kind: FishingRefKind; label: string; labelPlural: string; defaultGearId: string }>({
   kind: 'species',
   label: '',
-  labelPlural: ''
+  labelPlural: '',
+  defaultGearId: ''
 });
 
 const editingId = ref<string | null>(null);
 const editLabel = ref('');
 const editPlural = ref('');
+const editGear = ref('');
+
+/** Libellé de chaque engin, pour afficher le défaut d'une espèce sans appel de fonction au rendu. */
+const gearLabels = computed(() => new Map(gears.value.map(g => [g.id, g.label])));
+
+/** L'option vide vaut « aucun » ; un engin n'a jamais de défaut. */
+const gearOrNull = (kind: FishingRefKind, value: string): string | null =>
+  kind === 'species' && value ? value : null;
 
 function run(action: () => Promise<unknown>): void {
   error.value = null;
@@ -35,9 +44,10 @@ function onAdd(): void {
   const label = draft.label.trim();
   if (!label) return;
   run(async () => {
-    await add(draft.kind, label, draft.labelPlural.trim());
+    await add(draft.kind, label, draft.labelPlural.trim(), gearOrNull(draft.kind, draft.defaultGearId));
     draft.label = '';
     draft.labelPlural = '';
+    draft.defaultGearId = '';
   });
 }
 
@@ -45,13 +55,14 @@ function startEdit(entry: FishingRef): void {
   editingId.value = entry.id;
   editLabel.value = entry.label;
   editPlural.value = entry.labelPlural;
+  editGear.value = entry.defaultGearId ?? '';
 }
 
-function saveEdit(id: string): void {
+function saveEdit(entry: FishingRef): void {
   const label = editLabel.value.trim();
   if (!label) return;
   run(async () => {
-    await update(id, label, editPlural.value.trim());
+    await update(entry.id, label, editPlural.value.trim(), gearOrNull(entry.kind, editGear.value));
     editingId.value = null;
   });
 }
@@ -154,6 +165,17 @@ const sections = computed(() => [
             data-test="new-plural"
           />
         </div>
+        <div v-if="draft.kind === 'species'" class="col-12">
+          <select
+            v-model="draft.defaultGearId"
+            class="form-select form-select-sm"
+            aria-label="Engin par défaut"
+            data-test="new-default-gear"
+          >
+            <option value="">Engin par défaut : aucun</option>
+            <option v-for="g in gears" :key="g.id" :value="g.id">{{ g.label }}</option>
+          </select>
+        </div>
         <div class="col-12 d-grid">
           <button
             type="submit"
@@ -193,6 +215,16 @@ const sections = computed(() => [
                 maxlength="60"
                 data-test="edit-label"
               />
+              <select
+                v-if="item.kind === 'species'"
+                v-model="editGear"
+                class="form-select form-select-sm"
+                aria-label="Engin par défaut"
+                data-test="edit-default-gear"
+              >
+                <option value="">Engin par défaut : aucun</option>
+                <option v-for="g in gears" :key="g.id" :value="g.id">{{ g.label }}</option>
+              </select>
               <div class="d-flex gap-2">
                 <input
                   v-model="editPlural"
@@ -208,7 +240,7 @@ const sections = computed(() => [
                   class="btn btn-sm btn-primary"
                   data-test="edit-save"
                   aria-label="Enregistrer"
-                  @click="saveEdit(item.id)"
+                  @click="saveEdit(item)"
                 >
                   <i class="bi bi-check-lg"></i>
                 </button>
@@ -228,6 +260,15 @@ const sections = computed(() => [
                 <!-- Le pluriel n'est répété que s'il diffère : « Ligne · Ligne » n'apprend rien. -->
                 <span v-if="item.labelPlural !== item.label" class="text-muted small">
                   · {{ item.labelPlural }}
+                </span>
+                <!-- Engin pré-sélectionné par le formulaire de sortie ; rien si aucun. -->
+                <span
+                  v-if="item.defaultGearId && gearLabels.has(item.defaultGearId)"
+                  class="text-muted small"
+                  title="Engin par défaut"
+                  data-test="default-gear"
+                >
+                  <i class="bi bi-arrow-right-short"></i>{{ gearLabels.get(item.defaultGearId) }}
                 </span>
               </span>
               <span class="btn-group btn-group-sm">

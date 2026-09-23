@@ -33,7 +33,7 @@ describe('FishingRefsPanel', () => {
       { id: 'ligne', kind: 'gear', label: 'Ligne', labelPlural: 'Lignes' },
       { id: 'casier', kind: 'gear', label: 'Casier', labelPlural: 'Casiers' },
       { id: 'bar', kind: 'species', label: 'Bar', labelPlural: 'Bars' },
-      { id: 'tourteau', kind: 'species', label: 'Tourteau', labelPlural: 'Tourteaux' },
+      { id: 'tourteau', kind: 'species', label: 'Tourteau', labelPlural: 'Tourteaux', defaultGearId: 'casier' },
       { id: 'seiche', kind: 'species', label: 'Seiche', labelPlural: 'Seiches' }
     ]);
     resetFishingRefsForTests();
@@ -184,6 +184,86 @@ describe('FishingRefsPanel', () => {
       await wrapper.find('[data-test-ref="bar"] [data-test="down"]').trigger('click');
       await flushPromises();
       expect(wrapper.text()).toContain('Liste périmée');
+    });
+  });
+
+  describe('engin par défaut', () => {
+    it('affiche l’engin par défaut à côté de l’espèce', async () => {
+      const wrapper = mount(FishingRefsPanel);
+      await flushPromises();
+      expect(wrapper.find('[data-test-ref="tourteau"] [data-test="default-gear"]').text()).toContain('Casier');
+      expect(wrapper.find('[data-test-ref="bar"] [data-test="default-gear"]').exists()).toBe(false);
+    });
+
+    it('propose le choix à l’ajout d’une espèce, pas d’un engin', async () => {
+      const wrapper = mount(FishingRefsPanel);
+      await flushPromises();
+      expect(wrapper.find('[data-test="new-default-gear"]').exists()).toBe(true);
+      await wrapper.find('[data-test="new-kind"]').setValue('gear');
+      expect(wrapper.find('[data-test="new-default-gear"]').exists()).toBe(false);
+    });
+
+    it('envoie l’engin par défaut choisi à l’ajout', async () => {
+      api.addRef.mockResolvedValue({
+        id: 'morgate',
+        kind: 'species',
+        label: 'Morgate',
+        labelPlural: 'Morgates',
+        defaultGearId: 'casier'
+      });
+      const wrapper = mount(FishingRefsPanel);
+      await flushPromises();
+      await wrapper.find('[data-test="new-label"]').setValue('Morgate');
+      await wrapper.find('[data-test="new-default-gear"]').setValue('casier');
+      await wrapper.find('[data-test="add-form"]').trigger('submit');
+      await flushPromises();
+      expect(api.addRef).toHaveBeenCalledWith('species', 'Morgate', '', 'casier');
+    });
+
+    it('modifie l’engin par défaut d’une espèce, sélecteur prérempli', async () => {
+      api.updateRef.mockResolvedValue({
+        id: 'tourteau',
+        kind: 'species',
+        label: 'Tourteau',
+        labelPlural: 'Tourteaux',
+        defaultGearId: 'ligne'
+      });
+      const wrapper = mount(FishingRefsPanel);
+      await flushPromises();
+      const row = wrapper.find('[data-test-ref="tourteau"]');
+      await row.find('[data-test="edit"]').trigger('click');
+      const select = row.find('[data-test="edit-default-gear"]');
+      expect((select.element as HTMLSelectElement).value).toBe('casier');
+      await select.setValue('ligne');
+      await row.find('[data-test="edit-save"]').trigger('click');
+      await flushPromises();
+      expect(api.updateRef).toHaveBeenCalledWith('tourteau', 'Tourteau', 'Tourteaux', 'ligne');
+    });
+
+    it('« aucun » envoie null', async () => {
+      api.updateRef.mockResolvedValue({
+        id: 'tourteau',
+        kind: 'species',
+        label: 'Tourteau',
+        labelPlural: 'Tourteaux',
+        defaultGearId: null
+      });
+      const wrapper = mount(FishingRefsPanel);
+      await flushPromises();
+      const row = wrapper.find('[data-test-ref="tourteau"]');
+      await row.find('[data-test="edit"]').trigger('click');
+      await row.find('[data-test="edit-default-gear"]').setValue('');
+      await row.find('[data-test="edit-save"]').trigger('click');
+      await flushPromises();
+      expect(api.updateRef).toHaveBeenCalledWith('tourteau', 'Tourteau', 'Tourteaux', null);
+    });
+
+    it('ne propose pas d’engin par défaut à l’édition d’un engin', async () => {
+      const wrapper = mount(FishingRefsPanel);
+      await flushPromises();
+      const row = wrapper.find('[data-test-ref="ligne"]');
+      await row.find('[data-test="edit"]').trigger('click');
+      expect(row.find('[data-test="edit-default-gear"]').exists()).toBe(false);
     });
   });
 });
