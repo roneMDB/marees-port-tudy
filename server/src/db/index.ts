@@ -185,10 +185,14 @@ export function migrate(db: DB): void {
     // Même précaution qu'en v3, v6, v8 et v9 : `ADD COLUMN` n'est pas idempotent en SQLite.
     const cols = db.prepare('PRAGMA table_info(fishing_refs)').all() as { name: string }[];
     if (!cols.some(c => c.name === 'default_gear_id')) {
-      db.exec('ALTER TABLE fishing_refs ADD COLUMN default_gear_id TEXT;');
+      db.transaction(() => {
+        db.exec('ALTER TABLE fishing_refs ADD COLUMN default_gear_id TEXT;');
+        // Complément **une seule fois** (cf. `upgradeFishingRefsToV10`) : la présence de la colonne
+        // prouve qu'il a déjà eu lieu — un binaire plus ancien remet `user_version` en arrière mais
+        // ne retire jamais la colonne, donc un rollback suivi d'une re-migration ne le rejoue pas.
+        upgradeFishingRefsToV10(db, FISHING_REFS_SEED);
+      })();
     }
-    // Complément **une seule fois** (cf. `upgradeFishingRefsToV10`) : ici et nulle part ailleurs.
-    upgradeFishingRefsToV10(db, FISHING_REFS_SEED);
   }
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

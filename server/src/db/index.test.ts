@@ -183,17 +183,49 @@ describe('db migrations', () => {
 
   it('rejoue la migration v10 sans erreur ni doublon (ADD COLUMN n’est pas idempotent)', () => {
     const db = openDb(':memory:');
+    // Base v9 réelle (colonne absente), comme le test voisin « complète une base v9 peuplée ».
     db.prepare(
-      "INSERT INTO fishing_refs (id, kind, label, sort_order) VALUES ('ligne', 'gear', 'Ligne', 0)"
+      "INSERT INTO fishing_refs (id, kind, label, label_plural, sort_order) VALUES ('ligne', 'gear', 'Ligne', 'Lignes', 0)"
     ).run();
+    db.exec('ALTER TABLE fishing_refs DROP COLUMN default_gear_id;');
     db.pragma('user_version = 9');
     expect(() => migrate(db)).not.toThrow();
+    // Rollback simulé (ancien binaire) suivi d'une re-migration : la colonne est déjà là, donc le
+    // complément v10 ne doit pas rejouer une seconde fois.
     db.pragma('user_version = 9');
     expect(() => migrate(db)).not.toThrow();
     const cols = db.prepare('PRAGMA table_info(fishing_refs)').all().map((c: any) => c.name);
     expect(cols.filter((c: string) => c === 'default_gear_id')).toHaveLength(1);
     const { n } = db.prepare("SELECT count(*) AS n FROM fishing_refs WHERE id = 'morgate'").get() as { n: number };
     expect(n).toBe(1);
+    db.close();
+  });
+
+  it('un rollback puis re-migration ne ressuscite pas une entrée supprimée ni un défaut effacé', () => {
+    const db = openDb(':memory:');
+    // Base v9 réelle, peuplée comme la production (mêmes entrées que le test voisin).
+    db.prepare(
+      "INSERT INTO fishing_refs (id, kind, label, label_plural, sort_order) VALUES ('casier-crabes', 'gear', 'Casier à crabes', 'Casiers à crabes', 0), ('etrille', 'species', 'Étrille', 'Étrilles', 1)"
+    ).run();
+    db.exec('ALTER TABLE fishing_refs DROP COLUMN default_gear_id;');
+    db.pragma('user_version = 9');
+    migrate(db);
+    expect(db.pragma('user_version', { simple: true })).toBe(10);
+
+    // L'utilisateur retire le défaut de l'étrille et supprime la morgate (comme deleteRef le ferait).
+    db.prepare("UPDATE fishing_refs SET default_gear_id = NULL WHERE id = 'etrille'").run();
+    db.prepare("DELETE FROM fishing_refs WHERE id = 'morgate'").run();
+
+    // Rollback (ancien binaire remet user_version en arrière) puis re-migration.
+    db.pragma('user_version = 9');
+    expect(() => migrate(db)).not.toThrow();
+
+    const etrille = db
+      .prepare("SELECT default_gear_id AS g FROM fishing_refs WHERE id = 'etrille'")
+      .get() as { g: string | null };
+    expect(etrille.g).toBeNull();
+    const morgate = db.prepare("SELECT 1 FROM fishing_refs WHERE id = 'morgate'").get();
+    expect(morgate).toBeUndefined();
     db.close();
   });
 });

@@ -231,10 +231,13 @@ export function resetFishingRefs(db: DB, seed: FishingRef[]): void {
  * Palier v10 : complète une base **déjà amorcée** avec ce que la graine a gagné — les entrées
  * manquantes (le casier à morgates, la morgate) puis les engins par défaut des espèces.
  *
- * Appelé **par la migration**, donc une seule fois, et non par `initStorage` comme
- * `backfillSeedPlurals` : un pluriel `NULL` voulait toujours dire « jamais renseigné », alors
- * qu'un engin par défaut `NULL` est aussi un choix (« aucun »). Rejoué à chaque démarrage, ce
- * complément remettrait un défaut que l'utilisateur a retiré, ou une entrée qu'il a supprimée.
+ * Appelé **par la migration, seulement quand elle vient d'ajouter la colonne** `default_gear_id`
+ * (jamais rejoué sinon), et non par `initStorage` comme `backfillSeedPlurals` : un pluriel `NULL`
+ * voulait toujours dire « jamais renseigné », alors qu'un engin par défaut `NULL` est aussi un
+ * choix (« aucun »). La présence de la colonne est la preuve que ce complément a déjà eu lieu — un
+ * binaire plus ancien remet `user_version` en arrière mais ne retire jamais la colonne — donc un
+ * rollback suivi d'une re-migration ne le rejoue pas ; le rejouer ressusciterait une entrée
+ * supprimée ou remettrait un défaut que l'utilisateur a retiré.
  *
  * Défaut posé seulement si l'espèce porte **encore le libellé de la graine** (renommée, ce n'est
  * plus l'espèce dont on connaît l'engin), si l'engin existe, et si aucun défaut n'est déjà là.
