@@ -5,12 +5,20 @@ import type { AflotChoice } from '../lib/fishing';
 import type { FishingRef, FishingTrip } from '../types';
 
 const SPECIES: FishingRef[] = [
-  { id: 'bar', kind: 'species', label: 'Bar', labelPlural: 'Bars' },
-  { id: 'tourteau', kind: 'species', label: 'Tourteau', labelPlural: 'Tourteaux' }
+  { id: 'bar', kind: 'species', label: 'Bar', labelPlural: 'Bars', defaultGearId: null },
+  { id: 'tourteau', kind: 'species', label: 'Tourteau', labelPlural: 'Tourteaux', defaultGearId: 'casier-crabes' },
+  {
+    id: 'crevette-bouquet',
+    kind: 'species',
+    label: 'Crevette bouquet',
+    labelPlural: 'Crevettes bouquet',
+    defaultGearId: 'casier-crevettes'
+  }
 ];
 const GEARS: FishingRef[] = [
-  { id: 'ligne', kind: 'gear', label: 'Ligne', labelPlural: 'Lignes' },
-  { id: 'casier-crabes', kind: 'gear', label: 'Casier à crabes', labelPlural: 'Casiers à crabes' }
+  { id: 'ligne', kind: 'gear', label: 'Ligne', labelPlural: 'Lignes', defaultGearId: null },
+  { id: 'casier-crabes', kind: 'gear', label: 'Casier à crabes', labelPlural: 'Casiers à crabes', defaultGearId: null },
+  { id: 'casier-crevettes', kind: 'gear', label: 'Casier à crevettes', labelPlural: 'Casiers à crevettes', defaultGearId: null }
 ];
 
 const CHOICES: AflotChoice[] = [
@@ -164,5 +172,63 @@ describe('FishingTripForm', () => {
     const wrapper = factory();
     await wrapper.find('[data-test="cancel"]').trigger('click');
     expect(wrapper.emitted('cancel')).toHaveLength(1);
+  });
+
+  describe('engin par défaut', () => {
+    it('choisir une espèce sélectionne son engin par défaut', async () => {
+      const wrapper = factory();
+      await wrapper.find('[data-test="add-catch"]').trigger('click');
+      expect(valueOf(wrapper, 'gear')).toBe('ligne');
+      await wrapper.find('[data-test="species"]').setValue('crevette-bouquet');
+      expect(valueOf(wrapper, 'gear')).toBe('casier-crevettes');
+      await wrapper.find('[data-test="species"]').setValue('tourteau');
+      expect(valueOf(wrapper, 'gear')).toBe('casier-crabes');
+    });
+
+    it('garde un engin changé à la main, et une espèce sans défaut n’y touche pas', async () => {
+      const wrapper = factory();
+      await wrapper.find('[data-test="add-catch"]').trigger('click');
+      await wrapper.find('[data-test="species"]').setValue('tourteau');
+      await wrapper.find('[data-test="gear"]').setValue('casier-crevettes');
+      expect(valueOf(wrapper, 'gear')).toBe('casier-crevettes');
+      await wrapper.find('[data-test="species"]').setValue('bar');
+      expect(valueOf(wrapper, 'gear')).toBe('casier-crevettes');
+    });
+
+    it('émet l’engin choisi à la main, pas le défaut', async () => {
+      const wrapper = factory();
+      await wrapper.find('[data-test="add-catch"]').trigger('click');
+      await wrapper.find('[data-test="species"]').setValue('tourteau');
+      await wrapper.find('[data-test="gear"]').setValue('ligne');
+      await wrapper.find('form').trigger('submit');
+      const saved = wrapper.emitted('save')![0][0] as { catches: { speciesId: string; gearId: string }[] };
+      expect(saved.catches[0]).toMatchObject({ speciesId: 'tourteau', gearId: 'ligne' });
+    });
+
+    it('une prise ajoutée démarre sur l’engin par défaut de la première espèce', async () => {
+      const wrapper = factory({ species: [SPECIES[2], SPECIES[0]] });
+      await wrapper.find('[data-test="add-catch"]').trigger('click');
+      expect(valueOf(wrapper, 'species')).toBe('crevette-bouquet');
+      expect(valueOf(wrapper, 'gear')).toBe('casier-crevettes');
+    });
+
+    it('n’altère aucun engin à l’ouverture d’une sortie existante', () => {
+      const trip: FishingTrip = {
+        id: 8,
+        date: '2026-07-04',
+        startTime: '06:30',
+        endTime: null,
+        notes: null,
+        baited: false,
+        weather: null,
+        catches: [
+          { speciesId: 'tourteau', gearId: 'ligne', quantity: 1, sizeCm: null, weightG: null, kept: true }
+        ],
+        createdAt: 'x',
+        updatedAt: 'x'
+      };
+      const wrapper = factory({ initial: trip });
+      expect(valueOf(wrapper, 'gear')).toBe('ligne');
+    });
   });
 });

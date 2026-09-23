@@ -2,6 +2,7 @@
 import { reactive, ref, watch } from 'vue';
 import type { FishingCatch, FishingRef, FishingTrip, FishingTripInput } from '../types';
 import type { AflotChoice } from '../lib/fishing';
+import { defaultGearFor } from '../lib/fishing';
 
 const props = withDefaults(
   defineProps<{
@@ -106,17 +107,30 @@ function onAflotChange(): void {
 }
 
 function addCatch(): void {
+  const speciesId = props.species[0]?.id ?? '';
   catches.value = [
     ...catches.value,
     {
-      speciesId: props.species[0]?.id ?? '',
-      gearId: props.gears[0]?.id ?? '',
+      speciesId,
+      gearId: defaultGearFor(speciesId, props.species, props.gears) ?? props.gears[0]?.id ?? '',
       quantity: '1',
       sizeCm: '',
       weightG: '',
       kept: true
     }
   ];
+}
+
+/**
+ * Choisir une espèce pré-sélectionne son engin habituel ; une espèce sans défaut laisse l'engin
+ * tel quel. Branché sur `@change` et **pas** sur un `watch` de `speciesId` : un `watch` partirait
+ * aussi au chargement d'une sortie existante et réécrirait l'engin saisi. La valeur est lue sur
+ * l'événement plutôt que sur `c.speciesId`, pour ne pas dépendre de l'ordre d'exécution entre ce
+ * gestionnaire et celui du `v-model`.
+ */
+function onSpeciesChange(c: CatchDraft, speciesId: string): void {
+  const gearId = defaultGearFor(speciesId, props.species, props.gears);
+  if (gearId) c.gearId = gearId;
 }
 
 function removeCatch(index: number): void {
@@ -238,6 +252,7 @@ function onSubmit(): void {
               v-model="c.speciesId"
               class="form-select form-select-sm"
               data-test="species"
+              @change="onSpeciesChange(c, ($event.target as HTMLSelectElement).value)"
             >
               <option v-for="s in species" :key="s.id" :value="s.id">{{ s.label }}</option>
             </select>
