@@ -9,7 +9,8 @@ import {
   reorderRefs,
   resetFishingRefs,
   seedFishingRefsIfEmpty,
-  updateRef
+  updateRef,
+  upgradeFishingRefsToV10
 } from './fishingRefsRepository';
 import { FISHING_REFS_SEED } from '../service/fishingSeed';
 
@@ -36,9 +37,10 @@ describe('fishingRefsRepository', () => {
       id: 'casier-crabes',
       kind: 'gear',
       label: 'Casier à crabes',
-      labelPlural: 'Casiers à crabes'
+      labelPlural: 'Casiers à crabes',
+      defaultGearId: null
     });
-    expect(refs.filter(r => r.kind === 'gear')).toHaveLength(3);
+    expect(refs.filter(r => r.kind === 'gear')).toHaveLength(4);
     db.close();
   });
 
@@ -48,13 +50,15 @@ describe('fishingRefsRepository', () => {
       id: 'homard',
       kind: 'species',
       label: 'Homard',
-      labelPlural: 'Homard'
+      labelPlural: 'Homard',
+      defaultGearId: null
     });
     expect(addRef(db, 'species', 'Homard')).toEqual({
       id: 'homard-2',
       kind: 'species',
       label: 'Homard',
-      labelPlural: 'Homard'
+      labelPlural: 'Homard',
+      defaultGearId: null
     });
     db.close();
   });
@@ -66,7 +70,8 @@ describe('fishingRefsRepository', () => {
       id: 'homard',
       kind: 'species',
       label: 'Homard bleu',
-      labelPlural: 'Homard bleu'
+      labelPlural: 'Homard bleu',
+      defaultGearId: null
     });
     expect(updateRef(db, 'inconnu', 'Rien')).toBeNull();
     db.close();
@@ -91,30 +96,30 @@ describe('fishingRefsRepository', () => {
   it("rétablit la graine en écrasant les ajouts non utilisés", () => {
     const db = openDb(':memory:');
     seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
-    addRef(db, 'species', 'Homard');
+    addRef(db, 'species', 'Langouste');
     resetFishingRefs(db, FISHING_REFS_SEED);
     expect(getRefs(db)).toHaveLength(FISHING_REFS_SEED.length);
-    expect(getRefs(db).some(r => r.id === 'homard')).toBe(false);
+    expect(getRefs(db).some(r => r.id === 'langouste')).toBe(false);
     db.close();
   });
 
   it('conserve au reset une entrée personnalisée encore utilisée par une prise', () => {
     const db = openDb(':memory:');
     seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
-    addRef(db, 'species', 'Homard');
+    addRef(db, 'species', 'Langouste');
     db.prepare(
       "INSERT INTO fishing_trips (id, date, created_at, updated_at) VALUES (1, '2026-08-10', 'x', 'x')"
     ).run();
     db.prepare(
-      "INSERT INTO fishing_catches (trip_id, species_id, gear_id, quantity) VALUES (1, 'homard', 'ligne', 1)"
+      "INSERT INTO fishing_catches (trip_id, species_id, gear_id, quantity) VALUES (1, 'langouste', 'ligne', 1)"
     ).run();
 
     resetFishingRefs(db, FISHING_REFS_SEED);
 
     const refs = getRefs(db);
-    expect(refs.some(r => r.id === 'homard')).toBe(true);
+    expect(refs.some(r => r.id === 'langouste')).toBe(true);
     // Rangée après la graine, pas au milieu.
-    expect(refs.at(-1)!.id).toBe('homard');
+    expect(refs.at(-1)!.id).toBe('langouste');
     expect(refs).toHaveLength(FISHING_REFS_SEED.length + 1);
     db.close();
   });
@@ -157,13 +162,15 @@ describe('fishingRefsRepository', () => {
       id: 'homard',
       kind: 'species',
       label: 'Homard',
-      labelPlural: 'Homards'
+      labelPlural: 'Homards',
+      defaultGearId: null
     });
     expect(updateRef(db, 'homard', 'Homard bleu', 'Homards bleus')).toEqual({
       id: 'homard',
       kind: 'species',
       label: 'Homard bleu',
-      labelPlural: 'Homards bleus'
+      labelPlural: 'Homards bleus',
+      defaultGearId: null
     });
     db.close();
   });
@@ -262,6 +269,166 @@ describe('fishingRefsRepository', () => {
       expect(reorderRefs(db, 'species', [especes[0], ...especes.slice(0, -1)])).toBeNull();
 
       expect(ids(db, 'species')).toEqual(especes); // rien n'a bougé
+      db.close();
+    });
+  });
+
+  describe('engin par défaut', () => {
+    it('amorce les engins par défaut de la graine', () => {
+      const db = openDb(':memory:');
+      seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+      const gearOf = (id: string) => getRefs(db).find(r => r.id === id)!.defaultGearId;
+      expect(gearOf('etrille')).toBe('casier-crabes');
+      expect(gearOf('moussette')).toBe('casier-crabes');
+      expect(gearOf('homard')).toBe('casier-crabes');
+      expect(gearOf('crevette-bouquet')).toBe('casier-crevettes');
+      expect(gearOf('crevette-grise')).toBe('casier-crevettes');
+      expect(gearOf('morgate')).toBe('casier-morgates');
+      expect(gearOf('bar')).toBeNull();
+      expect(gearOf('ligne')).toBeNull();
+      db.close();
+    });
+
+    it('enregistre et modifie l’engin par défaut d’une espèce', () => {
+      const db = openDb(':memory:');
+      seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+      expect(addRef(db, 'species', 'Langouste', '', 'casier-crabes').defaultGearId).toBe('casier-crabes');
+      expect(updateRef(db, 'langouste', 'Langouste', '', 'ligne')!.defaultGearId).toBe('ligne');
+      expect(updateRef(db, 'langouste', 'Langouste', '', null)!.defaultGearId).toBeNull();
+      db.close();
+    });
+
+    it('ne donne jamais d’engin par défaut à un engin', () => {
+      const db = openDb(':memory:');
+      seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+      expect(addRef(db, 'gear', 'Épuisette', '', 'ligne').defaultGearId).toBeNull();
+      expect(updateRef(db, 'ligne', 'Ligne', 'Lignes', 'casier-crabes')!.defaultGearId).toBeNull();
+      db.close();
+    });
+
+    it('efface le défaut des espèces quand on supprime leur engin', () => {
+      const db = openDb(':memory:');
+      seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+      expect(deleteRef(db, 'casier-morgates')).toBe('deleted');
+      expect(getRefs(db).find(r => r.id === 'morgate')!.defaultGearId).toBeNull();
+      db.close();
+    });
+
+    it('rétablit les défauts de la graine au reset, et garde celui d’une entrée conservée', () => {
+      const db = openDb(':memory:');
+      seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+      updateRef(db, 'etrille', 'Étrille', 'Étrilles', null);
+      addRef(db, 'species', 'Langouste', '', 'casier-crabes');
+      db.prepare(
+        "INSERT INTO fishing_trips (id, date, created_at, updated_at) VALUES (1, '2026-08-10', 'x', 'x')"
+      ).run();
+      db.prepare(
+        "INSERT INTO fishing_catches (trip_id, species_id, gear_id, quantity) VALUES (1, 'langouste', 'casier-crabes', 1)"
+      ).run();
+
+      resetFishingRefs(db, FISHING_REFS_SEED);
+
+      const refs = getRefs(db);
+      expect(refs.find(r => r.id === 'etrille')!.defaultGearId).toBe('casier-crabes');
+      expect(refs.find(r => r.id === 'langouste')!.defaultGearId).toBe('casier-crabes');
+      db.close();
+    });
+
+    it('au reset, efface le défaut d’une entrée conservée si son engin a disparu', () => {
+      const db = openDb(':memory:');
+      seedFishingRefsIfEmpty(db, FISHING_REFS_SEED);
+      addRef(db, 'gear', 'Épuisette');
+      addRef(db, 'species', 'Langouste', '', 'epuisette');
+      db.prepare(
+        "INSERT INTO fishing_trips (id, date, created_at, updated_at) VALUES (1, '2026-08-10', 'x', 'x')"
+      ).run();
+      db.prepare(
+        "INSERT INTO fishing_catches (trip_id, species_id, gear_id, quantity) VALUES (1, 'langouste', 'ligne', 1)"
+      ).run();
+
+      resetFishingRefs(db, FISHING_REFS_SEED); // l'épuisette n'est pas utilisée : elle disparaît
+
+      expect(getRefs(db).find(r => r.id === 'langouste')!.defaultGearId).toBeNull();
+      db.close();
+    });
+  });
+
+  describe('upgradeFishingRefsToV10', () => {
+    /** Les 19 entrées de la prod au 2026-09-23 (Moussette et Homard ajoutées par le panneau). */
+    const PROD_V9: [string, string, string][] = [
+      ['casier-crabes', 'gear', 'Casier à crabes'],
+      ['casier-crevettes', 'gear', 'Casier à crevettes'],
+      ['ligne', 'gear', 'Ligne'],
+      ['etrille', 'species', 'Étrille'],
+      ['crevette-bouquet', 'species', 'Crevette bouquet'],
+      ['tourteau', 'species', 'Tourteau'],
+      ['moussette', 'species', 'Moussette'],
+      ['araignee', 'species', 'Araignée'],
+      ['crevette-grise', 'species', 'Crevette grise'],
+      ['bar', 'species', 'Bar'],
+      ['dorade-grise', 'species', 'Dorade grise'],
+      ['dorade-royale', 'species', 'Dorade royale'],
+      ['vieille', 'species', 'Vieille'],
+      ['lieu-jaune', 'species', 'Lieu jaune'],
+      ['maquereau', 'species', 'Maquereau'],
+      ['congre', 'species', 'Congre'],
+      ['seiche', 'species', 'Seiche'],
+      ['mulet', 'species', 'Mulet'],
+      ['homard', 'species', 'Homard']
+    ];
+
+    function prodDb() {
+      const db = openDb(':memory:');
+      const ins = db.prepare(
+        'INSERT INTO fishing_refs (id, kind, label, label_plural, sort_order) VALUES (?, ?, ?, ?, ?)'
+      );
+      PROD_V9.forEach(([id, kind, label], i) => ins.run(id, kind, label, label, i));
+      return db;
+    }
+
+    it('ajoute le casier à morgates et la morgate, après les entrées existantes', () => {
+      const db = prodDb();
+      upgradeFishingRefsToV10(db, FISHING_REFS_SEED);
+      const refs = getRefs(db);
+      expect(refs).toHaveLength(21);
+      expect(refs.slice(-2).map(r => r.id)).toEqual(['casier-morgates', 'morgate']);
+      expect(refs.find(r => r.id === 'casier-morgates')!.kind).toBe('gear');
+      db.close();
+    });
+
+    it('pose les défauts sur les espèces de la graine', () => {
+      const db = prodDb();
+      upgradeFishingRefsToV10(db, FISHING_REFS_SEED);
+      const gearOf = (id: string) => getRefs(db).find(r => r.id === id)!.defaultGearId;
+      expect(gearOf('moussette')).toBe('casier-crabes');
+      expect(gearOf('homard')).toBe('casier-crabes');
+      expect(gearOf('crevette-bouquet')).toBe('casier-crevettes');
+      expect(gearOf('morgate')).toBe('casier-morgates');
+      expect(gearOf('congre')).toBeNull();
+      db.close();
+    });
+
+    it('ne pose pas de défaut sur une espèce de la graine renommée', () => {
+      const db = prodDb();
+      db.prepare("UPDATE fishing_refs SET label = 'Étrille à pattes bleues' WHERE id = 'etrille'").run();
+      upgradeFishingRefsToV10(db, FISHING_REFS_SEED);
+      expect(getRefs(db).find(r => r.id === 'etrille')!.defaultGearId).toBeNull();
+      db.close();
+    });
+
+    it('réinsère un engin de la graine manquant avant de poser les défauts', () => {
+      const db = prodDb();
+      db.prepare("DELETE FROM fishing_refs WHERE id = 'casier-crevettes'").run();
+      upgradeFishingRefsToV10(db, FISHING_REFS_SEED);
+      // Réinséré par l'étape 1, puisque son id manquait : le défaut est donc posé.
+      expect(getRefs(db).find(r => r.id === 'crevette-bouquet')!.defaultGearId).toBe('casier-crevettes');
+      db.close();
+    });
+
+    it('ne fait rien sur une table vide (base neuve : l’amorçage s’en charge)', () => {
+      const db = openDb(':memory:');
+      upgradeFishingRefsToV10(db, FISHING_REFS_SEED);
+      expect(getRefs(db)).toEqual([]);
       db.close();
     });
   });

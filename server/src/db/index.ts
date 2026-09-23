@@ -2,11 +2,13 @@ import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 import { DATA_DIR } from '../config/dataDir';
+import { upgradeFishingRefsToV10 } from './fishingRefsRepository';
+import { FISHING_REFS_SEED } from '../service/fishingSeed';
 
 export type DB = Database.Database;
 
 /** Version courante du schéma (incrémentée à chaque migration). */
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 
 /** Chemin du fichier SQLite runtime (dans le volume `DATA_DIR`). */
 export function dbPath(): string {
@@ -24,6 +26,7 @@ export function dbPath(): string {
  * v7 : carnet de pêche (`fishing_trips`, `fishing_catches`, `fishing_refs`, issue #3).
  * v8 : libellé au pluriel des référentiels de pêche (issue #3).
  * v9 : colonne `baited` sur `fishing_trips` (casiers boëttés ou non, issue #3).
+ * v10 : engin par défaut d'une espèce (`fishing_refs.default_gear_id`, issue #3).
  */
 export function migrate(db: DB): void {
   const version = db.pragma('user_version', { simple: true }) as number;
@@ -175,6 +178,17 @@ export function migrate(db: DB): void {
     if (!cols.some(c => c.name === 'baited')) {
       db.exec('ALTER TABLE fishing_trips ADD COLUMN baited INTEGER NOT NULL DEFAULT 0;');
     }
+  }
+  if (version < 10) {
+    // L'engin qu'on pré-sélectionne quand on choisit une espèce (issue #3). Une donnée saisie,
+    // pas une règle : « fishing_refs » ne sait pas ce qu'est un casier.
+    // Même précaution qu'en v3, v6, v8 et v9 : `ADD COLUMN` n'est pas idempotent en SQLite.
+    const cols = db.prepare('PRAGMA table_info(fishing_refs)').all() as { name: string }[];
+    if (!cols.some(c => c.name === 'default_gear_id')) {
+      db.exec('ALTER TABLE fishing_refs ADD COLUMN default_gear_id TEXT;');
+    }
+    // Complément **une seule fois** (cf. `upgradeFishingRefsToV10`) : ici et nulle part ailleurs.
+    upgradeFishingRefsToV10(db, FISHING_REFS_SEED);
   }
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }

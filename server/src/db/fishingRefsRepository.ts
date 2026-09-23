@@ -8,18 +8,29 @@ interface RefRow {
   kind: string;
   label: string;
   label_plural: string | null;
+  default_gear_id: string | null;
 }
 
-/** Mappe une ligne brute : une ligne antérieure à la v8 (`label_plural` NULL) vaut son singulier. */
+/** Colonnes lues par `toRef` (une seule liste, pour qu'aucune lecture n'en oublie une). */
+const REF_COLUMNS = 'id, kind, label, label_plural, default_gear_id';
+
+/**
+ * Mappe une ligne brute : une ligne antérieure à la v8 (`label_plural` NULL) vaut son singulier ;
+ * une ligne antérieure à la v10 n'a pas d'engin par défaut.
+ */
 function toRef(r: RefRow): FishingRef {
-  return { id: r.id, kind: r.kind as FishingRefKind, label: r.label, labelPlural: r.label_plural ?? r.label };
+  return {
+    id: r.id,
+    kind: r.kind as FishingRefKind,
+    label: r.label,
+    labelPlural: r.label_plural ?? r.label,
+    defaultGearId: r.default_gear_id ?? null
+  };
 }
 
 /** Référentiels ordonnés : engins d'abord (`sort_order` de la graine), puis espèces. */
 export function getRefs(db: DB): FishingRef[] {
-  const rows = db
-    .prepare('SELECT id, kind, label, label_plural FROM fishing_refs ORDER BY sort_order, id')
-    .all() as RefRow[];
+  const rows = db.prepare(`SELECT ${REF_COLUMNS} FROM fishing_refs ORDER BY sort_order, id`).all() as RefRow[];
   return rows.map(toRef);
 }
 
@@ -57,31 +68,50 @@ function nextSortOrder(db: DB): number {
 /**
  * Ajoute une entrée (id slug unique, en fin de liste). Un `labelPlural` vide ou absent vaut
  * `label` : l'invariant « il y a toujours un pluriel » tient ici, quel que soit l'appelant.
+ * `defaultGearId` n'a de sens que pour une espèce : il est forcé à `NULL` pour un engin. Sa
+ * validité (engin existant) est vérifiée par la route.
  */
-export function addRef(db: DB, kind: FishingRefKind, label: string, labelPlural?: string): FishingRef {
+export function addRef(
+  db: DB,
+  kind: FishingRefKind,
+  label: string,
+  labelPlural?: string,
+  defaultGearId?: string | null
+): FishingRef {
   const id = uniqueId(db, label);
   const plural = labelPlural && labelPlural.trim() ? labelPlural : label;
-  db.prepare('INSERT INTO fishing_refs (id, kind, label, label_plural, sort_order) VALUES (?, ?, ?, ?, ?)').run(
-    id,
-    kind,
-    label,
-    plural,
-    nextSortOrder(db)
-  );
-  return { id, kind, label, labelPlural: plural };
+  const gear = kind === 'species' && defaultGearId ? defaultGearId : null;
+  db.prepare(
+    'INSERT INTO fishing_refs (id, kind, label, label_plural, default_gear_id, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(id, kind, label, plural, gear, nextSortOrder(db));
+  return { id, kind, label, labelPlural: plural, defaultGearId: gear };
 }
 
 /**
- * Met à jour le libellé et son pluriel (le type et l'id sont figés). `null` si l'id n'existe pas.
- * Même repli qu'`addRef` : `labelPlural` vide ou absent vaut `label`.
+ * Met à jour le libellé, son pluriel et l'engin par défaut (le type et l'id sont figés). `null`
+ * si l'id n'existe pas. Mêmes replis qu'`addRef`. C'est un **remplacement** : un
+ * `defaultGearId` absent efface le défaut, comme un `labelPlural` absent rétablit le singulier.
  */
-export function updateRef(db: DB, id: string, label: string, labelPlural?: string): FishingRef | null {
+export function updateRef(
+  db: DB,
+  id: string,
+  label: string,
+  labelPlural?: string,
+  defaultGearId?: string | null
+): FishingRef | null {
+  const current = db.prepare('SELECT kind FROM fishing_refs WHERE id = ?').get(id) as
+    | { kind: string }
+    | undefined;
+  if (!current) return null;
   const plural = labelPlural && labelPlural.trim() ? labelPlural : label;
-  const res = db
-    .prepare('UPDATE fishing_refs SET label = ?, label_plural = ? WHERE id = ?')
-    .run(label, plural, id);
-  if (res.changes === 0) return null;
-  const row = db.prepare('SELECT id, kind, label, label_plural FROM fishing_refs WHERE id = ?').get(id) as RefRow;
+  const gear = current.kind === 'species' && defaultGearId ? defaultGearId : null;
+  db.prepare('UPDATE fishing_refs SET label = ?, label_plural = ?, default_gear_id = ? WHERE id = ?').run(
+    label,
+    plural,
+    gear,
+    id
+  );
+  const row = db.prepare(`SELECT ${REF_COLUMNS} FROM fishing_refs WHERE id = ?`).get(id) as RefRow;
   return toRef(row);
 }
 
@@ -97,15 +127,20 @@ export function deleteRef(db: DB, id: string): 'deleted' | 'missing' | 'in-use' 
     .prepare('SELECT 1 FROM fishing_catches WHERE species_id = ? OR gear_id = ? LIMIT 1')
     .get(id, id);
   if (used) return 'in-use';
-  db.prepare('DELETE FROM fishing_refs WHERE id = ?').run(id);
+  // Un engin supprimé n'est plus le défaut de personne. Contrairement aux prises, ce n'est qu'une
+  // commodité de saisie : on l'efface plutôt que de refuser la suppression.
+  db.transaction(() => {
+    db.prepare('DELETE FROM fishing_refs WHERE id = ?').run(id);
+    db.prepare('UPDATE fishing_refs SET default_gear_id = NULL WHERE default_gear_id = ?').run(id);
+  })();
   return 'deleted';
 }
 
 function insertSeed(db: DB, seed: FishingRef[]): void {
   const ins = db.prepare(
-    'INSERT INTO fishing_refs (id, kind, label, label_plural, sort_order) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO fishing_refs (id, kind, label, label_plural, default_gear_id, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
   );
-  seed.forEach((r, i) => ins.run(r.id, r.kind, r.label, r.labelPlural, i));
+  seed.forEach((r, i) => ins.run(r.id, r.kind, r.label, r.labelPlural, r.defaultGearId, i));
 }
 
 /**
@@ -173,7 +208,7 @@ export function resetFishingRefs(db: DB, seed: FishingRef[]): void {
     const kept = (
       db
         .prepare(
-          `SELECT id, kind, label, label_plural FROM fishing_refs
+          `SELECT ${REF_COLUMNS} FROM fishing_refs
            WHERE id IN (SELECT species_id FROM fishing_catches UNION SELECT gear_id FROM fishing_catches)
            ORDER BY sort_order, id`
         )
@@ -183,5 +218,46 @@ export function resetFishingRefs(db: DB, seed: FishingRef[]): void {
       .filter(r => !seedIds.has(r.id));
     db.prepare('DELETE FROM fishing_refs').run();
     insertSeed(db, [...seed, ...kept]);
+    // Une entrée conservée peut désigner un engin personnalisé que le reset vient de retirer.
+    db.prepare(
+      `UPDATE fishing_refs SET default_gear_id = NULL
+       WHERE default_gear_id IS NOT NULL
+         AND default_gear_id NOT IN (SELECT id FROM fishing_refs WHERE kind = 'gear')`
+    ).run();
+  })();
+}
+
+/**
+ * Palier v10 : complète une base **déjà amorcée** avec ce que la graine a gagné — les entrées
+ * manquantes (le casier à morgates, la morgate) puis les engins par défaut des espèces.
+ *
+ * Appelé **par la migration**, donc une seule fois, et non par `initStorage` comme
+ * `backfillSeedPlurals` : un pluriel `NULL` voulait toujours dire « jamais renseigné », alors
+ * qu'un engin par défaut `NULL` est aussi un choix (« aucun »). Rejoué à chaque démarrage, ce
+ * complément remettrait un défaut que l'utilisateur a retiré, ou une entrée qu'il a supprimée.
+ *
+ * Défaut posé seulement si l'espèce porte **encore le libellé de la graine** (renommée, ce n'est
+ * plus l'espèce dont on connaît l'engin), si l'engin existe, et si aucun défaut n'est déjà là.
+ * Table vide (base neuve) : rien — `seedFishingRefsIfEmpty` amorcera tout, défauts compris.
+ */
+export function upgradeFishingRefsToV10(db: DB, seed: FishingRef[]): void {
+  const { c } = db.prepare('SELECT count(*) AS c FROM fishing_refs').get() as { c: number };
+  if (c === 0) return;
+  db.transaction(() => {
+    const exists = db.prepare('SELECT 1 FROM fishing_refs WHERE id = ?');
+    const ins = db.prepare(
+      'INSERT INTO fishing_refs (id, kind, label, label_plural, sort_order) VALUES (?, ?, ?, ?, ?)'
+    );
+    for (const r of seed) {
+      if (!exists.get(r.id)) ins.run(r.id, r.kind, r.label, r.labelPlural, nextSortOrder(db));
+    }
+    const upd = db.prepare(
+      `UPDATE fishing_refs SET default_gear_id = ?
+       WHERE id = ? AND kind = 'species' AND label = ? AND default_gear_id IS NULL
+         AND EXISTS (SELECT 1 FROM fishing_refs g WHERE g.id = ? AND g.kind = 'gear')`
+    );
+    for (const r of seed) {
+      if (r.kind === 'species' && r.defaultGearId) upd.run(r.defaultGearId, r.id, r.label, r.defaultGearId);
+    }
   })();
 }
