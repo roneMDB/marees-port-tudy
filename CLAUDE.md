@@ -236,10 +236,13 @@ Routes carnet de pêche (`src/routes/fishing.ts`, issue #3) :
   des espèces qui le portaient au lieu de refuser — ce n'est qu'une commodité de saisie.
   ⚠️ Le complément d'une base existante (entrées ajoutées à la graine en v10 — casier à morgates,
   morgate — puis défauts des espèces de la graine au libellé inchangé) est fait **dans le palier de
-  migration**, donc **une seule fois**, et **pas** rejoué par `initStorage` comme
-  `backfillSeedPlurals` : un pluriel `NULL` voulait toujours dire « jamais renseigné », alors qu'un
-  défaut `NULL` peut être un choix ; rejoué, il remettrait un défaut retiré ou une entrée
-  supprimée. Le palier ne fait rien sur une table vide (base neuve : l'amorçage s'en charge).
+  migration, seulement quand il vient d'ajouter la colonne `default_gear_id`** (jamais rejoué
+  sinon), et **pas** rejoué par `initStorage` comme `backfillSeedPlurals` : un pluriel `NULL`
+  voulait toujours dire « jamais renseigné », alors qu'un défaut `NULL` peut être un choix. La
+  présence de la colonne prouve que le complément a déjà eu lieu — un binaire plus ancien remet
+  `user_version` en arrière mais ne retire jamais la colonne — donc un rollback suivi d'une
+  re-migration ne le rejoue pas et ne ressuscite ni un défaut retiré ni une entrée supprimée. Le
+  palier ne fait rien sur une table vide (base neuve : l'amorçage s'en charge).
   Spec : `docs/superpowers/specs/2026-09-23-engin-par-defaut-espece-design.md`.
 - **Ordre des référentiels** (`POST /api/fishing/refs/reorder` `{ kind, ids }`, `reorderRefs`) :
   réordonne **une section** (les espèces entre elles, les engins entre eux), les deux listes n'étant
@@ -309,7 +312,7 @@ sur `DATA_DIR/marees.db` ; `openDb` crée le dossier parent ; `openDb(':memory:'
 (`getRefs`/`addRef`/`updateRef`/`deleteRef`/`resetFishingRefs`/`seedFishingRefsIfEmpty`),
 `bootstrap.ts` (`initStorage(logger?, db?)`,
 **async** : le seed admin hache un mot de passe ; amorce aussi le lexique via `seedLexiconIfEmpty`
-et les référentiels de pêche via `seedFishingRefsIfEmpty`, `upgradeFishingRefsToV10`).
+et les référentiels de pêche via `seedFishingRefsIfEmpty`).
 Schéma **v10** : tables `tides` (par site),
 `settings` (document JSON, ligne unique `id=1`), `access_log` (dont colonne **`login`** nullable
 (v3) et **`kind`** nullable (v6, issue #16 : `visit`/`page`/`login`, NULL relu comme `page`)),
@@ -326,7 +329,9 @@ marée n'est **pas** stocké), la colonne **`fishing_refs.label_plural`** (v8 : 
 non, `INTEGER NOT NULL DEFAULT 0` — les sorties antérieures basculent donc à « non », décision
 assumée plutôt qu'un troisième état « non renseigné » à traiter partout ; le `NOT NULL` n'est permis
 que parce que le `DEFAULT` est non nul) et la colonne **`fishing_refs.default_gear_id`**
-(v10 : engin par défaut d'une espèce, cf. routes ci-dessus). ⚠️ `openDb` active désormais **`PRAGMA foreign_keys = ON`** :
+(v10 : engin par défaut d'une espèce, cf. routes ci-dessus). Le complément **une seule fois** des
+entrées de graine gagnées en v10 (`upgradeFishingRefsToV10`) est appelé par `migrate()` **seulement
+au moment où elle ajoute la colonne**, jamais sinon — cf. routes ci-dessus. ⚠️ `openDb` active désormais **`PRAGMA foreign_keys = ON`** :
 better-sqlite3 le laisse à `OFF`, et le `ON DELETE CASCADE` de `fishing_catches` serait resté
 lettre morte. Migration
 additive par palier `if (version < N)`. ⚠️ `ALTER TABLE … ADD COLUMN` **n'est pas idempotent** en
@@ -736,8 +741,10 @@ Vite + Vue 3 (`<script setup>` + TypeScript) + Bootstrap 5.3 natif (+ bootstrap-
   (`lib/fishing.defaultGearFor`, qui rend `null` si l'engin n'est pas dans la liste) ; une espèce
   sans défaut laisse l'engin tel quel, et un engin changé à la main tient jusqu'au prochain
   changement d'espèce. ⚠️ Branché sur **`@change`**, pas sur un `watch` de `speciesId` : un `watch`
-  partirait aussi à l'ouverture d'une sortie existante et réécrirait l'engin saisi. Une prise
-  ajoutée démarre sur l'engin par défaut de la première espèce.
+  réagirait aussi à une réaffectation **programmatique** des lignes (chargement d'une sortie
+  existante via `reset()`, ou avec `immediate`) et réécrirait l'engin saisi ; `@change` ne réagit,
+  lui, qu'au choix de l'utilisateur. Une prise ajoutée démarre sur l'engin par défaut de la
+  première espèce.
   La vue charge les marées **Port-Tudy** sur une plage couvrant les sorties **et** la fenêtre de
   pré-remplissage (± 7 j) ; horaires indisponibles, les cartes disent « marée inconnue » au lieu de
   faire échouer la page.

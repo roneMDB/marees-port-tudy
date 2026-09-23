@@ -61,7 +61,11 @@ Défauts de la graine :
 Contrairement au pluriel (`backfillSeedPlurals`, rejoué à chaque `initStorage`), ce complément est
 fait **dans la migration**, donc une seule fois. Raison : pour le pluriel, `NULL` voulait toujours
 dire « jamais renseigné » ; ici, `NULL` est aussi un **choix légitime** (« aucun défaut »). Rejoué
-à chaque démarrage, le complément remettrait un défaut que l'utilisateur a retiré.
+à chaque démarrage, le complément remettrait un défaut que l'utilisateur a retiré. C'est pour cela
+que l'étape n'est déclenchée **que lorsque le palier vient d'ajouter la colonne**
+`default_gear_id` (jamais quand elle existe déjà) : un rollback vers un ancien binaire remet
+`user_version` en arrière sans jamais retirer la colonne, et une re-migration qui suivrait ne
+rejoue donc pas le complément.
 
 Le palier v10, dans une transaction :
 

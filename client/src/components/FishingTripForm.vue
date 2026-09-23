@@ -123,10 +123,11 @@ function addCatch(): void {
 
 /**
  * Choisir une espèce pré-sélectionne son engin habituel ; une espèce sans défaut laisse l'engin
- * tel quel. Branché sur `@change` et **pas** sur un `watch` de `speciesId` : un `watch` partirait
- * aussi au chargement d'une sortie existante et réécrirait l'engin saisi. La valeur est lue sur
- * l'événement plutôt que sur `c.speciesId`, pour ne pas dépendre de l'ordre d'exécution entre ce
- * gestionnaire et celui du `v-model`.
+ * tel quel. Branché sur `@change` et **pas** sur un `watch` de `speciesId` : un `watch` réagirait
+ * aussi à une réaffectation **programmatique** des lignes (chargement d'une sortie existante via
+ * `reset()`, ou avec `immediate`) et réécrirait l'engin saisi, alors que `@change` ne réagit qu'au
+ * choix de l'utilisateur. La valeur est lue sur l'événement plutôt que sur `c.speciesId`, pour ne
+ * pas dépendre de l'ordre d'exécution entre ce gestionnaire et celui du `v-model`.
  */
 function onSpeciesChange(c: CatchDraft, speciesId: string): void {
   const gearId = defaultGearFor(speciesId, props.species, props.gears);
