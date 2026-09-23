@@ -55,7 +55,9 @@ function startEdit(entry: FishingRef): void {
   editingId.value = entry.id;
   editLabel.value = entry.label;
   editPlural.value = entry.labelPlural;
-  editGear.value = entry.defaultGearId ?? '';
+  // Ne préremplit que si l'engin existe encore : un défaut périmé (engin supprimé ailleurs, ou
+  // état client pas encore rafraîchi) ne doit pas envoyer une valeur absente du <select>.
+  editGear.value = entry.defaultGearId && gearLabels.value.has(entry.defaultGearId) ? entry.defaultGearId : '';
 }
 
 function saveEdit(entry: FishingRef): void {

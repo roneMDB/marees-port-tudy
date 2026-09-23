@@ -265,5 +265,31 @@ describe('FishingRefsPanel', () => {
       await row.find('[data-test="edit"]').trigger('click');
       expect(row.find('[data-test="edit-default-gear"]').exists()).toBe(false);
     });
+
+    it('nettoie le défaut d’une espèce quand son engin est supprimé', async () => {
+      // Le serveur remet le défaut à NULL en base ; le composable doit refléter la même chose côté
+      // client, sinon `startEdit` préremplirait le sélecteur avec un engin qui n'existe plus.
+      api.deleteRef.mockResolvedValue(undefined);
+      api.updateRef.mockResolvedValue({
+        id: 'tourteau',
+        kind: 'species',
+        label: 'Tourteau',
+        labelPlural: 'Tourteaux',
+        defaultGearId: null
+      });
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      const wrapper = mount(FishingRefsPanel);
+      await flushPromises();
+
+      await wrapper.find('[data-test-ref="casier"] [data-test="remove"]').trigger('click');
+      await flushPromises();
+
+      const row = wrapper.find('[data-test-ref="tourteau"]');
+      await row.find('[data-test="edit"]').trigger('click');
+      await row.find('[data-test="edit-save"]').trigger('click');
+      await flushPromises();
+
+      expect(api.updateRef).toHaveBeenCalledWith('tourteau', 'Tourteau', 'Tourteaux', null);
+    });
   });
 });

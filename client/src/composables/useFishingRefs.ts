@@ -67,7 +67,11 @@ export function useFishingRefs() {
 
   async function remove(id: string): Promise<void> {
     await apiDelete(id);
-    refs.value = refs.value.filter(r => r.id !== id);
+    // Miroir du serveur : supprimer un engin remet à `null` le défaut des espèces qui le
+    // désignaient, sinon `startEdit` préremplirait un sélecteur avec une option disparue.
+    refs.value = refs.value
+      .filter(r => r.id !== id)
+      .map(r => (r.defaultGearId === id ? { ...r, defaultGearId: null } : r));
   }
 
   async function reset(): Promise<void> {
